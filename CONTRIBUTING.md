@@ -2,7 +2,12 @@
 
 ## English
 
-- **Pull requests are not accepted.** Fascon 1.0 is developed by its author in this repository.
+- **Pull requests are generally not accepted.** Fascon 1.0 is developed by its author in this repository, and whether a
+  change comes into it is decided by the author alone.
+- **The compiler core is maintained by the author.** The main compiler logic (`src/`) is designed and maintained by the
+  author, so please do not send changes to it. This is a statement of the project's intent, not an extra condition of the
+  license: MIT OR Apache-2.0 still lets you change your own copy. If you publish a modified compiler, please say clearly
+  that it is a modified version and not the official Fascon.
 - **Forks and extensions are welcome.** The license (MIT OR Apache-2.0, at your option; `LICENSE-MIT`, `LICENSE-APACHE`)
   lets you fork, modify and redistribute Fascon.
 - Most extensions need no change to the compiler. Drivers, libraries and boards are written in pure Fascon:
@@ -14,7 +19,12 @@
 
 ## 日本語
 
-- **プルリクエストは受け付けていません。** Fascon 1.0 は作者がこのリポジトリで開発しています。
+- **プルリクエストは原則として受け付けていません。** Fascon 1.0 は作者がこのリポジトリで開発しており、どの変更を取り込むかは
+  作者だけが判断します。
+- **コンパイラの中核は作者が保守します。** コンパイラの主要なロジック（`src/`）は作者が設計・保守しているので、変更を送らない
+  でください。これはプロジェクトの趣旨の表明で、ライセンスに条件を足すものではありません。MIT OR Apache-2.0 のもとで、
+  手元のコピーを改変することはできます。改変したコンパイラを公開する場合は、公式の Fascon ではなく改変版であることを
+  はっきり書いてください。
 - **フォークと拡張は歓迎します。** ライセンス（MIT OR Apache-2.0 のどちらか好きな方。`LICENSE-MIT`・`LICENSE-APACHE`）の
   範囲で、自由にフォーク・改変・再配布できます。
 - たいていの拡張はコンパイラを変えずに足せます。ドライバ・ライブラリ・ボードは純粋な Fascon で書けます:
