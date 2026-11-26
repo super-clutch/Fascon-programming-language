@@ -124,7 +124,7 @@ cargo build --release                                  # Rust 1.74 or later, no 
 python3 tests/run_tests.py target/release/fascon --qemu
 ```
 
-License: MIT OR Apache-2.0, at your option (`LICENSE-MIT`, `LICENSE-APACHE`). Pull requests are not accepted; forks and extensions are welcome (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+License: MIT OR Apache-2.0, at your option (`LICENSE-MIT`, `LICENSE-APACHE`). Pull requests are generally not accepted, and the compiler core is maintained by the author; forks and extensions are welcome (see [CONTRIBUTING.md](CONTRIBUTING.md) for the intent of the project).
 
 Three parts of the release are not built from the sources in this repository and are shipped in compiled or bundled form: `fascon-core` (the 0.1.0 engine, used only for files with 0.1-only syntax), `libmas_runtime.a` (the 0.1.0 runtime libraries under `runtime/<target>/` in the platform archives) and `vscode-extension/out/extension.js` (the 0.1.0 VS Code extension, bundled and minified). `extension.js` contains third-party packages (vscode-languageclient and others); their copyright and license notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
@@ -200,6 +200,6 @@ own フィールドを持つ構造体は移動専用で、移動・スコープ�
 
 検査の対象は Fascon で書いたコードです。ハードウェアの故障（RAM のビット反転）、BSP とランタイムの手書きの C・アセンブリ、実機と食い違う `mmio` 宣言は対象外です。スタックの深さは制限していません。アリーナは有限（約 21〜43 億回の確保まで）で、ラッチで受けたフォールトはアクセスの場所ではなく次のコミット点で止まります。0.1 だけの機能を使うファイルは同梱の 0.1.0 エンジン（`fascon-core`）が処理します。Windows・macOS・Linux arm64 版はクロスビルドで、実行を確かめたのは Linux x64・QEMU virt（AArch64）・QEMU pc（x86_64、Fascon の仮想 BIOS）です。Windows 版は Wine で、Linux arm64 版は qemu-user で動かし、`examples/` と `tests/` の 247 本を 5 つのモード（既定・`--columns mirrored`・`--columns off`・`--nontemporal on`・`--lang ja`）で翻訳して、Linux x64 版と 1 バイトも違わない C（または同じ失敗）になることを確かめました。macOS 版は動かしておらず、3 つともそれぞれの実機では動かしていません。QEMU の TCG には PCID が無いので、x86_64 の BSP の PCID の道は実装してありますが動かしていません。ARMv7・MIPS64 は翻訳とリンクまでで、実行はしていません（[SPEC-1.0-INTEGRATION.ja.md](docs/SPEC-1.0-INTEGRATION.ja.md) の 10 節）。
 
-ライセンス: MIT OR Apache-2.0（どちらか好きな方。`LICENSE-MIT`・`LICENSE-APACHE`）。プルリクエストは受け付けていません。フォークと拡張は歓迎します（[CONTRIBUTING.md](CONTRIBUTING.md)）。
+ライセンス: MIT OR Apache-2.0（どちらか好きな方。`LICENSE-MIT`・`LICENSE-APACHE`）。プルリクエストは原則として受け付けず、コンパイラの中核は作者が保守します。フォークと拡張は歓迎します（趣旨は [CONTRIBUTING.md](CONTRIBUTING.md)）。
 
 配布物のうち次の 3 つは、このリポジトリのソースからはビルドされず、コンパイル済みのバイナリ・バンドルとして同梱しています: `fascon-core`（0.1.0 のエンジン。0.1 だけの構文を使うファイルにだけ使います）、`libmas_runtime.a`（各プラットフォームのアーカイブの `runtime/<ターゲット>/` にある 0.1.0 のランタイムライブラリ）、`vscode-extension/out/extension.js`（0.1.0 の VS Code 拡張機能をバンドル・圧縮したもの）。`extension.js` には第三者のパッケージ（vscode-languageclient など）が含まれており、その著作権表示とライセンス文は [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) にあります。
