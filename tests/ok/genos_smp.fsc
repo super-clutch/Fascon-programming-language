@@ -1,0 +1,75 @@
+// fascon-target: generic-os
+// generic-os のマルチコア: 共有アリーナの確保・解放は Per-CPU マガジンでロックフリー（critical の外で書ける）、
+// 読み出しは rcu_read、1 フィールドの更新は atomic。解放したスロットは RCU の猶予期間の後で再利用される
+// generic-os multi-core: alloc / free of shared arenas are lock-free per-CPU magazines (allowed outside critical), reads use
+// rcu_read and one-field updates use atomic. Freed slots are reused only after an RCU grace period
+//
+//   fascon run examples/genos_smp.fsc            (PC: cores are threads)
+//   fascon qemu examples/genos_smp.fsc           (QEMU virt, -smp 4)
+
+const ROUNDS: u32 = 500;
+
+struct Conn { port: u32, rx: u64 }
+struct Ctr { allocs: u64, frees: u64, reads: u64 }
+struct Report { core: u32, sum: u64 }
+
+shared arena conns: Conn[64];
+shared arena ctr: Ctr[1];
+chan done: own Report[8];
+
+fn worker(c: Id<ctr>) {
+    let me = cpu_id();
+    let mut sum: u64 = 0;
+    for i in 0..ROUNDS {
+        loop {
+            // ロックフリーの確保（自分のコアのマガジンから） / a lock-free allocation (from this core's magazine)
+            match conns.alloc(Conn { port: me * 1000 + i, rx: i as u64 }) {
+                Some(id) => {
+                    atomic { ctr[c].allocs += 1; }
+                    let mut seen: u64 = 0;
+                    rcu_read {
+                        if let Some(p) = conns.get(id) {
+                            seen = p.rx + 1;
+                        }
+                    }
+                    if seen > 0 {
+                        atomic { ctr[c].reads += 1; }
+                    }
+                    sum += seen;
+                    // ロックフリーの解放（中身は猶予期間の後で回収） / a lock-free free (reclaimed after a grace period)
+                    conns.free(id);
+                    atomic { ctr[c].frees += 1; }
+                    break;
+                }
+                None => cpu_relax(),
+            }
+        }
+    }
+    done.send(own Report { core: me, sum: sum });
+}
+
+fn main() {
+    let c = ctr.alloc(Ctr { allocs: 0, frees: 0, reads: 0 }).unwrap();
+    spawn_on(1, worker, c);
+    spawn_on(2, worker, c);
+    spawn_on(3, worker, c);
+    let mut total: u64 = 0;
+    for k in 0..3 {
+        let r = done.recv_wait();
+        total += r.sum;
+    }
+    let a = atomic { ctr[c].allocs };
+    let f = atomic { ctr[c].frees };
+    let r = atomic { ctr[c].reads };
+    put_str("allocs ");
+    print_int(a);
+    put_str("frees ");
+    print_int(f);
+    put_str("reads ");
+    print_int(r);
+    put_str("sum ");
+    print_int(total);
+    if a == 1500 && f == 1500 && r == 1500 && total == 375750 {
+        print_str("FASCON-GENOS-SMP-OK");
+    }
+}

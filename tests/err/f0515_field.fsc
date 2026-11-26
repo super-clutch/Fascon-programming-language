@@ -1,0 +1,5 @@
+// expect: F0515
+// 参照を構造体に保存しようとする / trying to store a reference in a struct
+struct Task { pid: u32 }
+struct Parent { child: &Task }
+fn main() { }

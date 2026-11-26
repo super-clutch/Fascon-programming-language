@@ -1,0 +1,18 @@
+// expect: F2601
+struct Task { n: u64 }
+struct Box2 { v: u64 }
+task_arena @task: Task[4] stack 8192;
+arena @shared: Box2[4];
+irq tick at 27 {
+    let cur = @task.current();
+    @task.resume(cur);
+}
+fn worker(arg: u64) {
+    for id in @shared { @shared[id].v += arg; }
+}
+fn main() {
+    let s = @shared.alloc(Box2 { v: 0 }).unwrap();
+    let a = @task.start(Task { n: 0 }, worker, 1).unwrap();
+    let b = @task.start(Task { n: 0 }, worker, 2).unwrap();
+    @task.enter(a);
+}

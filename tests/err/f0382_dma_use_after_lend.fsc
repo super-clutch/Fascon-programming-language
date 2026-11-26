@@ -1,0 +1,9 @@
+// expect: F0382
+#[wire(le)] struct Req { kind: u32 }
+dma_arena @req: Req[4];
+fn main() {
+    if let Some(h) = @req.alloc(Req { kind: 0 }) {
+        @req.lend(h);
+        @req[h].kind = 1;
+    }
+}

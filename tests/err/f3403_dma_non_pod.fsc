@@ -1,0 +1,7 @@
+// expect: F3403
+// デバイスと共有する値は POD だけ / values shared with a device must be POD
+struct Desc { next: Option<own Desc>, len: u32 }
+fn main() {
+    let d = dma_alloc(Desc);
+    let _ = submit_dma(d);
+}

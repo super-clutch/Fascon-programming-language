@@ -1,0 +1,5 @@
+call arguments: 12
+struct fields: 34
+nested call: 56
+chain after collect: 78
+live after final collect: 6

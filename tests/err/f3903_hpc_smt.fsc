@@ -1,0 +1,17 @@
+// expect: F3903
+// fascon-target: hpc
+// fascon-topology: cores=8 smt=2 numa=2
+// #[no_smt] なのに、コア 1 とコア 5 は同じ物理コアの兄弟スレッド（兄弟は c と c + 4）
+// with #[no_smt], cores 1 and 5 are sibling threads of one physical core (siblings are c and c + 4)
+chan done: u64[4];
+fn worker(k: u64) {
+    done.send(k);
+}
+#[no_smt]
+fn main() {
+    spawn_on(1, worker, 1);
+    spawn_on(5, worker, 2);
+    let a = done.recv_wait();
+    let b = done.recv_wait();
+    print_int((a + b) as i64);
+}

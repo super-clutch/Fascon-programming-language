@@ -1,0 +1,11 @@
+// expect: F0502
+// 借用中の own を解放（束縛 n が参照している間に list.head を差し替える） / replacing list.head while n borrows it
+struct Node { v: i32, next: Option<own Node> }
+struct List { head: Option<own Node> }
+fn main() {
+    let mut list = List { head: Some(own Node { v: 1, next: None }) };
+    if let Some(n) = list.head {
+        list.head = None;
+        print_int(n.v);
+    }
+}

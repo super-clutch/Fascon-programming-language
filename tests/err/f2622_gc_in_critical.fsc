@@ -1,0 +1,16 @@
+// expect: F2622
+// critical（割り込み禁止・ロック）の中で gc_arena を操作する関数を呼ぶ: 回収の時間が読めず、ロックを持ったまま止めたコアを待ちうる
+// calling a function that operates on a gc_arena inside critical (interrupts masked, lock held): the collection time is
+// unbounded and it could wait for parked cores while holding the lock
+struct Node { v: u64 }
+gc_arena nodes: Node[16];
+fn refill() -> u32 {
+    gc_collect(nodes)
+}
+fn main() {
+    nodes.alloc(Node { v: 1 });
+    critical {
+        let n = refill();
+        print_int(n as i64);
+    }
+}

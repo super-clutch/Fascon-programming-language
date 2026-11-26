@@ -1,0 +1,44 @@
+# QEMU virt（汎用 AArch64 BSP・PSCI で 2 番目以降のコアを起こす）— board.toml だけで作る像の見本
+# QEMU virt (the generic AArch64 BSP, secondaries woken through PSCI) — an example of an image made from board.toml alone
+#
+#   fascon qemu --board qemu-virt-generic app.fsc
+#   （qemu-virt-aarch64.toml は qemu-virt BSP 用の装置の窓の定義。こちらは [boot] を持つ汎用 BSP 用）
+#   (qemu-virt-aarch64.toml describes device windows for the qemu-virt BSP; this one has [boot] for the generic BSP)
+
+[board]
+name = "qemu-virt-generic"
+arch = "aarch64"
+cpus = 4
+
+[memory]
+ram_base = 0x4000_0000
+ram_size = 0x1000_0000          # 256 MiB
+
+[uart]
+kind = "pl011"
+base = 0x0900_0000
+
+[irq]
+kind = "none"
+
+[timer]
+kind = "arm-generic"
+
+[boot]
+load_addr = 0x4008_0000
+stack_size = 0x1_0000
+smp = "psci-hvc"                # PSCI CPU_ON（HVC）/ PSCI CPU_ON through HVC
+exit = "psci"                   # SYSTEM_OFF（`fascon qemu --board` はセミホスティング）
+entry_el = "el1"
+
+[dma]
+coherent = true
+
+[[device]]
+name = "pl011"
+base = 0x0900_0000
+size = 0x1000
+
+[qemu]
+machine = "virt"
+args = ["-cpu", "cortex-a53", "-smp", "4", "-m", "256M"]

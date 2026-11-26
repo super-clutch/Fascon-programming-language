@@ -1,0 +1,19 @@
+// expect: F2603
+// 割り込みハンドラから届く関数では装置の完了を待てない / no waiting for the device in functions reachable from an
+// interrupt handler
+struct A { x: f32 }
+gpu_arena @g: A[4];
+fn drain() {
+    if let Some(h) = @g.alloc(A { x: 1.0 }) {
+        let t = @g.dispatch(1, 1, 1, h);
+        if let Some(b) = @g.reclaim_wait(t) {
+            @g.free(b);
+        }
+    }
+}
+irq tick at 27 {
+    drain();
+}
+fn main() {
+    irq_open();
+}

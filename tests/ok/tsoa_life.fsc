@@ -1,0 +1,217 @@
+// 完全列化（True SoA）の一生: alloc の初期値・更新（Id での単純 / 複合代入・get_mut の束縛・要素まるごと・clone）・集計
+// （総和・条件付き総和・個数・最小 / 最大の選択、u32 / u64 / i32）・free・remove・#[on_drop]・古い Id（ABA と番兵）
+// the life of True-SoA fields: alloc initial values, updates (plain / compound writes by Id, get_mut bindings, whole
+// elements, clone), reductions (sum, filtered sum, count, min / max picks over u32 / u64 / i32), free, remove,
+// #[on_drop] and stale Ids (ABA and the sentinel)
+
+struct Task {
+    pid: u32,
+    prio: u32,
+    vruntime: u64,
+    weight: i32,
+    state: u32,
+    next: Option<Id<@task>>,
+}
+arena @task: Task[100];
+
+#[on_drop(job_done)]
+struct Job { id: u32, cost: u64, tag: u32 }
+arena @jobs: Job[8];
+
+// 破棄の糊は列の値を見る（スロットに残る部分と列から組み立て直した要素） / the drop glue sees the column value (the element
+// rebuilt from the slot part and the columns)
+fn job_done(j: &mut Job) {
+    print_int((j.cost * 1000 + j.id as u64) as i64);
+}
+
+static RUNNING: u32 = 1;
+
+fn total() -> u64 {
+    let mut s: u64 = 0;
+    for id in @task {
+        s += @task[id].vruntime;
+    }
+    s
+}
+
+fn load_running() -> u64 {
+    let mut s: u64 = 0;
+    for id in @task {
+        if @task[id].state == RUNNING {
+            s += @task[id].vruntime;
+        }
+    }
+    s
+}
+
+fn mixed() -> u64 {
+    let mut s: u64 = 0;
+    for id in @task {
+        if let Some(t) = @task.get(id) {
+            s = s + t.vruntime + t.prio as u64;
+        }
+    }
+    s
+}
+
+fn nr_running() -> u64 {
+    let mut n: u64 = 0;
+    for id in @task {
+        if @task[id].state == RUNNING {
+            n += 1;
+        }
+    }
+    n
+}
+
+fn pick_next() -> Option<Id<@task>> {
+    let mut best: u64 = 0xFFFF_FFFF_FFFF_FFFF;
+    let mut pick: Option<Id<@task>> = None;
+    for id in @task {
+        if @task[id].state == RUNNING && @task[id].vruntime < best {
+            best = @task[id].vruntime;
+            pick = Some(id);
+        }
+    }
+    pick
+}
+
+fn heaviest() -> i64 {
+    let mut best: i32 = -1000000;
+    for id in @task {
+        if @task[id].weight > best {
+            best = @task[id].weight;
+        }
+    }
+    best as i64
+}
+
+fn lightest_last() -> i64 {
+    let mut best: i32 = 1000000;
+    let mut pick: Option<Id<@task>> = None;
+    for id in @task {
+        if @task[id].weight <= best {
+            best = @task[id].weight;
+            pick = Some(id);
+        }
+    }
+    match pick {
+        Some(p) => (@task[p].pid as i64) * 1000 + (best as i64),
+        None => -1,
+    }
+}
+
+fn job_cost() -> u64 {
+    let mut s: u64 = 0;
+    for id in @jobs {
+        s += @jobs[id].cost;
+    }
+    s
+}
+
+fn show(tag: i64) {
+    print_int(tag);
+    print_int(total() as i64);
+    print_int(load_running() as i64);
+    print_int(mixed() as i64);
+    print_int(nr_running() as i64);
+    match pick_next() {
+        Some(p) => print_int(@task[p].pid as i64),
+        None => print_int(-1),
+    }
+    print_int(heaviest());
+    print_int(lightest_last());
+}
+
+fn main() {
+    let mut ids: [Option<Id<@task>>; 10] = [None; 10];
+    for k in 0..10 {
+        ids[k] = @task.alloc(Task { pid: k as u32, prio: (k % 3) as u32, vruntime: (k as u64) * 10 + 5, weight: (k as i32) - 4, state: (k % 2) as u32, next: None });
+    }
+    show(1);
+    // Id での単純な代入と複合代入 / plain and compound writes by Id
+    if let Some(a) = ids[3] {
+        @task[a].vruntime = 1000;
+        @task[a].weight += 100;
+    }
+    // get_mut の束縛を通した書き込み（完全列化のフィールドと、スロットに残るフィールド） / writes through a get_mut binding
+    // (True-SoA fields and fields that stay in the slot)
+    if let Some(b) = ids[4] {
+        if let Some(t) = @task.get_mut(b) {
+            t.vruntime += 7;
+            t.state = 1;
+            t.prio = 9;
+        }
+    }
+    show(2);
+    // 要素まるごとの書き込みと複製 / a whole-element write and a copy
+    if let Some(c) = ids[5] {
+        @task[c] = Task { pid: 55, prio: 2, vruntime: 3, weight: -50, state: 1, next: None };
+        let copy = @task[c].clone();
+        print_int(copy.vruntime as i64 + copy.weight as i64 + copy.pid as i64);
+    }
+    show(3);
+    // free と remove（取り出した値は列の値を持つ） / free and remove (the moved-out value carries the column values)
+    if let Some(d) = ids[6] {
+        @task.free(d);
+    }
+    if let Some(e) = ids[7] {
+        let r = @task.remove(e);
+        match r {
+            Some(t) => print_int((t.vruntime as i64) * 100 + (t.prio as i64)),
+            None => print_int(-2),
+        }
+    }
+    show(4);
+    // ABA: 解放したスロットを新しい世代で使い直す。古い Id の書き込みは番兵へ逸れてラッチに掛かり、新しい要素は壊れない
+    // ABA: the freed slot is reused with a new generation; a write through the stale Id goes to the sentinel and is
+    // latched, and the new element stays intact
+    let stale = ids[2].unwrap();
+    @task.free(stale);
+    let fresh = @task.alloc(Task { pid: 66, prio: 1, vruntime: 77, weight: 1, state: 1, next: None }).unwrap();
+    print_int(fresh.index() as i64 - stale.index() as i64);
+    let caught = catch_fault {
+        @task[stale].vruntime = 999999;
+        @task[stale].weight = 12345;
+        0i64
+    };
+    match caught {
+        Ok(v) => print_int(v),
+        Err(e) => print_int(e.code()),
+    }
+    let caught2 = catch_fault {
+        let v = @task[stale].vruntime;
+        v as i64
+    };
+    match caught2 {
+        Ok(v) => print_int(v),
+        Err(e) => print_int(e.code()),
+    }
+    print_int(@task[fresh].vruntime as i64);
+    print_int(@task[fresh].weight as i64);
+    show(5);
+    // #[on_drop]: free・要素まるごとの書き込み（古い値の破棄）・確保できなかった値の破棄 / #[on_drop]: free, a whole-element
+    // write (the old value is dropped)
+    let j1 = @jobs.alloc(Job { id: 1, cost: 10, tag: 0 }).unwrap();
+    let j2 = @jobs.alloc(Job { id: 2, cost: 20, tag: 0 }).unwrap();
+    @jobs[j1].cost += 5;
+    print_int(job_cost() as i64);
+    @jobs.free(j1);
+    @jobs[j2] = Job { id: 3, cost: 30, tag: 1 };
+    print_int(job_cost() as i64);
+    if let Some(j) = @jobs.get_mut(j2) {
+        j.cost = j.cost + 1;
+    }
+    @jobs.free(j2);
+    print_int(job_cost() as i64);
+    // 満杯の表への確保は失敗し、渡した値が破棄される（スロットの要素ではない） / an alloc into a full table fails and the value
+    // passed in is dropped (not a slot element)
+    let mut kept: u64 = 0;
+    for k in 0..9 {
+        if @jobs.alloc(Job { id: 100 + k as u32, cost: k as u64, tag: 2 }).is_some() {
+            kept += 1;
+        }
+    }
+    print_int(kept as i64);
+    print_int(job_cost() as i64);
+}

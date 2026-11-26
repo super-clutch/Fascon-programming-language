@@ -1,0 +1,133 @@
+// 関数ポインタ（コールバック）と高階関数: 第二級参照をコールバックへ 1 回の呼び出しの間だけ貸す。
+// コールバックは参照を自分のフレームの中でだけ使う（stack_only、F0520 で保証）。呼び出しの効果は渡されうる関数の和（F2502）。
+// function pointers (callbacks) and higher-order functions: a second-class reference is lent to a callback for one call.
+// Callbacks use the reference only inside their own frame (stack_only, guaranteed by F0520); the effect of a call is the
+// union over the functions that can be passed (F2502).
+struct Task { pid: u32, vruntime: i64, nice: i32 }
+arena tasks: Task[8];
+struct Button { label: Str, clicks: u32 }
+struct Handler { name: Str, on_click: fn(&mut Button), weight: i32 }
+struct Node { v: i32, next: Option<own Node> }
+struct Bin { n: Option<own Node> }
+arena bins: Bin[4];
+struct Stats { count: u32, sum: i64 }
+
+fn inc(x: &mut i32) { *x += 1; }
+fn dbl(x: &mut i32) { *x = *x * 2; }
+fn neg(x: &mut i32) { *x = -*x; }
+fn for_each(a: &mut [i32; 4], f: fn(&mut i32)) {
+    for i in 0..4 {
+        f(&mut a[i]);
+    }
+}
+// 受け取った関数ポインタを別の高階関数へそのまま渡す / pass a received function pointer on to another higher-order function
+fn twice(a: &mut [i32; 4], f: fn(&mut i32)) {
+    for_each(a, f);
+    for_each(a, f);
+}
+fn fold(a: &[i32; 4], init: i64, g: fn(i64, i32) -> i64) -> i64 {
+    let mut acc = init;
+    for i in 0..4 {
+        acc = g(acc, a[i]);
+    }
+    acc
+}
+fn add_sq(acc: i64, v: i32) -> i64 { acc + (v as i64) * (v as i64) }
+fn maxv(acc: i64, v: i32) -> i64 { if (v as i64) > acc { v as i64 } else { acc } }
+
+// アリーナのスロットへの &mut をコールバックへ（コールバックは tasks を触らないので F2502 にならない）
+// a &mut into an arena slot passed to a callback (the callbacks do not touch tasks, so no F2502)
+fn for_each_task(f: fn(&mut Task)) {
+    for id in tasks {
+        f(&mut tasks[id]);
+    }
+}
+fn age(t: &mut Task) { t.vruntime += 10 + t.nice as i64; }
+fn renice(t: &mut Task) { t.nice = t.nice - 1; }
+// 状態はクロージャの代わりに &mut 引数で一緒に渡す / state travels as a &mut parameter instead of a closure
+fn visit_tasks(st: &mut Stats, f: fn(&Task, &mut Stats)) {
+    for id in tasks {
+        f(&tasks[id], st);
+    }
+}
+fn count_busy(t: &Task, st: &mut Stats) {
+    if t.vruntime > 15 {
+        st.count += 1;
+    }
+    st.sum += t.vruntime;
+}
+
+fn click(b: &mut Button) { b.clicks += 1; }
+fn click3(b: &mut Button) { b.clicks += 3; }
+fn fire(h: &Handler, b: &mut Button, n: u32) {
+    for _i in 0..n {
+        (h.on_click)(b);
+    }
+}
+
+// コールバックが own の子を取り外してアリーナへ移す: 参照ではなく所有権の受け渡しなので stack_only のまま
+// a callback detaches an own child and moves it into an arena: an ownership hand-off, not a reference, so still stack_only
+fn detach(n: &mut Node) {
+    let kid = n.next.take();
+    bins.alloc(Bin { n: kid });
+}
+fn walk(n: &mut Node, f: fn(&mut Node)) { f(n); }
+
+static OPS: [fn(&mut i32); 3] = [inc, dbl, neg];
+static PICK: Option<fn(i64, i32) -> i64> = Some(maxv);
+
+fn pick(i: u32) -> fn(&mut i32) {
+    if i == 0 { inc } else { dbl }
+}
+
+fn main() {
+    let mut a = [1, 2, 3, 4];
+    for_each(&mut a, inc);
+    print_int(a[0] as i64 + a[3] as i64);
+    twice(&mut a, dbl);
+    print_int(a[3] as i64);
+    print_int(fold(&a, 0, add_sq));
+    print_int(fold(&a, 0, PICK.unwrap()));
+    // ローカル・static の表・関数の戻り値の関数ポインタ / function pointers in a local, a static table and a return value
+    let f = neg;
+    f(&mut a[0]);
+    print_int(a[0] as i64);
+    OPS[1](&mut a[1]);
+    pick(0)(&mut a[2]);
+    print_int((a[1] + a[2]) as i64);
+    for k in 0..3 {
+        OPS[k](&mut a[3]);
+    }
+    print_int(a[3] as i64);
+    // アリーナとコールバック / arenas and callbacks
+    let t1 = tasks.alloc(Task { pid: 1, vruntime: 5, nice: 0 }).unwrap();
+    let t2 = tasks.alloc(Task { pid: 2, vruntime: 20, nice: 2 }).unwrap();
+    for_each_task(age);
+    for_each_task(renice);
+    print_int(tasks[t1].vruntime + tasks[t2].vruntime);
+    print_int((tasks[t1].nice + tasks[t2].nice) as i64);
+    let mut st = Stats { count: 0, sum: 0 };
+    visit_tasks(&mut st, count_busy);
+    print_int(st.count as i64 * 1000 + st.sum);
+    // 構造体のフィールドの関数ポインタ・Option<fn> / function pointers in struct fields, Option<fn>
+    let mut b = Button { label: "OK", clicks: 0 };
+    let h = Handler { name: "click", on_click: click, weight: 1 };
+    fire(&h, &mut b, 2);
+    let h3 = Handler { name: "click3", on_click: click3, weight: 3 };
+    fire(&h3, &mut b, 1);
+    print_str(b.label);
+    print_int(b.clicks as i64);
+    let maybe: Option<fn(&mut Button)> = None;
+    print_int(if maybe.is_none() { 1 } else { 0 });
+    let maybe2 = Some(click3);
+    if let Some(g) = maybe2 {
+        g(&mut b);
+    }
+    print_int(b.clicks as i64);
+    // own の子をコールバックが取り外す / a callback detaches an own child
+    let base = heap_live_blocks();
+    let mut root = Node { v: 1, next: Some(own Node { v: 2, next: None }) };
+    walk(&mut root, detach);
+    print_int(if root.next.is_none() { 1 } else { 0 });
+    print_int((heap_live_blocks() - base) as i64);
+}

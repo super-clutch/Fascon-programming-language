@@ -1,0 +1,529 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Fascon",
+  "scopeName": "source.fascon",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#attributes"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#regions"
+    },
+    {
+      "include": "#bypass"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#types"
+    },
+    {
+      "include": "#builtins"
+    },
+    {
+      "include": "#functions"
+    },
+    {
+      "include": "#lifetime"
+    },
+    {
+      "include": "#operators"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.fascon",
+          "match": "//.*$",
+          "captures": {
+            "0": {
+              "patterns": [
+                {
+                  "include": "#errcode"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "comment.block.fascon",
+          "begin": "/\\*",
+          "end": "\\*/",
+          "patterns": [
+            {
+              "include": "#errcode"
+            }
+          ]
+        }
+      ]
+    },
+    "errcode": {
+      "name": "markup.bold.fascon.errorcode",
+      "match": "\\bF\\d{4}\\b"
+    },
+    "attributes": {
+      "patterns": [
+        {
+          "name": "meta.attribute.universal.fascon",
+          "match": "#!?\\[(syscall|trap|secret|on_drop|no_column|stable_abi|asm|framebuffer|reframing|fast_math|numa_node|no_smt|allow)\\b[^\\]]*\\]"
+        },
+        {
+          "name": "meta.attribute.wire.fascon",
+          "match": "#\\[\\s*(wire)\\s*\\(\\s*(le|be)\\s*\\)\\s*\\]",
+          "captures": {
+            "1": {
+              "name": "keyword.other.wire.fascon"
+            },
+            "2": {
+              "name": "constant.language.byteorder.fascon"
+            }
+          }
+        },
+        {
+          "name": "meta.attribute.isr.fascon",
+          "match": "#\\[\\s*(isr)\\s*\\]",
+          "captures": {
+            "1": {
+              "name": "keyword.control.isr.fascon"
+            }
+          }
+        },
+        {
+          "name": "meta.attribute.framebuffer.fascon",
+          "match": "#\\[\\s*(framebuffer)\\s*\\]",
+          "captures": {
+            "1": {
+              "name": "keyword.other.framebuffer.fascon"
+            }
+          }
+        },
+        {
+          "name": "meta.attribute.repr.fascon",
+          "match": "#\\[\\s*(repr)\\s*\\(\\s*(align)\\s*\\(\\s*(\\d+)\\s*\\)\\s*\\)\\s*\\]",
+          "captures": {
+            "1": {
+              "name": "keyword.other.repr.fascon"
+            },
+            "2": {
+              "name": "keyword.other.align.fascon"
+            },
+            "3": {
+              "name": "constant.numeric.fascon"
+            }
+          }
+        },
+        {
+          "name": "meta.attribute.inner.fascon",
+          "match": "#!\\[[^\\]]*\\]"
+        },
+        {
+          "name": "meta.attribute.fascon",
+          "match": "#\\[[^\\]]*\\]"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.fascon",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.fascon",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.hex.fascon",
+          "match": "\\b0x[0-9A-Fa-f_]+(i8|i16|i32|i64|isize|u8|u16|u32|u64|usize)?\\b"
+        },
+        {
+          "name": "constant.numeric.binary.fascon",
+          "match": "\\b0b[01_]+(i8|i16|i32|i64|isize|u8|u16|u32|u64|usize)?\\b"
+        },
+        {
+          "name": "constant.numeric.float.fascon",
+          "match": "\\b[0-9][0-9_]*(\\.[0-9][0-9_]*([eE][+-]?[0-9_]+)?|[eE][+-]?[0-9_]+)(f32|f64)?\\b|\\b[0-9][0-9_]*(f32|f64)\\b"
+        },
+        {
+          "name": "constant.numeric.decimal.fascon",
+          "match": "\\b[0-9][0-9_]*(i8|i16|i32|i64|isize|u8|u16|u32|u64|usize)?\\b"
+        }
+      ]
+    },
+    "bypass": {
+      "name": "keyword.other.volatile-bypass.fascon",
+      "match": "\\bvolatile_bypass\\b"
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.universal.fascon",
+          "match": "\\b(atomic|rcu_read|catch_fault|critical|volatile_bypass)\\b"
+        },
+        {
+          "name": "keyword.other.import.fascon",
+          "match": "\\b(import|extern)\\b"
+        },
+        {
+          "name": "storage.modifier.universal.fascon",
+          "match": "\\b(dma|user|shared|gc_arena|task_arena|dma_arena|gpu_arena|user_mem|chan|irq|syscall|trap)\\b"
+        },
+        {
+          "name": "keyword.control.fascon",
+          "match": "\\b(if|else|match|while|loop|for|in|break|continue|return)\\b"
+        },
+        {
+          "name": "keyword.other.thread.fascon",
+          "match": "\\b(spawn|move|async|await)\\b"
+        },
+        {
+          "name": "storage.type.fascon2.fascon",
+          "match": "\\b(arena|bump_arena|port_io|mmio|type)\\b"
+        },
+        {
+          "name": "storage.modifier.own.fascon",
+          "match": "\\bown\\b"
+        },
+        {
+          "name": "storage.type.fascon",
+          "match": "\\b(fn|let|struct|static|const)\\b"
+        },
+        {
+          "name": "storage.modifier.fascon",
+          "match": "\\b(mut|pub)\\b"
+        },
+        {
+          "name": "keyword.operator.cast.fascon",
+          "match": "\\bas\\b"
+        },
+        {
+          "name": "constant.language.fascon",
+          "match": "\\b(true|false|None|Some|Ok|Err)\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "support.type.universal.fascon",
+          "match": "\\b(Result|FaultError|Id|Dma|GpuBuf|GpuFence|Str|Option)\\b"
+        },
+        {
+          "name": "storage.type.primitive.fascon",
+          "match": "\\b(i8|i16|i32|i64|isize|u8|u16|u32|u64|usize|f32|f64|bool)\\b"
+        },
+        {
+          "name": "support.type.kernel.fascon",
+          "match": "\\bDma\\b"
+        },
+        {
+          "name": "support.type.fascon",
+          "match": "\\b(Option|Chan|Id|Str)\\b"
+        },
+        {
+          "name": "entity.name.type.fascon",
+          "match": "\\b[A-Z][A-Za-z0-9_]*\\b"
+        }
+      ]
+    },
+    "builtins": {
+      "patterns": [
+        {
+          "name": "support.function.builtin.universal.fascon",
+          "match": "\\b(gc_collect|promote_to_gc|bind_mmio|dma_alloc|submit_dma|complete_dma|copy_from_user|copy_to_user|ct_eq|cpu_id|cpu_count|spawn_on|cpu_relax|schedule|sleep_until)\\b(?=\\s*\\()"
+        },
+        {
+          "name": "support.function.builtin.fascon",
+          "match": "\\b(print_int|print_str|put_int|put_hex|put_str|put|panic|drop|own_alloc|chan|block_on|cpu_id|cpu_relax|fence|compiler_fence|heap_live_blocks|heap_live_bytes|halt|exit|mmio_read(8|16|32|64)|mmio_write(8|16|32|64))\\b"
+        },
+        {
+          "name": "support.function.builtin.kernel.fascon",
+          "match": "\\b(timer_freq|timer_now|timer_arm|irq_open|wait_irq|embed|put_bytes|spawn_on|cpu_count)\\b(?=\\s*\\()"
+        },
+        {
+          "name": "support.function.method.kernel.fascon",
+          "match": "(?<=\\.)(start|start_user|current|yield_to|resume|enter|lend|reclaim|phys|view|view_mut|window|window_mut|copy_from|wrapping_add|wrapping_sub|wrapping_mul|checked_add|checked_sub|checked_mul|saturating_add|saturating_sub)\\b(?=\\s*\\()"
+        }
+      ]
+    },
+    "functions": {
+      "patterns": [
+        {
+          "match": "\\b(fn)\\s+([a-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "storage.type.fascon"
+            },
+            "2": {
+              "name": "entity.name.function.fascon"
+            }
+          }
+        },
+        {
+          "match": "\\.(clone|send|recv|is_some|is_none|take|unwrap|unwrap_or|alloc|free|remove|contains|get|get_mut|validate|len|capacity|index|generation|raw|fill|put|fill_rect|width|height|byte|read|write|read_at|write_at)\\b",
+          "captures": {
+            "1": {
+              "name": "support.function.method.fascon"
+            }
+          }
+        },
+        {
+          "match": "\\b([a-z_][A-Za-z0-9_]*)\\s*(?=\\()",
+          "captures": {
+            "1": {
+              "name": "entity.name.function.call.fascon"
+            }
+          }
+        }
+      ]
+    },
+    "lifetime": {
+      "name": "invalid.illegal.lifetime.fascon",
+      "match": "'[A-Za-z_][A-Za-z0-9_]*\\b"
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.reference.fascon",
+          "match": "&mut\\b|&"
+        },
+        {
+          "name": "keyword.operator.fascon",
+          "match": "=>|->|::|\\.\\.|[-+*/%^!<>=|]=?|&&|\\|\\|"
+        }
+      ]
+    },
+    "regions": {
+      "patterns": [
+        {
+          "match": "\\b(gpu_arena)\\s+(@?[A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "storage.type.gpu-arena.fascon"
+            },
+            "2": {
+              "name": "variable.other.region.arena.fascon"
+            }
+          }
+        },
+        {
+          "match": "\\b(shared\\s+)?(gc_arena)\\s+(@?[A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "storage.modifier.shared.fascon"
+            },
+            "2": {
+              "name": "storage.type.gc-arena.fascon"
+            },
+            "3": {
+              "name": "variable.other.region.arena.fascon"
+            }
+          }
+        },
+        {
+          "match": "\\b(shared)\\s+(arena)\\s+(@?[A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "storage.modifier.shared.fascon"
+            },
+            "2": {
+              "name": "storage.type.arena.fascon"
+            },
+            "3": {
+              "name": "variable.other.region.arena.fascon"
+            }
+          }
+        },
+        {
+          "match": "^\\s*(chan)\\s+(@?[A-Za-z_][A-Za-z0-9_]*)(?=\\s*:)",
+          "captures": {
+            "1": {
+              "name": "storage.type.chan.fascon"
+            },
+            "2": {
+              "name": "variable.other.region.chan.fascon"
+            }
+          }
+        },
+        {
+          "match": "\\b(task_arena)\\s+(@?[A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "storage.type.task-arena.fascon"
+            },
+            "2": {
+              "name": "variable.other.region.arena.fascon"
+            }
+          }
+        },
+        {
+          "match": "\\b(dma_arena)\\s+(@?[A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "storage.type.dma-arena.fascon"
+            },
+            "2": {
+              "name": "variable.other.region.dma.fascon"
+            }
+          }
+        },
+        {
+          "match": "^\\s*(dma)\\s+(@?[A-Za-z_][A-Za-z0-9_]*)(?=\\s*:)",
+          "captures": {
+            "1": {
+              "name": "storage.type.dma.fascon"
+            },
+            "2": {
+              "name": "variable.other.region.dma.fascon"
+            }
+          }
+        },
+        {
+          "match": "^\\s*(user_mem)\\s+(@?[A-Za-z_][A-Za-z0-9_]*)\\s+(for)\\b",
+          "captures": {
+            "1": {
+              "name": "storage.type.user-mem.fascon"
+            },
+            "2": {
+              "name": "variable.other.region.user.fascon"
+            },
+            "3": {
+              "name": "keyword.other.for-region.fascon"
+            }
+          }
+        },
+        {
+          "match": "^\\s*(irq)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s+(at)\\b",
+          "captures": {
+            "1": {
+              "name": "storage.type.irq.fascon"
+            },
+            "2": {
+              "name": "entity.name.function.irq.fascon"
+            },
+            "3": {
+              "name": "keyword.other.at.fascon"
+            }
+          }
+        },
+        {
+          "match": "^\\s*(syscall)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s+(at)\\b",
+          "captures": {
+            "1": {
+              "name": "storage.type.syscall.fascon"
+            },
+            "2": {
+              "name": "entity.name.function.syscall.fascon"
+            },
+            "3": {
+              "name": "keyword.other.at.fascon"
+            }
+          }
+        },
+        {
+          "match": "^\\s*(trap)\\s+([A-Za-z_][A-Za-z0-9_]*)(?=\\s*\\()",
+          "captures": {
+            "1": {
+              "name": "storage.type.trap.fascon"
+            },
+            "2": {
+              "name": "entity.name.function.trap.fascon"
+            }
+          }
+        },
+        {
+          "name": "keyword.control.critical.fascon",
+          "match": "\\bcritical\\b(?=\\s*(\\{|fn\\b))"
+        },
+        {
+          "name": "keyword.other.stack.fascon",
+          "match": "(?<=\\])\\s*\\bstack\\b"
+        },
+        {
+          "match": "\\b(bump_arena)\\s+(@?[A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "storage.type.bump-arena.fascon"
+            },
+            "2": {
+              "name": "variable.other.region.arena.fascon"
+            }
+          }
+        },
+        {
+          "match": "\\b(port_io)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "storage.type.port-io.fascon"
+            },
+            "2": {
+              "name": "variable.other.region.port.fascon"
+            }
+          }
+        },
+        {
+          "match": "\\b(arena)\\s+(@?[A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "storage.type.arena.fascon"
+            },
+            "2": {
+              "name": "variable.other.region.arena.fascon"
+            }
+          }
+        },
+        {
+          "match": "\\b(mmio)\\s+(@?[A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "storage.type.mmio.fascon"
+            },
+            "2": {
+              "name": "variable.other.region.mmio.fascon"
+            }
+          }
+        },
+        {
+          "name": "variable.other.region.fascon",
+          "match": "@[A-Za-z_][A-Za-z0-9_]*"
+        },
+        {
+          "name": "keyword.other.at.fascon",
+          "match": "(?<=\\])\\s*\\bat\\b"
+        },
+        {
+          "name": "keyword.other.at-port.fascon",
+          "match": "\\bat_port\\b"
+        },
+        {
+          "match": "\\b(arena|bump_arena|port_io|mmio)(!)\\s*\\(\\s*([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "storage.type.macro.fascon"
+            },
+            "2": {
+              "name": "storage.type.macro.fascon"
+            },
+            "3": {
+              "name": "variable.other.region.fascon"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

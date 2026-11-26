@@ -1,0 +1,8 @@
+// expect: F3505
+// #[on_drop(f)] の f は fn f(x: &mut 構造体) / the on_drop function takes `&mut` of the struct
+#[on_drop(cleanup)]
+struct Guard { level: u32 }
+fn cleanup(level: u32) { print_int(level); }
+fn main() {
+    let g = Guard { level: 1 };
+}

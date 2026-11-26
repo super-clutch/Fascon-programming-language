@@ -1,0 +1,6 @@
+// expect: F0618
+// 関数でも関数ポインタでもないものを呼ぶ / calling something that is neither a function nor a function pointer
+fn main() {
+    let x = 5;
+    x(1);
+}

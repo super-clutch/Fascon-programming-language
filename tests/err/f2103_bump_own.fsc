@@ -1,0 +1,6 @@
+// expect: F2103
+// バンプアリーナの要素は own を持てない（一括解放は解放処理を走らせない） / bump arena elements cannot hold own
+struct Leaf { v: i64 }
+struct Holder { leaf: own Leaf }
+bump_arena tmp: Holder[16];
+fn main() { }

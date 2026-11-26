@@ -1,0 +1,18 @@
+// expect: F0520
+// コールバックが、高階関数から 1 回の呼び出しの間だけ借りた参照をアリーナに保存しようとする（呼び出しより長く生きる）
+// a callback tries to keep, in an arena, a reference it borrowed from a higher-order function for one call (the arena outlives the call)
+struct Holder { v: i32 }
+struct Saved { p: Holder }
+arena keep: Saved[4];
+fn stash(h: &mut Holder) {
+    keep.alloc(Saved { p: h });
+}
+fn for_each_holder(hs: &mut [Holder; 2], f: fn(&mut Holder)) {
+    for i in 0..2 {
+        f(&mut hs[i]);
+    }
+}
+fn main() {
+    let mut hs = [Holder { v: 1 }, Holder { v: 2 }];
+    for_each_holder(&mut hs, stash);
+}

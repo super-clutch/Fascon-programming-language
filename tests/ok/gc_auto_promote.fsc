@@ -1,0 +1,32 @@
+// エスケープ解析による自動昇格: bump_arena の Id を gc_arena の Id として返すと、出口の巻き戻しの前に gc_arena へ写される
+// automatic promotion by escape analysis: returning a bump_arena Id as a gc_arena Id copies it into the gc_arena before
+// the exit rewind
+struct Leaf { v: u64, up: Option<Id<leaves>> }
+gc_arena leaves: Leaf[64];
+bump_arena scratch: Leaf[64];
+
+fn best(n: u64) -> Option<Id<leaves>> {
+    let mut pick = scratch.alloc(Leaf { v: 0, up: None });
+    for i in 0..10 {
+        let t = scratch.alloc(Leaf { v: n * i, up: None });
+        if i == 7 {
+            pick = t;
+        }
+    }
+    pick
+}
+
+fn main() {
+    let a = best(3);
+    let b = best(5);
+    match a {
+        Some(id) => print_int(leaves[id].v),
+        None => print_str("none"),
+    }
+    match b {
+        Some(id) => print_int(leaves[id].v),
+        None => print_str("none"),
+    }
+    print_int(leaves.len() as u64);
+    print_int(gc_collect(leaves) as u64);
+}

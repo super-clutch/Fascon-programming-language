@@ -1,0 +1,3234 @@
+[
+ {
+  "name": "F0001",
+  "category": "エラーコード",
+  "summary": "構文エラー（Rust にあって Fascon 1.0 に無い書き方を含む）",
+  "detail": "字句・構文の誤り（閉じていない文字列やコメント、不正な整数リテラル、使えない文字、`a < b < c` のような比較の連結など）。Rust にあって Fascon 1.0 に無い書き方もこの番号になる: ライフタイム注釈と文字リテラル（Fascon の字句にはアポストロフィが無い）、浮動小数点数、ジェネリクス、`static mut`、予約語 `impl`・`enum`・`trait`・`where`・`pub`・`use`・`mod`・`unsafe`・`dyn`・`ref`・`move`・`self`・`extern`・`crate`・`super`（`extern \"C\"` の宣言のような決まった形は除く）。0.1.0 の F0001 も同じ考え方。",
+  "constraints": "寿命は自動で推論されるので、ライフタイム注釈は書かない（参照は関数の引数と一時的なルックアップだけの第二級参照）。",
+  "remedy": "ライフタイム注釈は消すだけでよい（`fascon explain` が消した版を示し、`fascon fix` が検証してから当てる）。文字は整数の文字コード（`65` など）、小数は整数の固定小数点、メソッドは自由関数、列挙は整数定数か Option で書く。Rust 風のコードは自動リフレーミング（`--reframing=rust`）でまとめて直せる。",
+  "aliases": [
+   "構文エラー",
+   "syntax",
+   "syntax error",
+   "ライフタイム",
+   "lifetime",
+   "予約語",
+   "reserved word"
+  ]
+ },
+ {
+  "name": "F0004",
+  "category": "エラーコード",
+  "summary": "網羅的でない match",
+  "detail": "match がすべての場合を扱っていない（整数の値・`Some` / `None`・`Ok` / `Err`・`true` / `false` の取りこぼし）。値が腕のどれにも合わないと、何をすべきか決まらない。",
+  "constraints": "",
+  "remedy": "足りない腕を足すか、最後に `_ => ..` の腕を置く。",
+  "aliases": [
+   "網羅",
+   "exhaustive",
+   "non-exhaustive",
+   "網羅性"
+  ]
+ },
+ {
+  "name": "F0015",
+  "category": "エラーコード",
+  "summary": "static の初期値がコンパイル時の定数でない",
+  "detail": "static の初期値は、コンパイル時に決まる定数（リテラル・構造体・配列・整数の static を使った式）でなければならない。関数の呼び出しや変数は使えない（例外は `embed(\"ファイル\")`: F2804）。",
+  "constraints": "static は Kernel リージョンに置かれ、不変。",
+  "remedy": "値を定数で書く。実行時に決まる値は main で計算し、アリーナに置く。",
+  "aliases": [
+   "定数",
+   "constant",
+   "初期値",
+   "static の初期値",
+   "static initializer"
+  ]
+ },
+ {
+  "name": "F0061",
+  "category": "エラーコード",
+  "summary": "引数の個数が合わない",
+  "detail": "関数・組み込み関数・メソッド・`Some` に渡した引数の数が、宣言と違う。`spawn_on` は 2 個か 3 個（コア番号, 関数[, 引数]）、`Some` は 1 個。`promote_to_gc` のように型やアリーナの名前を取る組み込みは、その名前も 1 個に数える。0.1.0 では F0308 に含まれていた。",
+  "constraints": "",
+  "remedy": "宣言（組み込みなら `fascon dict 名前`）を見て、引数の数を合わせる。",
+  "aliases": [
+   "引数",
+   "argument count",
+   "arity"
+  ]
+ },
+ {
+  "name": "F0062",
+  "category": "エラーコード",
+  "summary": "構造体リテラルで同じフィールドを 2 回指定した",
+  "detail": "構造体リテラル `S { x: 1, x: 2 }` で、同じフィールドに 2 回値を書いた。どちらを使うか決まらない。",
+  "constraints": "",
+  "remedy": "重なったほうを消す。",
+  "aliases": [
+   "フィールド",
+   "field",
+   "struct literal"
+  ]
+ },
+ {
+  "name": "F0063",
+  "category": "エラーコード",
+  "summary": "構造体リテラルにフィールドが足りない",
+  "detail": "構造体リテラル `S { .. }` に、宣言されたフィールドの一部の値が無い。Fascon に既定値は無く、初期化されていないメモリも作らない。",
+  "constraints": "",
+  "remedy": "すべてのフィールドに値を書く（Option のフィールドは `None`、整数は `0`）。",
+  "aliases": [
+   "フィールド",
+   "field",
+   "missing field",
+   "struct literal"
+  ]
+ },
+ {
+  "name": "F0069",
+  "category": "エラーコード",
+  "summary": "値の無い return",
+  "detail": "戻り値の型がある関数で `return;` と書いた。",
+  "constraints": "",
+  "remedy": "`return 値;` にする。",
+  "aliases": [
+   "戻り値",
+   "return の値"
+  ]
+ },
+ {
+  "name": "F0070",
+  "category": "エラーコード",
+  "summary": "代入できない式への代入",
+  "detail": "代入の左辺が、変数・フィールド・添字（`a[i]`・`a[id]`）以外の式（関数の呼び出しの結果や計算式など）になっている。",
+  "constraints": "",
+  "remedy": "変数・フィールド・添字に代入する。",
+  "aliases": [
+   "assignment",
+   "place",
+   "代入先"
+  ]
+ },
+ {
+  "name": "F0107",
+  "category": "エラーコード",
+  "summary": "型の引数の数や種類が違う",
+  "detail": "`Result<T, E>` は型を 2 つ、`Option<T>` は型を 1 つ、`Id<@名前>` と `Dma<@名前>` はアリーナの名前を 1 つ取る。ほかの型は引数を取らない（別名 `type 名前<@a: T>` は宣言した数）。",
+  "constraints": "ジェネリクスは無いので、型の引数を取るのはこれらの組み込みの型と別名だけ。",
+  "remedy": "型の引数を上の形どおりに書く。",
+  "aliases": [
+   "型引数",
+   "type argument"
+  ]
+ },
+ {
+  "name": "F0124",
+  "category": "エラーコード",
+  "summary": "構造体のフィールド名が重複している",
+  "detail": "`struct` の宣言に、同じ名前のフィールドが 2 つある。",
+  "constraints": "",
+  "remedy": "どちらかの名前を変える。",
+  "aliases": [
+   "フィールド",
+   "field",
+   "フィールドの重複"
+  ]
+ },
+ {
+  "name": "F0268",
+  "category": "エラーコード",
+  "summary": "ループの外の break / continue",
+  "detail": "`break` / `continue` は `loop` / `while` / `for` の中でだけ書ける。",
+  "constraints": "",
+  "remedy": "ループの中へ移すか、関数から抜けるなら `return` を使う。",
+  "aliases": [
+   "break",
+   "continue",
+   "ループ"
+  ]
+ },
+ {
+  "name": "F0277",
+  "category": "エラーコード",
+  "summary": "`[値; N]` の値がコピーできない",
+  "detail": "配列の繰り返し式 `[値; N]` の値は、コピーできる型（整数・bool・Id・Str など）か `None` でなければならない。own を含む値は N 個に複製できない。",
+  "constraints": "",
+  "remedy": "`[None; N]` で作ってから要素ごとに入れる、または要素を 1 つずつ書く。",
+  "aliases": [
+   "repeat",
+   "繰り返し式",
+   "array repeat"
+  ]
+ },
+ {
+  "name": "F0308",
+  "category": "エラーコード",
+  "summary": "型が一致しない",
+  "detail": "期待される型と実際の型が違う。整数リテラルやパターンが型の範囲に収まらない、値を返すべき関数が値を返していない、`main` や組み込み関数を値として使った、添字・シフト量・範囲が整数でない、関数ポインタの型が参照の可変性まで一致しない（`fn(&i32)` は `fn(&mut i32)` ではない）、値渡しの引数に `&` を付けた・参照の引数に `&` を付け忘れた、なども含む。0.1.0 では網羅性と引数の個数もこの番号だったが、1.0 では F0004・F0061。",
+  "constraints": "整数は暗黙に変換されない（`as` で明示する）。",
+  "remedy": "型をそろえる: `as` で変換する、型注釈を付ける、引数の `&` / `&mut` を宣言に合わせる、関数の最後に値を置く。",
+  "aliases": [
+   "type mismatch",
+   "型エラー",
+   "mismatched types"
+  ]
+ },
+ {
+  "name": "F0317",
+  "category": "エラーコード",
+  "summary": "else の無い if を値として使った",
+  "detail": "`let x = if c { 1 };` のように、`else` の無い `if` から値を取ろうとした。条件が偽のときの値が無い。",
+  "constraints": "",
+  "remedy": "`else` を足して、両方の枝で同じ型の値を返す。",
+  "aliases": [
+   "if 式",
+   "if expression"
+  ]
+ },
+ {
+  "name": "F0368",
+  "category": "エラーコード",
+  "summary": "複合代入 `+=` などが使えない型",
+  "detail": "`+=`・`-=`・`<<=` などの複合代入を、その演算の無い型（bool・Str・構造体・Option・Id など）に使った。",
+  "constraints": "",
+  "remedy": "整数の変数やフィールドに使う。ほかの型は、意味に合う値を作って `=` で代入する。",
+  "aliases": [
+   "複合代入",
+   "compound assignment",
+   "+="
+  ]
+ },
+ {
+  "name": "F0369",
+  "category": "エラーコード",
+  "summary": "演算子がその型に使えない",
+  "detail": "その型に無い二項演算子を使った: 比べられない型どうしの比較（構造体・Option・own など）、整数でない値のシフト、bool の足し算など。",
+  "constraints": "",
+  "remedy": "フィールドどうしを比べる、Option は `match` / `if let` で調べる、`as` で整数にそろえる。",
+  "aliases": [
+   "演算子",
+   "operator",
+   "比較",
+   "comparison"
+  ]
+ },
+ {
+  "name": "F0381",
+  "category": "エラーコード",
+  "summary": "初期化されていないかもしれない変数を使った",
+  "detail": "`let x;` のように値を入れずに宣言した変数を、値が入らない経路があるまま使った（if の片方の枝だけで代入した、など）。",
+  "constraints": "Fascon は初期化されていないメモリを読ませない。",
+  "remedy": "宣言のときに初期値を入れるか、すべての枝で代入する。",
+  "aliases": [
+   "初期化",
+   "uninitialized"
+  ]
+ },
+ {
+  "name": "F0382",
+  "category": "エラーコード",
+  "summary": "移動した後の値を使った（Use-After-Move）",
+  "detail": "`own T`（と own を含む値）は移動専用で、値渡しの引数・代入・`spawn_on` の引数・チャネルの `send` で所有権が移る。移動した後（プログラムの順で下）で同じ変数を使った。match の一部の腕だけで移動しても、match の後で使えば F0382（和集合ルール）。ループの中の移動は、次の周回での使用で F0382。",
+  "constraints": "暗黙のコピーは無い。移動した変数は、代入し直すまで使えない。",
+  "remedy": "最後の使用の後で移動する、参照（`&x`）で渡す、または `.clone()` で明示的に複製する。`fascon explain` が、移動した所から使った所までの時系列を示す。",
+  "aliases": [
+   "use after move",
+   "移動後使用",
+   "moved",
+   "move"
+  ]
+ },
+ {
+  "name": "F0384",
+  "category": "エラーコード",
+  "summary": "不変な場所への代入",
+  "detail": "`mut` の無い `let` 変数（その一部や own の中身を含む）に代入した、値の入った不変な変数にもう一度代入した、または static に代入した（static は Kernel リージョンに置かれ、不変）。",
+  "constraints": "`static mut` は無い（共有の可変状態はアリーナか MMIO リージョンで表す）。",
+  "remedy": "`let mut` にする。共有の状態はアリーナに置く。",
+  "aliases": [
+   "immutable",
+   "代入",
+   "不変"
+  ]
+ },
+ {
+  "name": "F0391",
+  "category": "エラーコード",
+  "summary": "定義が循環している",
+  "detail": "static の初期値が（ほかの static を通しても）自分自身に依存している、または型の別名 `type` が自分自身を含んでいる。",
+  "constraints": "",
+  "remedy": "循環を断つ: 片方を定数で書く、別名を実際の型で書く。",
+  "aliases": [
+   "循環",
+   "cycle",
+   "cyclic"
+  ]
+ },
+ {
+  "name": "F0412",
+  "category": "エラーコード",
+  "summary": "型が見つからない",
+  "detail": "型の名前（構造体・別名・組み込みの型）が見つからない。綴りの誤りが多い。",
+  "constraints": "組み込みの整数型は `u8`・`u16`・`u32`・`u64`・`usize`・`i8`・`i16`・`i32`・`i64`・`isize`。ほかに `bool`・`Str`・`Option`・`Result`・`Id`。",
+  "remedy": "綴りを確かめるか、`struct 名前 { .. }` を宣言する。",
+  "aliases": [
+   "unknown type",
+   "型が見つからない"
+  ]
+ },
+ {
+  "name": "F0415",
+  "category": "エラーコード",
+  "summary": "関数の引数名が重複している",
+  "detail": "関数の引数に、同じ名前が 2 つある。",
+  "constraints": "",
+  "remedy": "どちらかの名前を変える。",
+  "aliases": [
+   "引数",
+   "parameter"
+  ]
+ },
+ {
+  "name": "F0422",
+  "category": "エラーコード",
+  "summary": "構造体が見つからない",
+  "detail": "構造体リテラル `名前 { .. }` の名前が、宣言された構造体ではない。",
+  "constraints": "",
+  "remedy": "綴りを確かめるか、`struct 名前 { .. }` を宣言する。",
+  "aliases": [
+   "構造体が見つからない",
+   "unknown struct"
+  ]
+ },
+ {
+  "name": "F0423",
+  "category": "エラーコード",
+  "summary": "型の名前を値として使った",
+  "detail": "構造体の型名だけを値の場所に書いた（`let b = Button;`）。",
+  "constraints": "",
+  "remedy": "構造体リテラル `Button { label: \"OK\", x: 1 }` を書く。",
+  "aliases": [
+   "型を値に",
+   "type used as value"
+  ]
+ },
+ {
+  "name": "F0425",
+  "category": "エラーコード",
+  "summary": "名前が見つからない",
+  "detail": "変数・関数・static・リージョンの名前が、その場所から見えない（綴りの誤り、ブロックの外の変数、宣言していない関数など）。型の名前は F0412、構造体リテラルの名前は F0422。",
+  "constraints": "変数はそれを宣言したブロックの中だけで使える。関数・static・リージョンは宣言の順番に関係なく使える。",
+  "remedy": "綴りと有効範囲を確かめる。組み込み関数は名前で引ける（例: `fascon dict timer_arm`）。",
+  "aliases": [
+   "unresolved",
+   "未定義",
+   "名前",
+   "not found"
+  ]
+ },
+ {
+  "name": "F0428",
+  "category": "エラーコード",
+  "summary": "同じ名前を 2 回定義した",
+  "detail": "同じ名前の関数・static・型・リージョン（アリーナ・mmio・port_io など）を 2 回定義した。リージョンは名前だけで使うので、関数・static・型と同じ名前にもできない。",
+  "constraints": "",
+  "remedy": "どちらかの名前を変える。",
+  "aliases": [
+   "重複",
+   "duplicate",
+   "redefinition"
+  ]
+ },
+ {
+  "name": "F0435",
+  "category": "エラーコード",
+  "summary": "コンパイル時に決まる 0 以上の整数が要る",
+  "detail": "アリーナとチャネルの容量、MMIO の番地、ポート番号、ユーザーメモリの大きさと仮想番地は、コンパイル時に決まる 0 以上の整数でなければならない（変数や関数の結果は使えない）。",
+  "constraints": "",
+  "remedy": "リテラルか、整数の static を使った定数式で書く。",
+  "aliases": [
+   "定数",
+   "constant",
+   "capacity",
+   "番地",
+   "address",
+   "コンパイル時定数",
+   "compile-time constant"
+  ]
+ },
+ {
+  "name": "F0499",
+  "category": "エラーコード",
+  "summary": "同じ呼び出しで同じ場所を 2 回 `&mut` で借りた",
+  "detail": "1 つの呼び出しの実引数で、同じ場所（またはその一部）を `&mut` で 2 回借りた。同じアリーナの 2 つのスロット（`&mut a[x], &mut a[y]`）も、Id が同じかもしれないので含む。参照は第二級なので、借用は呼び出しの間だけ存在し、衝突はその呼び出しの中で静的に決まる。",
+  "constraints": "ある時点で、同じ場所への可変借用は 1 つだけ。",
+  "remedy": "呼び出しを分ける、または別々のフィールドを渡す（`&mut a.x, &mut a.y` はよい）。アリーナの 2 つのスロットは、値を読み出してから書き戻す。",
+  "aliases": [
+   "double borrow",
+   "可変借用",
+   "&mut",
+   "二重借用"
+  ]
+ },
+ {
+  "name": "F0502",
+  "category": "エラーコード",
+  "summary": "借用と衝突する読み書き",
+  "detail": "ある場所を借りている間に、同じ場所を読んだ・書き換えた・借りた。借用は、呼び出しの `&mut` 引数（その呼び出しの間）と、`if let Some(n) = list.head` のような束縛・ルックアップ・ビュー（そのブロックの終わりまで）で生まれる。例: n が指している own を、同じブロックの中で `list.head = None;` と差し替えると F0502。アリーナのスロットでは F2502。",
+  "constraints": "可変借用中の場所は読めない。借用中の場所は書き換えられない。",
+  "remedy": "読む値を呼び出しの前に一時変数へ写す（`let tmp = a.x; f(&mut a, tmp);`）。束縛のブロックを閉じてから書き換える。",
+  "aliases": [
+   "borrow conflict",
+   "借用衝突"
+  ]
+ },
+ {
+  "name": "F0505",
+  "category": "エラーコード",
+  "summary": "借用中の値を移動した",
+  "detail": "借りられている値の所有権を移動しようとした。同じ呼び出しの実引数の中で借用と移動が重なった場合と、ビュー（`view` / `view_mut`）やルックアップの束縛が生きているブロックの中で、元の値を移動した場合（`let moved = b;`）がある。",
+  "constraints": "",
+  "remedy": "借用が終わってから（ブロックを閉じてから）移動する、呼び出しを分ける、または片方を `.clone()` する。",
+  "aliases": [
+   "move while borrowed",
+   "借用中の移動"
+  ]
+ },
+ {
+  "name": "F0507",
+  "category": "エラーコード",
+  "summary": "フィールド・参照先・static・own の中身からの移動",
+  "detail": "構造体のフィールド、参照の先（`*r`）、static から所有権を取り出そうとした（部分的な移動は禁止）。own の場所の束縛（`match w.ok { b => .. }`・`if let Some(b) = w.status`）を通して own そのものを差し替えようとした場合も含む（束縛は `&mut w.ok` と同じく own の中身を指す）。構造体でない own の中身（`*b`）からコピーできない値（構造体・Str など）を取り出す場合、own のフィールドを移動で取り出す場合（`let b = ctx.buffer;`）も含む（own が空になるため）。",
+  "constraints": "暗黙のコピーは無い。",
+  "remedy": "`.clone()` で明示的に複製する。own を差し替えるときは元の場所へ代入する（`w.ok = own Button { .. }`）。own の中身は `*b` でコピーして読む（`let v = *ctx.buffer;`）か、own ごと移動する（`*` を付けない）。",
+  "aliases": [
+   "move out",
+   "部分移動",
+   "partial move"
+  ]
+ },
+ {
+  "name": "F0515",
+  "category": "エラーコード",
+  "summary": "第二級参照の制約違反",
+  "detail": "参照 `&T` / `&mut T`（窓 `&[u8]` と、`get` / `view` などのルックアップの結果を含む）を、関数の引数以外の場所に置こうとした: let への束縛、構造体のフィールド、戻り値、Option・Result・own の中身、アリーナやチャネルの要素、static、別のコアへの受け渡し、参照の参照。`&x` は呼び出しの実引数でだけ作れる。ルックアップの結果は `if let` / `match` の対象か、`.unwrap()` を付けた場所としてだけ使える。",
+  "constraints": "参照は関数の引数としてだけ存在でき、寿命はその呼び出しの間に閉じる（ライフタイム注釈が要らない理由）。",
+  "remedy": "値として持つ（構造体のフィールドや Id で持つ）か、`f(&x)` の形で直接渡す。ルックアップは `if let Some(v) = a.get(id) { .. }` の中で使う。",
+  "aliases": [
+   "second-class violation",
+   "参照の保存"
+  ]
+ },
+ {
+  "name": "F0596",
+  "category": "エラーコード",
+  "summary": "書き換えられない場所への書き込み・可変借用",
+  "detail": "書き換えできない場所を書き換えた、または `&mut` で借りた: 共有参照 `&T` の先、`.get(id).unwrap()` などの読み出し専用のルックアップ、`mut` の無い変数、static、読み出し専用のバイト列。共有参照を `&mut T` の引数へ渡した場合、`&mut` の引数に `&mut` を付けずに渡した場合、書き換えできない場所に `.take()` を使った場合も含む。",
+  "constraints": "",
+  "remedy": "宣言を `let mut` にする、引数を `&mut T` にする、書き込みには `.get_mut(id)`（または `a[id]`）を使う。",
+  "aliases": [
+   "borrow as mutable",
+   "read-only",
+   "読み出し専用"
+  ]
+ },
+ {
+  "name": "F0599",
+  "category": "エラーコード",
+  "summary": "そのメソッドは無い",
+  "detail": "その値の種類に無いメソッドを呼んだ。Fascon にユーザー定義のメソッド（`impl`）は無く、組み込みの種類が持つメソッドだけを呼べる: アリーナ、チャネル（`send(値)` / `recv()` / `recv_wait()`。添字では読めない）、`dma` リージョン（`phys` / `len`）、ユーザーメモリ（`of(タスクの Id)` だけ）、ポート（`read` / `write` / `read_at` / `write_at`）、MMIO リージョンなど。プロセス表だけのメソッドをほかのアリーナに使った場合も含む。メッセージの括弧の中に、その値で使えるメソッドが出る。0.1.0 では組み込みメソッドが少なかったので、意味が広がった。",
+  "constraints": "`impl` ブロックは無い。",
+  "remedy": "自由関数 `fn f(x: &T)` を書いて `f(&x)` で呼ぶ。組み込みの種類なら、メッセージに出たメソッドを使う。",
+  "aliases": [
+   "no method",
+   "メソッド",
+   "method",
+   "impl"
+  ]
+ },
+ {
+  "name": "F0600",
+  "category": "エラーコード",
+  "summary": "単項演算子がその型に使えない",
+  "detail": "符号なし整数（`u8`〜`u64`・`usize`）に単項 `-` を使った、または整数・bool 以外に `-` / `!` を使った。",
+  "constraints": "",
+  "remedy": "符号付きの型に変換してから使う（`-(x as i64)`）。Option などは `match` / `if let` で調べる。",
+  "aliases": [
+   "単項",
+   "unary",
+   "negation",
+   "符号なし"
+  ]
+ },
+ {
+  "name": "F0601",
+  "category": "エラーコード",
+  "summary": "`fn main()` が無い、または形が違う",
+  "detail": "実行は `fn main()` から始まる。main が無い、または引数や戻り値がある。",
+  "constraints": "",
+  "remedy": "引数・戻り値なしの `fn main() { .. }` を書く。",
+  "aliases": [
+   "main",
+   "入口",
+   "entry point"
+  ]
+ },
+ {
+  "name": "F0605",
+  "category": "エラーコード",
+  "summary": "`as` で変換できない",
+  "detail": "`as` は数の変換（整数どうし、bool から整数など）だけ。構造体・Option・Str・参照・own は変換できない。own の中身を読むときは `*` を使う。",
+  "constraints": "",
+  "remedy": "数の変換だけに `as` を使う。own の中身は `*b` で読む。",
+  "aliases": [
+   "as",
+   "cast",
+   "変換"
+  ]
+ },
+ {
+  "name": "F0608",
+  "category": "エラーコード",
+  "summary": "添字で読めない値、または範囲外の定数の添字",
+  "detail": "添字 `x[i]` が使えない値に使った（Str は `s.byte(i)` で読む。配列でないポートは名前だけで読み書きする。次元の数が合わない）、またはコンパイル時に決まる添字が配列の長さを超えている（固定番地リージョンでは F2201）。",
+  "constraints": "実行時に決まる添字は境界検査され、範囲が証明できればその検査は省かれる。",
+  "remedy": "Str は `s.byte(i)`、ポートは名前で読み書きし、定数の添字は長さの内側にする。",
+  "aliases": [
+   "添字",
+   "out of bounds",
+   "範囲外"
+  ]
+ },
+ {
+  "name": "F0609",
+  "category": "エラーコード",
+  "summary": "そのフィールドは無い",
+  "detail": "フィールドを持たない型（整数・Option など）や、そのフィールドを持たない構造体で `.名前` を読んだ。",
+  "constraints": "",
+  "remedy": "綴りを宣言と合わせる。Option の中身は `if let Some(v) = ..` で取り出してから読む。",
+  "aliases": [
+   "フィールド",
+   "field",
+   "no field"
+  ]
+ },
+ {
+  "name": "F0728",
+  "category": "エラーコード",
+  "summary": "async 外の await",
+  "detail": "`.await` を async fn の外で使った。",
+  "constraints": "",
+  "remedy": "同期コードからは `block_on(f(..))` を使う。",
+  "aliases": [
+   "await outside async"
+  ]
+ },
+ {
+  "name": "F0808",
+  "category": "エラーコード",
+  "summary": "リージョン包含不可（Region containment）",
+  "detail": "値の寿命を包含するリージョンを静的に証明できない。例: 参照引数（呼び出し元の Thread/Call リージョン）を .await を跨いで保持、参照引数を spawn でキャプチャ、呼び出し元の値（引数）をそのまま別スレッドへ移動、参照先オブジェクト全体の置換。",
+  "constraints": "暗黙のグローバルプロモーション（静的領域への隠蔽）は絶対に行わず、ビルドを拒否する。",
+  "remedy": "Quick Fix: 対象データを所有値にしてタスク／スレッドへ移し、Process（または Kernel）クラスのリージョンへ昇格するようにアロケーション構造を書き換える（`&T` → `T`、呼び出し側は `.clone()`）。",
+  "aliases": [
+   "containment",
+   "包含",
+   "lifetime"
+  ]
+ },
+ {
+  "name": "F0810",
+  "category": "エラーコード",
+  "summary": "無限ループアロケーション（Unbounded loop allocation）",
+  "detail": "反復回数が静的に有界でないループ（loop / while / 非定数範囲の for）で、割り当てがループ跨ぎ変数・呼び出し元・共有リージョンへ昇格し、反復ごとに外側リージョンが単調増加する。逆方向不動点解析の要求集合は収束しても、リージョン増分 Grow(n+1)−Grow(n) > 0 が残るため不動点が存在しない。典型例は `head = Node { next: Some(head) }`。",
+  "constraints": "定数範囲の `for i in 0..N` は有界なので許可（外側へ昇格）。脱出直前（return/break の直前）の割り当ては 1 回なので許可。",
+  "remedy": "Quick Fix: ループ内部で再帰的リンクを形成している箇所を特定し、割り当てサイトをループの外側（Call 領域）へリフトアップしてループ内を in-place 更新に変換する。脱出時だけなら `return x.clone()`。",
+  "aliases": [
+   "unbounded",
+   "無限ループ",
+   "loop allocation"
+  ]
+ },
+ {
+  "name": "F0811",
+  "category": "エラーコード",
+  "summary": "volatile_bypass の制約違反",
+  "detail": "`volatile_bypass { .. }` の中で own の割り当て・関数の呼び出し・アリーナの操作をした、または `mmio_read` / `mmio_write` などをその外で使った。",
+  "constraints": "volatile_bypass は低水準の番地アクセスだけの区間で、リージョン解析に影響する操作は置けない。",
+  "remedy": "割り当てと呼び出しは外で行い、中は整数と `mmio_*` だけにする。型安全な `mmio 名前: [u32; N] at 番地;` を使えば、volatile_bypass なしで境界検査付きで書ける。",
+  "aliases": [
+   "bypass"
+  ]
+ },
+ {
+  "name": "F0900",
+  "category": "エラーコード",
+  "summary": "Isr リージョン容量超過",
+  "detail": "割り込みハンドラから到達する割り当ての静的上界（Σ 回数×サイズ）が Isr 容量（既定 1KB）を超える、または上界が無い（再帰・無限ループ内の割り当て）。実行時に容量を超えた場合は即時パニック（fascon_plat_kernel_panic(0x0900)）。",
+  "constraints": "Isr リージョンは CPU ごとに静的に事前確保され、他 CPU へ移動できない。",
+  "remedy": "ISR 内の割り当てを減らすか `--isr-capacity` を増やす。リンカスクリプトで Isr プールを TCM/SRAM に置く（gen-ld）。",
+  "aliases": [
+   "isr capacity",
+   "容量"
+  ]
+ },
+ {
+  "name": "F0901",
+  "category": "エラーコード",
+  "summary": "割り込みハンドラ内の禁止操作",
+  "detail": "#[isr] 関数（およびそこから呼ばれる関数）で spawn / send / recv / block_on / await / chan 生成を使った。",
+  "constraints": "割り込みコンテキストではブロックし得る操作・スレッド操作は禁止。",
+  "remedy": "通常コンテキストへ処理を移す。",
+  "aliases": [
+   "isr forbidden"
+  ]
+ },
+ {
+  "name": "第二級参照",
+  "category": "第二級参照",
+  "summary": "参照は関数の引数としてのみ存在できる",
+  "detail": "`&T` / `&mut T` は関数の仮引数の型としてだけ書ける。呼び出し側は `f(&x)` / `f(&mut x)` の形で実引数として直接作る。こうすると参照の寿命は常に「その呼び出しの間」に閉じ込められ、ライフタイム注釈（'a）が一切不要になる。",
+  "constraints": "let に束縛しない・構造体に格納しない・返さない・Option/チャネルに入れない・spawn でキャプチャしない（F0808）・.await を跨いで保持しない（F0808）。参照引数を他の関数へそのまま渡す（再借用）のは可。",
+  "remedy": "長く保持したい値は所有値として持つ。共有したいときは .clone() するかチャネルで所有権ごと送る。",
+  "aliases": [
+   "second-class reference",
+   "参照",
+   "&",
+   "&mut",
+   "借用",
+   "Second-class reference"
+  ]
+ },
+ {
+  "name": "借用規則",
+  "category": "第二級参照",
+  "summary": "同一呼び出し内の可変・不変借用規則（F0499 / F0502 / F0505）",
+  "detail": "第二級参照では借用は呼び出し式の中にしか存在しないため、衝突は同じ呼び出しの実引数どうしで静的に判定できる。フィールドが重ならなければ同時に借用できる（`f(&mut p.x, &p.y)` は可）。",
+  "constraints": "同じ場所への &mut は 1 つ、&mut と & / 読み取り / 移動は同時に不可。",
+  "remedy": "",
+  "aliases": [
+   "borrow rules",
+   "Borrow rules"
+  ]
+ },
+ {
+  "name": "Kernel",
+  "category": "リージョン",
+  "summary": "システム永続・全 CPU アクセス・原則不変",
+  "detail": "static の構造体・チャネルが置かれる。生成コードでは .fascon_kernel セクション（キャッシュライン整列）に置かれ、初期化後 fascon_kernel_seal() で不変化する。Kernel チャネルへ送った値は Promoted(Kernel) の転送リージョンに確保される。",
+  "constraints": "上限超過時はシステムパニック。static mut は禁止。",
+  "remedy": "",
+  "aliases": [
+   "RegionClass::Kernel",
+   "カーネル"
+  ]
+ },
+ {
+  "name": "Process",
+  "category": "リージョン",
+  "summary": "空間隔離単位・複数スレッド共有（Process/Task カテゴリ）",
+  "detail": "スレッド境界を越える値（spawn キャプチャ / send）は Promoted(Process) として、所有権ごと受け渡せる Process クラスの転送リージョン（xfer）に確保される。受け取り側はそれを自分のリージョンへ養子縁組（adopt）し、受け取り側の解放時に一括回収する。チャネル本体はプロセス共有リージョンに置かれる。",
+  "constraints": "割り当てはキャッシュライン境界（alignas(64)）に揃えられる。共有リージョンへの割り当てはミューテックス（スピンロック）で同期する。",
+  "remedy": "",
+  "aliases": [
+   "RegionClass::Process",
+   "プロセス",
+   "xfer",
+   "転送リージョン"
+  ]
+ },
+ {
+  "name": "Task",
+  "category": "リージョン",
+  "summary": "await 点を跨いで生存する値（Process/Task カテゴリ）",
+  "detail": "逆方向解析で .await を跨いで要求される値は RegionClass::Task としてマークされ、block_on が作る Task リージョンに確保される。タスク終了時に一括回収。",
+  "constraints": "参照引数を await 跨ぎで保持すると F0808。v0.1.0 の await は同期実行（run-to-completion）に降格して生成する。",
+  "remedy": "",
+  "aliases": [
+   "RegionClass::Task",
+   "タスク",
+   "async"
+  ]
+ },
+ {
+  "name": "Thread",
+  "category": "リージョン",
+  "summary": "スレッド実行単位・単一スレッド排他（同期不要）",
+  "detail": "spawn 本体の値と、受け取ったキャプチャ（転送リージョンを養子縁組）が置かれる。スレッド終了時に一括解放。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "RegionClass::Thread",
+   "スレッド"
+  ]
+ },
+ {
+  "name": "Call",
+  "category": "リージョン",
+  "summary": "1 コール 1 リージョン（O(1) バンプ一括解放）",
+  "detail": "関数呼び出しごとのリージョン。関数末尾とすべての早期 return の直前に fascon_region_cleanup が強制挿入される。戻り値は呼び出し元リージョン（隠し第一引数 __parent_reg）へ直接確保される（Parent への静的プロモーション）。ループ内の一時値は反復リージョンに置かれ毎反復一括解放される。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "RegionClass::Call",
+   "コール",
+   "Legacy",
+   "反復リージョン",
+   "Parent",
+   "__parent_reg"
+  ]
+ },
+ {
+  "name": "Isr",
+  "category": "リージョン",
+  "summary": "割り込みハンドラ専用・CPU ごとに静的事前確保",
+  "detail": "#[isr] 関数内の割り当ては CPU ローカルな Isr プールから O(1) バンプで行い、割り込み終了時にバンプ位置を復元して一括解放する（ネスト対応・原子命令なし）。Isr プールはリンカスクリプトで TCM / スクラッチパッド SRAM / キャッシュロック領域へ固定できる。",
+  "constraints": "他 CPU への移動禁止。容量超過（既定 1KB）は即時パニック F0900。",
+  "remedy": "",
+  "aliases": [
+   "RegionClass::Isr",
+   "割り込み",
+   "interrupt"
+  ]
+ },
+ {
+  "name": "要求集合",
+  "category": "解析規則",
+  "summary": "requirements: ある地点より後で要求される変数・パスの集合",
+  "detail": "MasSemaAnalyzer はコードを後ろから前へ走査し、各地点の要求集合を計算する。使用で追加、let と変数全体への代入（強い更新）で削除、移動は使用として追加。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "requirements",
+   "Req",
+   "生存解析",
+   "Requirement set"
+  ]
+ },
+ {
+  "name": "逆方向不動点解析",
+  "category": "解析規則",
+  "summary": "Pass 1（mas-sema-analysis）",
+  "detail": "逆方向データフロー解析をループで不動点まで反復する。要求集合は単調増加かつ有限なので必ず収束する。ループでは「反復内一時値」と「反復跨ぎ生存値」を分離し、後者を外側リージョンへ昇格する。収束しないリージョン増分があれば F0810。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "Pass 1",
+   "fixpoint",
+   "不動点",
+   "mas-sema-analysis",
+   "Backward fixpoint analysis"
+  ]
+ },
+ {
+  "name": "和集合ルール",
+  "category": "解析規則",
+  "summary": "match / if の直前要求集合 = 各アームの要求集合の和集合",
+  "detail": "match に入る直前の要求をベース要求として保存し、各アームをベース要求から再開して逆方向に走査、アームごとの結果を和集合として合成し、match 全体の直前要求集合を置き換える。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "union",
+   "match",
+   "Union rule"
+  ]
+ },
+ {
+  "name": "強い更新",
+  "category": "解析規則",
+  "summary": "let / 変数全体への代入は要求集合から束縛名を削除する",
+  "detail": "再束縛した変数は別の値なので、移動後に `let x = ...` で再束縛すれば以後の使用は F0382 にならない。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "strong update",
+   "let",
+   "Strong update"
+  ]
+ },
+ {
+  "name": "プロモーション",
+  "category": "解析規則",
+  "summary": "静的プロモーション（昇格）",
+  "detail": "割り当てサイトのリージョンを寿命に合わせて上位へ昇格する。戻り値 → Parent、スレッド越え → Promoted(Process/Kernel)、await 跨ぎ → Task、ループ跨ぎ → 外側。解析不能な場合は暗黙のグローバルプロモーションをせず F0808。",
+  "constraints": "",
+  "remedy": "`fascon regions <file>` で割り当てごとの確定結果を確認できる。",
+  "aliases": [
+   "promotion",
+   "昇格",
+   "AllocTarget",
+   "Promotion"
+  ]
+ },
+ {
+  "name": "Pass 2",
+  "category": "解析規則",
+  "summary": "mas-sema-apply: リージョン確定（破壊的変換）",
+  "detail": "割り当てサイトと変数を union-find でリージョン同値類にまとめ、同値類ごとに確保先（Call / 反復 / Parent / Process / Kernel / Task / Thread / Isr）を確定する。関数サマリで呼び出しを跨いだ引数→戻り値の流れも扱う。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "mas-sema-apply",
+   "破壊的変換"
+  ]
+ },
+ {
+  "name": "アフィン所有権",
+  "category": "解析規則",
+  "summary": "構造体・Option<構造体> は高々 1 回だけ移動できる",
+  "detail": "整数・bool・Chan ハンドル・共有参照は Copy。構造体は所有値で、移動後は使えない。複製は .clone() で明示する。",
+  "constraints": "暗黙のコピーは禁止。",
+  "remedy": "",
+  "aliases": [
+   "affine",
+   "所有権",
+   "move",
+   "Affine ownership"
+  ]
+ },
+ {
+  "name": "fn",
+  "category": "キーワード",
+  "summary": "関数定義（隠し引数 __parent_reg / __ctx が自動挿入される）",
+  "detail": "C では `T f(FasconRegion* __parent_reg, FasconCtx* __ctx, ...)` になる。ライフタイム・リージョン・アロケータ引数は書かない。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "function",
+   "関数"
+  ]
+ },
+ {
+  "name": "let",
+  "category": "キーワード",
+  "summary": "変数束縛（強い更新）",
+  "detail": "`let mut` で可変。参照は束縛できない（F0515）。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "束縛"
+  ]
+ },
+ {
+  "name": "match",
+  "category": "キーワード",
+  "summary": "分岐（和集合ルールで解析）",
+  "detail": "整数・bool・Option（Some(x) / None）・`_` パターン。網羅的でなければならない。Some(x) の x はスクルーティニーの別名で、x を移動すると元の値も移動する。",
+  "constraints": "match ガードは未対応。",
+  "remedy": "",
+  "aliases": [
+   "分岐"
+  ]
+ },
+ {
+  "name": "loop",
+  "category": "キーワード",
+  "summary": "無限ループ（反復回数は有界でない）",
+  "detail": "ループ内の割り当てが外側へ昇格すると F0810。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "while"
+  ]
+ },
+ {
+  "name": "for",
+  "category": "キーワード",
+  "summary": "範囲ループ `for i in a..b`",
+  "detail": "a, b が整数リテラルなら有界ループとして扱い、外側への昇格を許可する（F0810 にならない）。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "range"
+  ]
+ },
+ {
+  "name": "return",
+  "category": "キーワード",
+  "summary": "早期 return（直前に fascon_region_cleanup を強制挿入）",
+  "detail": "戻り値は __parent_reg に確保済みなので、Call リージョンを解放しても生き残る。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": []
+ },
+ {
+  "name": "struct",
+  "category": "キーワード",
+  "summary": "構造体（リージョンに確保される所有値）",
+  "detail": "Process/Kernel/Task/転送リージョンへ割り当てられる型は先頭メンバに _Alignas(FASCON_CACHE_LINE) が付き、sizeof がキャッシュライン長の倍数になる。",
+  "constraints": "自己参照フィールドは Option<自分> にする。参照フィールドは不可。",
+  "remedy": "",
+  "aliases": [
+   "構造体"
+  ]
+ },
+ {
+  "name": "static",
+  "category": "キーワード",
+  "summary": "Kernel リージョンの不変データ",
+  "detail": "整数・bool・構造体リテラル・chan(N) を初期化子に書ける。`const` も同義。",
+  "constraints": "static mut は禁止。static から移動するには .clone()。",
+  "remedy": "",
+  "aliases": [
+   "const"
+  ]
+ },
+ {
+  "name": "async",
+  "category": "キーワード",
+  "summary": "非同期関数（Task リージョン）",
+  "detail": "C では第三引数 __task_reg を持つ。`.await` / `block_on` で呼ぶ。v0.1.0 の await は同期実行。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "await",
+   ".await"
+  ]
+ },
+ {
+  "name": "spawn",
+  "category": "キーワード",
+  "summary": "スレッド生成 `spawn { ... }`（move キャプチャ）",
+  "detail": "本体が使う外側の変数は所有権ごと移動し、Promoted(Process) の転送リージョン経由で新スレッドの Thread リージョンへ養子縁組される。整数・Chan はコピー。",
+  "constraints": "参照引数のキャプチャは F0808。移動後の再利用は F0382。",
+  "remedy": "",
+  "aliases": [
+   "thread",
+   "スレッド"
+  ]
+ },
+ {
+  "name": "volatile_bypass",
+  "category": "キーワード",
+  "summary": "物理アドレス直接アクセス区間（リージョン解析から完全に隔離・免除）",
+  "detail": "APIC や UART などの MMIO を mmio_read*/mmio_write* で読み書きする。C では FASCON_BYPASS_ENTER/EXIT（バリア）で囲まれ、各アクセスは volatile + I/O バリア（AArch64: dmb oshst/oshld、RISC-V: fence w,o / i,r）付き。",
+  "constraints": "中では割り当て・移動・ユーザー関数呼び出し・チャネル操作は禁止（F0811）。",
+  "remedy": "",
+  "aliases": [
+   "bypass",
+   "MMIO",
+   "unsafe"
+  ]
+ },
+ {
+  "name": "#[isr]",
+  "category": "キーワード",
+  "summary": "割り込みハンドラ属性",
+  "detail": "C では `void fascon_isr_名前(void)` になり、BSP の割り込みベクタから呼ぶ。中の割り当ては Isr リージョン。",
+  "constraints": "引数・戻り値・async は不可。spawn/send/recv/await は不可（F0901）。",
+  "remedy": "",
+  "aliases": [
+   "isr",
+   "interrupt"
+  ]
+ },
+ {
+  "name": "Some / None",
+  "category": "キーワード",
+  "summary": "Option の値",
+  "detail": "Option<構造体> は C ではヌル許容ポインタ、Option<整数> は {is_some, value} 構造体。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "Option",
+   "Some",
+   "None"
+  ]
+ },
+ {
+  "name": "chan",
+  "category": "カーネル拡張（1.0）",
+  "summary": "コアの間で値を受け渡すチャネル（Fascon 1.0 の SMP 拡張）",
+  "detail": "`chan work: own Packet[8];` はロックフリーのリングバッファ（容量は 2 の累乗）。`work.send(値)` は値を移動して入れる（満杯なら空くまで待つ。送った変数はもう使えない: F0382）、`work.recv()` は `Option`（空なら None）、`work.recv_wait()` は値が来るまで待つ。`spawn_on` を使わないプログラムでも 1 コアで動く。共有の gc_arena の Id を運べるチャネルは、まだ受け取られていない要素も GC の根になる。`chan` は予約語ではなく、0.1 専用の `chan::` 構文とは別物。",
+  "constraints": "F2615: 容量が 2 の累乗（2〜65536）でない、要素が `own T` でも解放の要らない値でもない。F0515: 参照や関数ポインタは要素にできない（別のコアへ渡せない）。F2603: マルチコアでは `critical` の中で `send` / `recv_wait`（待つ操作）を使えない。F2803: ユーザープログラムでは使えない。",
+  "remedy": "",
+  "aliases": [
+   "チャネル",
+   "channel",
+   "send",
+   "recv",
+   "recv_wait"
+  ]
+ },
+ {
+  "name": "send",
+  "category": "組み込み関数",
+  "summary": "`ch.send(v)` 所有権ごと送信",
+  "detail": "構造体は転送リージョンと一緒に送られる（送信後 v は使えない）。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "送信"
+  ]
+ },
+ {
+  "name": "recv",
+  "category": "組み込み関数",
+  "summary": "`ch.recv()` 受信（ブロック）",
+  "detail": "受け取った転送リージョンは受信変数のリージョンへ養子縁組される。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "受信"
+  ]
+ },
+ {
+  "name": "clone",
+  "category": "組み込み関数",
+  "summary": "`.clone()` 明示的な深い複製",
+  "detail": "割り当て先は複製の使われ方から推論される（スレッドへ送るなら Process）。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "複製"
+  ]
+ },
+ {
+  "name": "block_on",
+  "category": "組み込み関数",
+  "summary": "`block_on(f(..))` 同期コードから async fn を実行",
+  "detail": "Task リージョンを作り、終了時に一括回収する。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": []
+ },
+ {
+  "name": "print_int / print_str",
+  "category": "組み込み関数",
+  "summary": "整数・文字列リテラルの出力",
+  "detail": "fascon_plat_print（BSP）経由。libc 非依存。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "print_int",
+   "print_str",
+   "出力"
+  ]
+ },
+ {
+  "name": "panic",
+  "category": "組み込み関数",
+  "summary": "`panic(\"..\")` 安全停止",
+  "detail": "fascon_plat_kernel_panic(FASCON_PANIC_USER) を呼ぶ。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": []
+ },
+ {
+  "name": "mmio_read / mmio_write",
+  "category": "組み込み関数",
+  "summary": "`mmio_read32(addr)` / `mmio_write32(addr, v)`（8/16/32/64）",
+  "detail": "volatile アクセス + アーキテクチャ別 I/O バリア。",
+  "constraints": "volatile_bypass 内でのみ使える（F0811）。",
+  "remedy": "",
+  "aliases": [
+   "mmio_read32",
+   "mmio_write32",
+   "mmio_read8",
+   "mmio_write8",
+   "mmio_read64",
+   "mmio_write64"
+  ]
+ },
+ {
+  "name": "fence / compiler_fence",
+  "category": "組み込み関数",
+  "summary": "ハードウェア全順序フェンス / コンパイラバリア",
+  "detail": "fence(): mfence / dmb ish / fence rw,rw。compiler_fence(): asm volatile(\"\" ::: \"memory\")。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "fence",
+   "compiler_fence"
+  ]
+ },
+ {
+  "name": "cpu_id / cpu_relax",
+  "category": "組み込み関数",
+  "summary": "現在の CPU 番号 / スピン待ちヒント（pause / yield）",
+  "detail": "",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "cpu_id",
+   "cpu_relax"
+  ]
+ },
+ {
+  "name": "整数型",
+  "category": "型",
+  "summary": "i8 i16 i32 i64 isize u8 u16 u32 u64 usize",
+  "detail": "演算は検査付き（溢れ・ゼロ除算・範囲外シフトは安全にパニック）。C の未定義動作を生成しない。整数リテラルの型は使われ方から推論（既定 i32）。",
+  "constraints": "浮動小数点は v0.1.0 未対応。",
+  "remedy": "",
+  "aliases": [
+   "i64",
+   "u32",
+   "usize",
+   "int",
+   "Integer types"
+  ]
+ },
+ {
+  "name": "Option<T>",
+  "category": "型",
+  "summary": "値があるかもしれない型",
+  "detail": "",
+  "constraints": "入れ子の Option は未対応。",
+  "remedy": "",
+  "aliases": [
+   "Option"
+  ]
+ },
+ {
+  "name": "Chan<T>",
+  "category": "型",
+  "summary": "チャネルハンドル（Copy）",
+  "detail": "",
+  "constraints": "参照は送れない。",
+  "remedy": "",
+  "aliases": [
+   "Chan"
+  ]
+ },
+ {
+  "name": "キャッシュラインアライメント",
+  "category": "ハードウェア協調",
+  "summary": "alignas(64) / パディングによる偽共有の排除",
+  "detail": "別 CPU が同じ 64B ライン上の別変数を高頻度で書くと、ロックフリーでもラインの無効化・再転送でバスが飽和する。codegen.rs は Process / Kernel / Task / 転送リージョン向けの構造体の先頭メンバに _Alignas(FASCON_CACHE_LINE) を付け、sizeof をライン長の倍数へパディングする。ランタイムの CPU ごとの構造体・CAS リスト先頭・ロックも各々専用ラインに置く。",
+  "constraints": "Apple M 系や Intel の隣接ラインプリフェッチを考慮する場合は `--cache-line 128`。Cortex-M7/R5 は 32B。",
+  "remedy": "",
+  "aliases": [
+   "false sharing",
+   "偽共有",
+   "alignas",
+   "cache line",
+   "Cache-line alignment"
+  ]
+ },
+ {
+  "name": "メモリバリア",
+  "category": "ハードウェア協調",
+  "summary": "コンパイル時と CPU 実行時の並べ替え防止",
+  "detail": "生成コードは fascon_region_cleanup の前後に FASCON_BOUNDARY_FENCE（asm volatile(\"\" : : \"r\"(reg) : \"memory\")）を置き、GCC による cleanup の削除・リージョン内アクセスの並べ替えを禁止する。CPU 間の受け渡し（チャネル・CAS 返却リスト・転送リージョン）は acquire/release で可視性を保証する。`--barrier paranoid` で境界ごとにハードウェア全順序フェンス（mfence / dmb ish / fence rw,rw / __sync_synchronize）も挿入する。",
+  "constraints": "volatile だけでは CPU 間の順序は保証されない（ランタイムは原子命令 + 順序指定を使う）。",
+  "remedy": "",
+  "aliases": [
+   "barrier",
+   "フェンス",
+   "mfence",
+   "dmb",
+   "__sync_synchronize",
+   "volatile",
+   "Memory barriers"
+  ]
+ },
+ {
+  "name": "CAS 単方向リスト",
+  "category": "ハードウェア協調",
+  "summary": "他 CPU からのチャンク返却経路（Lock-Free）",
+  "detail": "チャンクの返却先が別 CPU のとき、返却先 CPU の remote-free リスト先頭へ CAS（Release）で push する。所有 CPU は swap(NULL, Acquire) で丸ごと取り出すので ABA 問題が起きない。リスト先頭は専用キャッシュラインに置き、スプリットロック（ライン跨ぎの LOCK 命令によるバスロック）も起こさない。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "lock-free",
+   "CAS",
+   "remote free",
+   "CAS singly linked list"
+  ]
+ },
+ {
+  "name": "遅延回収",
+  "category": "ハードウェア協調",
+  "summary": "ISR からの返却は通常コンテキスト復帰時に回収（Deferred Reclamation）",
+  "detail": "ISR からの返却は CPU ローカル・ネスト深さごとの SPSC リングに積む。同一 CPU 上の割り込みとの同期はコンパイラバリアだけで十分なので、割り込み経路で LOCK 接頭辞付き命令やハードウェアフェンスを一切使わない（割り込み応答遅延を悪化させない）。回収は通常コンテキストの安全点（fascon_rt_poll / region_cleanup）で行う。",
+  "constraints": "リング満杯は FASCON_PANIC_DEFER_FULL。",
+  "remedy": "",
+  "aliases": [
+   "deferred reclamation",
+   "SPSC",
+   "ISR 返却",
+   "Deferred reclamation"
+  ]
+ },
+ {
+  "name": "Isr プール配置",
+  "category": "ハードウェア協調",
+  "summary": "Isr リージョンを TCM / スクラッチパッド / キャッシュロック番地へ固定",
+  "detail": "`fascon gen-ld --board <名前>` がボードごとのリンカスクリプトを生成し、.fascon_isr セクションを CPU ごとの超高速 SRAM（Cortex-M7 DTCM、Cortex-R5 BTCM〔コアローカル別名〕、SiFive U74 L2 LIM 等）へ配置する。TCM の無い x86_64 / QEMU では通常 RAM に置き、起動時に事前フォールト・ウォームアップする（L1 常駐の保証はハードウェア上できない）。",
+  "constraints": "x86 には L1 キャッシュロックが存在しない。ARMv8-A の多くのコアも L1 ロックダウン非対応。",
+  "remedy": "",
+  "aliases": [
+   "TCM",
+   "scratchpad",
+   "SRAM",
+   "cache locking",
+   "リンカスクリプト",
+   ".ld",
+   "Isr pool placement"
+  ]
+ },
+ {
+  "name": "ページ固定",
+  "category": "ハードウェア協調",
+  "summary": "全メモリプールを起動時に物理メモリへ固定（Page Pinning / 恒等マップ）",
+  "detail": "mas-runtime のブートコードは 5 大リージョンの全プールを恒等マップ（仮想=物理）し、存在ビットを立てた大ページ（AArch64: 1GiB/2MiB ブロック、x86_64: 2MiB ページ）で事前に全マッピングする。デマンドページングが無いのでページフォルトは起きない。TLB ミスはハードウェアのページウォークで解決され例外にはならない（大ページで TLB ミス自体も最小化）。起動時に全プールへ書き込み（事前フォールト）も行う。",
+  "constraints": "AArch64 で MMU をオフにすると全データアクセスが Device-nGnRnE 扱いになり、排他ロード/ストア（CAS）とキャッシュが正しく動かないため、ランタイムは MMU オフ構成を拒否する。RISC-V は satp=Bare（MMU オフ）で安全に動作する。x86_64 のロングモードはページング必須なので恒等マップを使う。",
+  "remedy": "",
+  "aliases": [
+   "page pinning",
+   "identity mapping",
+   "恒等マップ",
+   "MMU",
+   "TLB",
+   "アイデンティティマッピング",
+   "Page pinning"
+  ]
+ },
+ {
+  "name": "ROM 起動",
+  "category": "ハードウェア協調",
+  "summary": "初期値付きデータをフラッシュに置き、リセット直後に RAM へ複写（LMA / VMA）",
+  "detail": "フラッシュから起動するマイコン（stm32h743-cm7 / qemu-mps2-an500）では、`fascon gen-ld` のリンカスクリプトが .fascon_kernel（static）と .data の初期値をフラッシュ（LMA）に、実行時の番地を RAM（VMA）に置く。CPU0 は最初の C 関数で <ボード>_board.h の fascon_board_init_sections() を呼び、フラッシュから RAM へ複写して .bss をゼロ化する。Cortex-M のベクタ表はフラッシュ先頭（初期 SP・リセットハンドラ）、Cortex-R5 は VBAR が無いので ATCM の 0x0 に置く（どちらもリンク時に ASSERT で検査）。セグメントは PHDRS で R+X（コード）と R+W（データ）に分け、RWX のセグメントを作らない。",
+  "constraints": "複写が終わるまで .data / .bss / static を使わない（割り込みも禁止のまま）。",
+  "remedy": "",
+  "aliases": [
+   "ROM boot",
+   "LMA",
+   "VMA",
+   "フラッシュ",
+   "fascon_board_init_sections",
+   "ベクタ表",
+   "vector table",
+   "PHDRS"
+  ]
+ },
+ {
+  "name": "fascon_plat_kernel_panic",
+  "category": "ハードウェア協調",
+  "summary": "安全停止フック（メモリ完全枯渇など）",
+  "detail": "メモリ完全枯渇（0x0001）、Isr 容量超過（0x0900）、整数溢れ（0x000B）などで必ず呼ばれ、戻らない。BSP が実装する。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "panic",
+   "パニック",
+   "OOM"
+  ]
+ },
+ {
+  "name": "O(1) バンプ割り当て",
+  "category": "ハードウェア協調",
+  "summary": "ロック不要の CPU ローカル高速経路",
+  "detail": "割り当ては bump ポインタを進めるだけ（インライン展開）。次のキャッシュラインを書き込み意図でプリフェッチする。チャンクは CPU ローカルな事前確保プールから取得し、空なら他 CPU 返却リスト → グローバル予備（スピンロック）の順で補充、枯渇時はパニック。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "bump",
+   "バンプ",
+   "allocator",
+   "O(1) bump allocation"
+  ]
+ },
+ {
+  "name": "fascon build",
+  "category": "CLI",
+  "summary": "C コード生成（build/<名前>.fascon.c）",
+  "detail": "入力が .c でも元ファイルは絶対に上書きしない。fascon_rt.h も同じ場所へ出力。",
+  "constraints": "",
+  "remedy": "`fascon build main.rs --cache-line 64 --barrier strict`",
+  "aliases": [
+   "build"
+  ]
+ },
+ {
+  "name": "fascon explain",
+  "category": "CLI",
+  "summary": "根本原因タイムライン・自動修正コード・数理的解説",
+  "detail": "",
+  "constraints": "",
+  "remedy": "`fascon explain main.rs --line 15`",
+  "aliases": [
+   "explain"
+  ]
+ },
+ {
+  "name": "fascon gen-ld",
+  "category": "CLI",
+  "summary": "ボード用リンカスクリプト生成",
+  "detail": "リンカスクリプト（.ld）と <ボード>_board.h（定数・fascon_board_init_sections()）を出力し、そのボードで必須の C コンパイラフラグを表示する（例: x86_64 は -mno-red-zone、AArch64 は -mno-outline-atomics）。",
+  "constraints": "",
+  "remedy": "`fascon gen-ld --list` / `fascon gen-ld --board stm32h743-cm7`",
+  "aliases": [
+   "gen-ld",
+   "linker script"
+  ]
+ },
+ {
+  "name": "fascon lsp",
+  "category": "CLI",
+  "summary": "Language Server（VS Code 以外のエディタでも利用可）",
+  "detail": "Neovim / Emacs / Sublime Text / Helix / JetBrains の LSP クライアントから `fascon lsp` を起動する。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "lsp",
+   "language server"
+  ]
+ },
+ {
+  "name": "arena",
+  "category": "アリーナ・世代（1.0）",
+  "summary": "型安全な静的リージョン `arena 名前: T[N];`（`@` は省略可）",
+  "detail": "容量 N（1〜16,777,216）の表を Kernel リージョン（.bss）に置く。要素は値型でインラインに並び（16 バイト境界のスロット）、スロットごとに 32 ビットの世代タグを持つ。添字のビット数 K = ceil(log2(N)) はコンパイラが決め、残り 32-K ビットが世代になる（容量 65,536 なら 16 | 16）。表は 2^K スロット + 番兵 1。1 スロットは 2^(32-K)-1 回まで再利用され、使い切ると引退する（世代は一周しない）ので、アリーナ全体ではおよそ 21〜43 億回の確保まで使える。OS のプロセス表・ファイル表などを、ポインタではなく Id で相互リンクするための器。",
+  "constraints": "要素に参照・配列は直接置けない（配列は構造体のフィールドに）。own T はフィールドとして持てる（free で一緒に解放）。容量は 2 の累乗にすると詰め物のスロットが出ない。",
+  "remedy": "さらに大きな表は複数のアリーナに分ける（添字は最大 24 ビット）。",
+  "aliases": [
+   "@process",
+   "アリーナ",
+   "multi-arena",
+   "マルチアリーナ",
+   "静的リージョン"
+  ]
+ },
+ {
+  "aliases": [
+   "Id",
+   "ハンドル",
+   "handle",
+   "cross-index",
+   "クロス・インデックス型",
+   "着色",
+   "coloring"
+  ],
+  "category": "アリーナ・世代（1.0）",
+  "constraints": "整数から Id は作れない（外部の値は validate で検証）。",
+  "detail": "`Id<@file>` と `Id<@process>` は別の型で、混ぜると F2101。コピーできる値なので構造体に何個でも保存でき、循環グラフ（親子・兄弟・逆リンク）を参照なしで表せる。`Option<Id<@a>>` は 0 を None に使うので 4 バイトのまま。",
+  "name": "Id<@a>",
+  "remedy": "`.index()` / `.generation()` / `.raw()` で中身を見られる。",
+  "summary": "アリーナに着色されたハンドル（32 ビット: 世代 32-K + 添字 K、K は容量から決まる）"
+ },
+ {
+  "name": "世代タグ",
+  "category": "アリーナ・世代（1.0）",
+  "summary": "ABA 問題を防ぐ再利用カウンタ",
+  "detail": "free でスロットの世代を +1 する。古い Id は世代が一致しないので、同じスロットが新しい物に再利用されていても None（または @a[id] なら安全な停止）になる。判定は添字の範囲 1 回 + 世代 1 回の比較だけ。",
+  "constraints": "1 スロットの世代は 65535 回まで。使い切ったスロットは引退し二度と配らない（ABA を確率ではなく構造で排除）。",
+  "remedy": "寿命の長いカーネルでは容量に余裕を持たせる（FIFO 再利用で全スロットに均等に分散）。",
+  "aliases": [
+   "generation tag",
+   "generation",
+   "ABA",
+   "世代",
+   "再利用"
+  ]
+ },
+ {
+  "aliases": [
+   "get",
+   "get_mut",
+   "lookup",
+   "ルックアップ",
+   "if let"
+  ],
+  "category": "アリーナ・世代（1.0）",
+  "constraints": "参照が生きている間、同じアリーナのスロットを触る（解放する）関数は呼べない: F2502。効果は呼び出し先まで推移的に計算される。",
+  "detail": "`if let Some(p) = @process.get_mut(pid) { p.state = 1; }`。p は第二級参照で、ブロックの外へ出られない。古い Id なら None の腕へ。",
+  "name": "@a.get / @a.get_mut",
+  "remedy": "必要な値をローカルへ写してからブロックを出て操作する。",
+  "summary": "一時的なルックアップ（if let / match の中だけの参照）"
+ },
+ {
+  "aliases": [
+   "index",
+   "スロット",
+   "slot",
+   "生存証明",
+   "liveness proof"
+  ],
+  "category": "アリーナ・世代（1.0）",
+  "constraints": "同じ呼び出しに同じアリーナの &mut を 2 つ渡すと F0499（Id が同じかもしれない）。",
+  "detail": "フィールドの読み書き・`&mut @a[id]` の受け渡しに使う。alloc の直後・成功したルックアップの中・一度検査した後など、生存を静的に証明できる場所では世代検査を省く（`fascon regions` で件数を確認）。",
+  "name": "@a[id]",
+  "remedy": "片方の値をローカルへ写すか、呼び出しを分ける。",
+  "summary": "検査付きのスロット参照（古い Id なら安全に停止）"
+ },
+ {
+  "aliases": [
+   "alloc",
+   "free",
+   "remove",
+   "validate",
+   "contains",
+   "for id in"
+  ],
+  "category": "アリーナ・世代（1.0）",
+  "constraints": "再利用は FIFO（解放した順）。",
+  "detail": "alloc(v) → Option<Id>（満杯なら None）。free(id) → bool（own フィールドも解放し、世代 +1）。remove(id) → Option<T>（所有権ごと取り出す）。validate(raw: u32) → Option<Id>（システムコールなど外から来た値を安全に Id へ戻す）。`for id in @a { }` で生存スロットだけを回れる（本体で free してよい）。",
+  "name": "@a.alloc / free / remove / validate",
+  "remedy": "",
+  "summary": "スロットの確保・解放・取り出し・外部値の検証"
+ },
+ {
+  "name": "own T",
+  "category": "所有ツリー（1.0）",
+  "summary": "Move 専用の所有参照（世界に 1 つだけの所有者）",
+  "detail": "`own Window { .. }` は所有リージョンを 1 つ作る。コピーも共有もできず、移動だけ。スコープ終了・上書き・`drop(x)`・アリーナの free で、子孫ごと一括解放される。参照のように引数へ `&w` で貸せる。中身は構造体でなくてもよい: `struct MyContext { buffer: own i32, size: i32 }` / `own [u8; 4096]` / `own Str` / `own Option<own Node>`。構造体でない own の中身は `*` で読み書きする（`*ctx.buffer += 1;`）。own フィールドを持つ構造体も Move 専用で、移動・スコープ終了・上書きのたびに中の own が連動して解放される（二重解放は F0382 / F0507 で静的に起きない）。",
+  "constraints": "own の中身は値の型（構造体・整数・bool・Str・Id・配列・Option）。参照・`()`・`own own T`・関数ポインタは不可（F0515 / F2301）。own フィールドから子を移動では取り出せない（F0507）。`*b` からコピーできない値を取り出すことも不可（F0507）。",
+  "remedy": "取り外せる子は `Option<own T>` にして `.take()` を使う。own ごと差し替えるときは `ctx.buffer = own 7;`、中身だけ書くときは `*ctx.buffer = 7;`。",
+  "aliases": [
+   "own",
+   "所有参照",
+   "Box",
+   "Move-only",
+   "ムーブ",
+   "own i32",
+   "own フィールド",
+   "own field",
+   "*"
+  ]
+ },
+ {
+  "name": "所有リージョン",
+  "category": "所有ツリー（1.0）",
+  "summary": "own の値が住む箱。構築式の子は同じ箱へ詰める",
+  "detail": "`own Window { ok: own Button {..}, cancel: own Button {..} }` は Window とボタン 2 つを 1 回の確保で 1 つのブロックに詰める（キャッシュ上も連続）。閉じると 1 回の解放で全部消える。後から差し替えた子は独立した箱になり、差し替え時に即解放される。",
+  "constraints": "Option<own T> の中身は詰めない（取り外せるため）。1 つの箱は 64 KiB まで。",
+  "remedy": "`fascon regions` で詰めた子の数を確認できる。",
+  "aliases": [
+   "own region",
+   "packing",
+   "詰め込み",
+   "Bulk Free",
+   "一括解放",
+   "packed"
+  ]
+ },
+ {
+  "name": ".take() / drop()",
+  "category": "所有ツリー（1.0）",
+  "summary": "Option から所有権ごと取り出す / その場で解放する",
+  "detail": "`desk.win.take()` は中身を返して None を残す。`drop(x)` は x の所有リージョンをその場で一括解放する。",
+  "constraints": "take は書き換え可能な場所（mut 変数・&mut 引数・スロット）に限る。",
+  "remedy": "",
+  "aliases": [
+   "take",
+   "drop"
+  ]
+ },
+ {
+  "name": "mmio",
+  "category": "固定番地リージョン（1.0）",
+  "summary": "固定番地リージョン `mmio @名前: [T; N] at 番地;`",
+  "detail": "物理番地の範囲を型付きの配列（1 次元・2 次元）として宣言する。添字は範囲が証明できれば検査なし、定数の範囲外はコンパイル時エラー（F2201）、それ以外は実行時に検査。デバイスの既定は volatile + I/O バリア（Linux の readl / writel と同じ順序）。",
+  "constraints": "要素は u8〜u64。重なる 2 つのリージョンは F2203。参照（&@fb[..]）は作れない。",
+  "remedy": "生ポインタ・unsafe は不要。volatile_bypass も旧来の互換用。",
+  "aliases": [
+   "MMIO",
+   "固定番地",
+   "VRAM",
+   "fixed address",
+   "Memory-Mapped I/O"
+  ]
+ },
+ {
+  "name": "#[framebuffer]",
+  "category": "固定番地リージョン（1.0）",
+  "summary": "通常メモリとして扱うフレームバッファ",
+  "detail": "volatile を付けないので、全画面ループは GCC / Clang が NEON などでベクトル化できる（生ポインタと同じ機械語）。BSP は生成 C の MMIO 表を読み、QEMU の ramfb を設定し、ページを非キャッシュで写像する。",
+  "constraints": "画素は 32 ビット（XRGB8888）。",
+  "remedy": "`@fb.fill_rect(x, y, w, h, c)` と `@fb.put(x, y, c)` は画面外をクリップする。",
+  "aliases": [
+   "framebuffer",
+   "フレームバッファ",
+   "fill_rect",
+   "put",
+   "ramfb"
+  ]
+ },
+ {
+  "name": "Str",
+  "category": "型",
+  "summary": "文字列リテラル（Kernel リージョンに置かれる不変の文字列）",
+  "detail": "どこにでも保存できる（寿命は永久）。`.len()`、`.byte(i)`、`==`。",
+  "constraints": "実行時に文字列は作れない（書式化は自前で数字を描く）。",
+  "remedy": "",
+  "aliases": [
+   "str",
+   "文字列"
+  ]
+ },
+ {
+  "name": "[T; N]",
+  "category": "型",
+  "summary": "固定長配列（値型・インライン）",
+  "detail": "`[None; 16]`、`[1, 2, 3]`。添字は検査付きで、`for i in 0..N` の中など範囲が証明できる所では検査を省く。",
+  "constraints": "値渡し・戻り値にはできない（F2040）: `&[T; N]` で渡す。",
+  "remedy": "",
+  "aliases": [
+   "array",
+   "配列"
+  ]
+ },
+ {
+  "name": "type 別名<@a: T>",
+  "category": "型",
+  "summary": "アリーナ引数と種別境界を持つ型の別名",
+  "detail": "`type FileId<@a: File> = Id<@a>;` → `FileId<@file>`。境界 `@a: File` は要素型が File のアリーナだけを許す（違反は F2102）。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "type",
+   "alias",
+   "kind bound",
+   "種別境界",
+   "FileId",
+   "ProcessId"
+  ]
+ },
+ {
+  "name": "if let",
+  "category": "キーワード",
+  "summary": "1 つのパターンだけを試す match",
+  "detail": "場所（変数・フィールド）に対して使うと束縛は参照（借用）になり、値（関数の結果・take()）に対して使うと所有権ごと受け取る。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "iflet"
+  ]
+ },
+ {
+  "name": "生存ビットマップ",
+  "category": "アリーナ・世代（1.0）",
+  "summary": "1 スロット 1 ビットの生存表（64 スロット = uint64_t 1 語）",
+  "detail": "alloc でビットを立て、free / remove で落とす。一般の `for id in @a` は 1 語を読んで次の生存スロットを ctz（x86-64: TZCNT / AArch64: RBIT + CLZ）で求めるので、スロットごとの分岐も生存印の読み出しもない。条件付きの個数・最小 / 最大は、各スロットの生存ビットを条件と AND したマスクで死んだスロットを外す。語がすべて 0 なら 64 スロットを読まずに飛ばす。",
+  "constraints": "65,536 スロットで 8 KiB。配列はほかの表と別の 128 バイト境界から始まる（SoA）。",
+  "remedy": "`fascon regions` でビットマップで回るループと、マスク付き集計の数を確認できる。",
+  "aliases": [
+   "live bitmap",
+   "bitmap",
+   "ビットマップ",
+   "ctz",
+   "tzcnt",
+   "rbit",
+   "clz"
+  ]
+ },
+ {
+  "name": "列",
+  "category": "アリーナ・世代（1.0）",
+  "summary": "`for id in @a` の集計が読む値だけを密に並べた、表の中の写し（集計の列・ビット列・鍵の列）",
+  "detail": "コンパイラは全関数の `for id in @a` の集計を調べ、集計ごとに列を表に足す（ソースに注釈は要らない）。総和・条件付き総和 → 集計の列 agg[i] = 条件 ? 値 : 0（u64 の値は 8 B、32 ビット以下は 4 B / スロット）。条件付きの個数 → ビット列（i ビット目 = 生存 && 条件。個数は 64 スロットに popcount 1 回）。最小 / 最大の選択 → 鍵の列 key[i] = 生存 && 条件 ? enc(値) : NONE（走査は符号付き最小だけ）。走査はスロットを読まず列だけを読むので、32 B のタスクでも 1 タスクあたり 1 ビット〜8 B しか運ばない。列はスロットの写しで、alloc・free / remove・Id での書き込み（列が読むフィールドに届くとき）・get_mut の借用の終わり・&mut @a[id] を渡した呼び出しの直後に、書き込みが届く列だけを作り直す。借用中は F2502 がそのアリーナの読み出しを禁止しているので、古い写しは誰にも見えない。",
+  "constraints": "列 1 本につき 4〜8 B × 2^K（ビット列は 2^K ビット）を表に足す（`fascon regions` に一覧と合計が出る）。条件が外のローカル（関数の引数など）を読む集計と、64 ビットの `<=` / `>=` の選択は列にせず、1.0.0 の走査のまま。書き込みは届く列の数だけ遅くなる（列が読まないフィールドへの書き込みは何もしない）。",
+  "remedy": "`--columns off`（VS Code: 設定 fascon.columns、環境変数 FASCON_COLUMNS=off）で 1.0.0 と同じ表と走査に戻る。",
+  "aliases": [
+   "columns",
+   "column",
+   "--columns",
+   "集計の列",
+   "ビット列",
+   "鍵の列",
+   "aggregate column",
+   "key column",
+   "mirror",
+   "写し",
+   "SoA"
+  ]
+ },
+ {
+  "name": "#[repr(align(N))]",
+  "category": "型",
+  "summary": "構造体の整列を N バイト境界以上に上げる（N は 1〜4096 の 2 の累乗）",
+  "detail": "アリーナの要素なら各スロットが N バイト境界になる。N = 64 で 1 スロット 1 ライン、N = 128 で隣接ラインとも分かれ、別のコアが書くスロットどうしの偽共有がなくなる。表そのもの（管理情報・生存ビットマップ・世代・リンク・スロット）は指定がなくても 128 バイト境界ごとに分かれている。",
+  "constraints": "16 を超える整列の型は own の所有リージョン（16 バイト境界）に置けない（F2032）。小さなスロットに付けると表が大きくなり、走査で読むバイト数も増える。",
+  "remedy": "コアごとに書く表にだけ付ける。走査の速さが大事な表は 16 バイトのままにする。",
+  "aliases": [
+   "repr",
+   "align",
+   "alignas",
+   "整列",
+   "false sharing",
+   "偽共有",
+   "cache line",
+   "キャッシュライン"
+  ]
+ },
+ {
+  "name": "フレームリージョン",
+  "category": "所有ツリー（1.0）",
+  "summary": "どこへも移動しない own を、関数のスタックと同じ動きで置く場所",
+  "detail": "エスケープ解析で移動されないと分かった `let x = own T { .. }` は、ヒープの空きリストではなく事前に確保したフレームから、先頭ポインタを進めるだけで取る（比較 1 回と加算 1 回、インライン展開）。x のスコープが終わる所（break・continue・return を含む）で印まで戻す。ループの中でも周回ごとに戻るので伸びない。MMU やページテーブルには一切触らない。",
+  "constraints": "返す・構造体やアリーナへ入れる・値で渡す・drop する own はヒープのまま。フレームがあふれたときはヒープへ切り替わる（結果は同じ）。BSP のフレームは 1 MiB、PC 実行の既定は 64 KiB。",
+  "remedy": "`fascon regions` の「frame region」の行で、どの let がフレームに置かれたかを確認できる。",
+  "aliases": [
+   "frame",
+   "frame region",
+   "フレーム",
+   "escape analysis",
+   "エスケープ解析",
+   "bump",
+   "stack region"
+  ]
+ },
+ {
+  "name": "own_alloc(T)",
+  "category": "所有ツリー（1.0）",
+  "summary": "型名を引数に取る動的確保（ジェネリクスなし）: 0 で埋めた own T",
+  "detail": "`let data = own_alloc(Block);` は 0 で埋めた `own Block` を返す。own の子（Option でない own のフィールド。配列・値として埋め込んだ構造体の中も）も 0 で作り、同じ所有リージョンに詰める（確保 1 回・解放 1 回）。Option<own T> は None から始まる。どこへも移動しない let ならフレームリージョンから取る。スコープの終わりで自動的に解放される。",
+  "constraints": "引数は own が所有できる値の型（構造体・整数・bool・Str・Id・配列・Option。`own_alloc(i32)` / `own_alloc([u8; 4096])` も可。それ以外は F2301）。own の子が終わりなく続く型は不可（F2304: 戻る道は Option<own T> に）。16 バイトより大きな整列は不可（F2032）。",
+  "remedy": "",
+  "aliases": [
+   "own_alloc",
+   "own_alloc!",
+   "Box::new",
+   "動的確保",
+   "dynamic allocation",
+   "zeroed"
+  ]
+ },
+ {
+  "name": "コミット点",
+  "category": "アリーナ・世代（1.0）",
+  "summary": "ラッチ（遅延フォールト）を確かめて安全に止める場所",
+  "detail": "呼び出し・出力・MMIO・exit の直前と return の直前に置く。回数の決まったループ（`for i in a..b`・`for id in @a`）の中には置かず、出口で 1 回だけ確かめる（本体からジャンプが減り、ベクトル化できる形になる）。回数の決まらないループ（while・loop）では、ラッチを終了条件に混ぜてループの出口と同じ分岐にする。",
+  "constraints": "古い Id を読んだあと止まるまでに、回数の決まったループなら最後の周回まで進む（外へ影響の出る操作はその前で止まる）。",
+  "remedy": "止まった場所は `F20_COMMIT` に書かれたソースの位置で分かる。",
+  "aliases": [
+   "commit point",
+   "latch",
+   "ラッチ",
+   "F20_COMMIT",
+   "cbnz"
+  ]
+ },
+ {
+  "name": "F2101",
+  "category": "エラーコード",
+  "summary": "アリーナの色の不一致",
+  "detail": "ある アリーナの Id を、別のアリーナの添字・フィールドに使った。",
+  "constraints": "Id<@a> と Id<@b>（a ≠ b）は別の型。",
+  "remedy": "正しいアリーナから得た Id を使う。外部の値は validate で。",
+  "aliases": [
+   "色",
+   "colour",
+   "color"
+  ]
+ },
+ {
+  "name": "F2102",
+  "category": "エラーコード",
+  "summary": "種別境界の違反",
+  "detail": "`FileId<@a: File>` に File 以外を格納するアリーナを渡した。",
+  "constraints": "",
+  "remedy": "境界に合うアリーナを渡す。",
+  "aliases": []
+ },
+ {
+  "name": "F2103",
+  "category": "エラーコード",
+  "summary": "アリーナの宣言が不正（容量 1〜16,777,216・要素は値型で配列以外。bump_arena の要素は own を持てない）",
+  "detail": "アリーナの宣言の形が正しくない: 容量が 1〜16,777,216 の外（Id の添字は最大 24 ビット）、要素が値の型でない（`own T` や配列・関数ポインタを直接は要素にできない）、bump_arena の要素が own を含む（呼び出しリージョンの一括解放は own の解放処理を走らせない）。",
+  "constraints": "",
+  "remedy": "容量を範囲の中にする。own・配列・関数ポインタは構造体のフィールドに入れて、その構造体を要素にする。own を持つ値は bump_arena でなく `arena` に置く。",
+  "aliases": []
+ },
+ {
+  "name": "F2104",
+  "category": "エラーコード",
+  "summary": "アリーナ・リージョンの名前がどこにも宣言されていない（宣言の順序は自由: 後ろで宣言してもよい）",
+  "detail": "`@名前`・`Id<@名前>`・`for task` などで使ったアリーナの名前が見つからない、または MMIO リージョンやポートの名前を `Id` に使った（`Id` はアリーナだけを指す）。宣言の順番は自由なので、後ろで宣言してもよい。",
+  "constraints": "",
+  "remedy": "綴りを宣言と合わせるか、`arena 名前: 型[N];` を宣言する。",
+  "aliases": []
+ },
+ {
+  "name": "F2201",
+  "category": "エラーコード",
+  "summary": "固定番地リージョンの範囲外（コンパイル時に検出）",
+  "detail": "mmio・#[framebuffer] などの固定番地リージョンを、コンパイル時に決まる添字で範囲の外まで読み書きした。番地の外へ書くと、ほかのデバイスやメモリを壊すので、コンパイルの時点で止める（ふつうの配列なら F0608）。",
+  "constraints": "",
+  "remedy": "添字を直すか、クリップ付きの put / fill_rect を使う。",
+  "aliases": []
+ },
+ {
+  "name": "F2202",
+  "category": "エラーコード",
+  "summary": "MMIO の宣言が不正（型・整列・番地）",
+  "detail": "`mmio 名前: [u32; N] at 番地;` の形が正しくない: 型が整数の配列（1 次元か 2 次元、要素は u8〜u64）でない、番地が要素の大きさにそろっていない、範囲がアドレス空間に収まらない、または番地が 0。",
+  "constraints": "",
+  "remedy": "データシートの番地とレジスタの幅に合わせ、`[u32; N]` や `[[u32; W]; H]` で書く。",
+  "aliases": []
+ },
+ {
+  "name": "F2203",
+  "category": "エラーコード",
+  "summary": "MMIO リージョンの番地範囲が重なっている",
+  "detail": "2 つの MMIO リージョン（または 2 つのポート）の番地の範囲が重なっている。同じ物理メモリやレジスタを 2 つの名前で書けると、検査が意味を失う。",
+  "constraints": "",
+  "remedy": "範囲を分けるか、1 つのリージョンにまとめて添字で区別する。",
+  "aliases": []
+ },
+ {
+  "name": "F2204",
+  "category": "エラーコード",
+  "summary": "リージョンを値・参照として使った",
+  "detail": "`@a` そのものは値ではない。`@fb[y]`（行）も値ではない。",
+  "constraints": "",
+  "remedy": "`@a[id]`・`@a.alloc(..)`・`@fb[y][x]` のように使う。",
+  "aliases": []
+ },
+ {
+  "name": "F2301",
+  "category": "エラーコード",
+  "summary": "own が所有できない型に own を付けた（`()`・`own own T`・関数ポインタ）",
+  "detail": "own の中身は値の型（構造体・整数・bool・Str・Id・配列・Option）。`own own T` は 1 段で足り、関数ポインタはデータを持たないのでそのまま値として持つ。参照を own に入れるのは F0515（コールバックの中なら F0520）。",
+  "constraints": "",
+  "remedy": "`own T` か、ただの値にする。",
+  "aliases": []
+ },
+ {
+  "name": "F2302",
+  "category": "エラーコード",
+  "summary": "static に own を含む型を置いた",
+  "detail": "static に own を含む型を置いた。static は Kernel リージョンに置かれて不変なので、own を解放する時が来ない。",
+  "constraints": "",
+  "remedy": "own を持つ値はアリーナに置き、static には整数や Id を置く。",
+  "aliases": []
+ },
+ {
+  "name": "F2502",
+  "category": "エラーコード",
+  "summary": "アリーナ効果の衝突（参照が生きている間に同じアリーナを触る）",
+  "detail": "ルックアップ・&mut @a[id] の参照が有効な間に、そのアリーナのスロットを読む・書く・解放する関数（呼び出し先も含む）を呼んだ、または直接触った。関数ポインタ（コールバック）を通した呼び出しは、そこへ渡されうる関数すべての効果の和で検査し、衝突する関数を名指しする（`for id in tasks { f(&mut tasks[id]); }` の f に、tasks を free する関数が渡される場合など）。",
+  "constraints": "効果は呼び出しグラフ上の最小不動点として計算される（関数ポインタの候補も含む）。",
+  "remedy": "値をローカルへ写してからブロックの外で呼ぶ。",
+  "aliases": [
+   "効果",
+   "effect"
+  ]
+ },
+ {
+  "name": "F2900",
+  "category": "エラーコード",
+  "summary": "1.0 構文のファイルで 0.1 専用の機能（spawn / chan / async / #[isr]）を使った",
+  "detail": "このリリースは 2 エンジン構成: 1.0 構文（arena / own / mmio）を含むファイルは 1.0 エンジン、それ以外は 0.1 コアで解析する。",
+  "constraints": "",
+  "remedy": "スレッド・割り込みを使う部分は別ファイル（0.1 コア）に分ける。",
+  "aliases": []
+ },
+ {
+  "name": "F2030",
+  "category": "エラーコード",
+  "summary": "無限の大きさの構造体（自分を値として含む）",
+  "detail": "1.0 では構造体は値型でインラインに置かれる。",
+  "constraints": "",
+  "remedy": "`Option<own T>` で再帰する。",
+  "aliases": []
+ },
+ {
+  "name": "F2031",
+  "category": "エラーコード",
+  "summary": "`#[repr(align(N))]` の形か N が正しくない",
+  "detail": "使える repr は `#[repr(align(N))]` だけで、N は 1〜4096 の 2 の累乗。構造体に付けたほかの属性は無視される（警告）。",
+  "constraints": "",
+  "remedy": "`#[repr(align(64))]` や `#[repr(align(128))]` のように書く。",
+  "aliases": []
+ },
+ {
+  "name": "F2032",
+  "category": "エラーコード",
+  "summary": "16 バイトを超える整列の型を own に入れた",
+  "detail": "own の所有リージョン（とフレームリージョン）は 16 バイト境界なので、`#[repr(align(64))]` の構造体（を値として含む型）をそこに置くと整列が保てない。",
+  "constraints": "",
+  "remedy": "アリーナの要素か、ふつうの値（ローカル変数・構造体のフィールド）として使う。",
+  "aliases": []
+ },
+ {
+  "name": "F2040",
+  "category": "エラーコード",
+  "summary": "配列の値渡し・値返し",
+  "detail": "配列を値渡しの引数にした、配列を戻り値にした、または長さ 0 の配列を使った。大きな配列の暗黙のコピーを避けるため。",
+  "constraints": "",
+  "remedy": "`&[T; N]` で渡すか構造体に入れて返す。",
+  "aliases": []
+ },
+ {
+  "name": "fn(T) -> R",
+  "category": "型",
+  "summary": "関数ポインタ（コールバック）の型。関数の名前を値として使うと作られる",
+  "detail": "`fn for_each(a: &mut [i32; 4], f: fn(&mut i32)) { for i in 0..4 { f(&mut a[i]); } }` と書き、`for_each(&mut a, inc)` のように関数の名前を渡す。引数の位置なので参照型 `&T` / `&mut T` を書ける（第二級参照のまま: 呼び出しの間だけ生きる）。構造体のフィールド（`on_click: fn(&mut Button)`）・ローカル・static の表（`static OPS: [fn(i32) -> i32; 2] = [inc, dbl];`）・`Option<fn(..)>` に置ける。フィールドの関数ポインタは `(h.on_click)(&mut b)` で呼ぶ。C では typedef した関数ポインタ（`fsc_fnN`）になり、データは持たない（コピーできる）。",
+  "constraints": "戻り値に参照は書けない（F0515）。配列は値渡し・値返しできない（F2040）。型は引数の型・参照の可変性・戻り値まで一致が必要（F0308）。参照を受け取るコールバックは stack_only（F0520）。呼び出しの効果は渡されうる関数すべての和（F2502）。`main` と組み込みは値にできない。",
+  "remedy": "コールバックに状態を持たせたいときは、状態を `&mut` 引数で一緒に渡す（クロージャは無い）。",
+  "aliases": [
+   "fn",
+   "関数ポインタ",
+   "function pointer",
+   "callback",
+   "コールバック",
+   "高階関数",
+   "higher-order function",
+   "for_each"
+  ]
+ },
+ {
+  "name": "stack_only",
+  "category": "型",
+  "summary": "コールバックが受け取った参照をスタックフレームの中でだけ消費するという性質（F0520 で保証）",
+  "detail": "参照の引数を持つ関数を値として使う（コールバックにする）と、その関数は stack_only でなければならない: 参照を通して読み書きし、参照引数としてさらに渡すのはよいが、アリーナ・static・MMIO・呼び出し元の場所（別の参照の先）・own の所有リージョン・値渡しの引数へ入れたり、戻り値で返したりしない。参照から作った参照（`&mut x.f`・場所の束縛）、参照を包んだ値（`Some(x)`・構造体・配列）、参照を束縛したローカルも追う。呼び出し先の関数を通る道も、関数ごとの要約（呼び出しグラフ上の最小不動点）で追う。",
+  "constraints": "第二級参照の規則（F0515）があるので、型の通るプログラムはもともと stack_only。F0520 は、そこから外れる書き方をコールバックの文脈で根本原因タイムライン付きで指摘する（同じ場所の F0515 / F0308 をまとめる）。",
+  "remedy": "値を残したいなら中身を写す（`*x` / `x.clone()`）か、相手を `Id`・`own` で持つ。",
+  "aliases": [
+   "pure",
+   "stack only",
+   "エスケープ解析",
+   "escape analysis",
+   "F0520"
+  ]
+ },
+ {
+  "name": "F0520",
+  "category": "エラーコード",
+  "summary": "参照のエスケープ制約違反: コールバックが受け取った参照を外へ逃がした",
+  "detail": "高階関数が 1 回の呼び出しの間だけ貸した第二級参照（`f(&mut a[i])`）を、コールバックが呼び出しより長く生きる場所（アリーナ・static・MMIO・呼び出し元の場所・own・値渡しの引数）へ代入・格納した、または返した。タイムラインは「どの高階関数へ渡されたか → どの参照引数か → 包む・束縛する・別の関数へ渡す → 逃げ先」の順に並ぶ。",
+  "constraints": "コールバック = 参照の引数を持ち、値として使われた関数。",
+  "remedy": "中身を写す（`*x` / `x.clone()`）か、`Id`・`own` で持つ。`fascon explain <file> --code F0520` で道筋と直し方を表示。",
+  "aliases": [
+   "escape",
+   "エスケープ",
+   "callback escape",
+   "stack_only"
+  ]
+ },
+ {
+  "name": "F0560",
+  "category": "エラーコード",
+  "summary": "構造体リテラルに、その構造体に無いフィールドを書いた",
+  "detail": "構造体リテラル `S { .. }` に、宣言に無いフィールドを書いた。",
+  "constraints": "",
+  "remedy": "フィールド名の綴りを宣言と合わせる。",
+  "aliases": [
+   "フィールド",
+   "field",
+   "struct literal"
+  ]
+ },
+ {
+  "name": "F0618",
+  "category": "エラーコード",
+  "summary": "関数でないものを呼んだ",
+  "detail": "`x(1)` の x が関数でも関数ポインタ `fn(..)` でもない。",
+  "constraints": "",
+  "remedy": "フィールドの関数ポインタは `(h.cb)(..)` と括弧で囲んで呼ぶ。",
+  "aliases": []
+ },
+ {
+  "name": "fascon qemu",
+  "category": "CLI",
+  "summary": "QEMU でビルドして実行（BIOS なし AArch64 / Fascon の仮想 BIOS の x86_64・AArch64、GUI 対応）",
+  "detail": "`fascon qemu app.fsc` → C 生成・BSP 書き出し・clang / gcc でリンク・QEMU 起動（AArch64、-kernel）。`--target x86_64` / `--target aarch64` で Fascon の仮想 BIOS（-bios）から起動。`spawn_on` を使うプログラムは `-smp 4` で起動する（`--smp N` で 1〜4）。`--headless --screenshot out.png` で画面を保存。",
+  "constraints": "clang + ld.lld（または aarch64 / x86_64 の gcc）と、qemu-system-aarch64（`--target x86_64` では qemu-system-x86_64）が必要。",
+  "remedy": "",
+  "aliases": [
+   "qemu",
+   "bare-metal",
+   "ベアメタル"
+  ]
+ },
+ {
+  "name": "fascon run",
+  "category": "CLI",
+  "summary": "PC 上でビルドして実行（フレームバッファは PNG に保存）",
+  "detail": "固定番地リージョンをプロセス内の同じ番地に写像して動かす。GUI は終了時に `<名前>.png` へ書き出す。生成 C はこの PC の CPU 向けにコンパイルする（x86-64: -march=native、AArch64: -mcpu=native。列の走査が AVX2 / AVX-512 / NEON の幅になる。受け付けないコンパイラならフラグなしでやり直す）。`--cpu baseline` でアーキテクチャの基本の命令だけにする。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "run",
+   "host",
+   "--cpu",
+   "-march=native"
+  ]
+ },
+ {
+  "name": "irq 名前 at INTID { .. }",
+  "category": "カーネル拡張（1.0）",
+  "summary": "割り込みハンドラの項目",
+  "detail": "本体は閉じた区間（割り込み禁止）として走る。コンパイラは INTID とハンドラの表を出し、許可・受け付け・終了は BSP が行う。0.1 の `#[isr]` 構文とは別物。16〜31 はコアごとの割り込み（タイマーは 27）、32 以上は周辺装置の割り込みで CPU0 に届く。x86_64 の仮想 BIOS では LAPIC タイマーが 27、I/O APIC の入力 n が 32 + n になるので、同じソースが両方で動く。",
+  "constraints": "引数・戻り値なし。INTID は 16〜1019 で重ならない（F2602）。本体からタスクを切り替えうるものは呼べない（F2603）。マルチコアでは、周辺装置の割り込み（32 以上）のハンドラはコアごとのアリーナに触れない（F2616）。",
+  "remedy": "切り替えは `@task.resume(next)` で割り込みの出口に予約する。",
+  "aliases": [
+   "irq",
+   "割り込み",
+   "interrupt",
+   "GIC",
+   "ハンドラ",
+   "interrupt handler"
+  ]
+ },
+ {
+  "name": "critical",
+  "category": "カーネル拡張（1.0）",
+  "summary": "閉じた区間（割り込まれないブロック / 関数）",
+  "detail": "`critical { .. }` と `critical fn` の中では、割り込みもタスクの切り替えも起きない。マルチコアでは (1) そのコアの割り込みを止め、(2) スピンロックを取り、出るときは逆の順に戻す（`fascon_plat_critical_enter` / `exit`。AArch64 は DAIF.I、x86_64 は RFLAGS.IF）。どのリージョンが共有かは効果からコンパイラが求めるので、リージョンに何も書かない。",
+  "constraints": "閉じた区間の終わりはコミット点。中で `@task.yield_to` を呼べる（割り込みの状態は保存フレームにある）。マルチコアでは、中で待つ操作（チャネルの send / recv_wait、タスクの待ち）は F2603、gc_arena の確保と回収は F2622。",
+  "remedy": "F2601 の Quick Fix が該当の文を `critical { .. }` で囲む。",
+  "aliases": [
+   "critical",
+   "クリティカルセクション",
+   "閉じた区間",
+   "割り込み禁止",
+   "critical fn"
+  ]
+ },
+ {
+  "name": "環境効果 E_env",
+  "category": "カーネル拡張（1.0）",
+  "summary": "割り込まれうる点で起きるとみなす、ほかの実行ルートの効果",
+  "detail": "E(f) はアリーナ（task_arena・bump_arena を含む）の上の効果。開いた区間では、割り込みハンドラ（とプリエンプティブ型ならほかのタスク）の効果の和がいつでも起こりうるとみなし、保護の無いアクセス（F2601）を調べる。マルチコアでは、ほかのコアの全ルート（task・syscall・irq）の効果も加わる（コアごとのアリーナは除く）。切り替えうる呼び出し（`yield_to`・`exit`）は全実行ルートの効果を持つ呼び出しとして扱うので、借用（F2502）と生存証明の失効は既存の規則のまま。MMIO・ポートは検査しない。ヒープの確保と解放はランタイムの中で閉じている。",
+  "constraints": "モード（協調 / プリエンプティブ）は、irq ハンドラが `resume` を呼ぶかどうかでコンパイラが決める。",
+  "remedy": "",
+  "aliases": [
+   "E_env",
+   "環境効果",
+   "preemption",
+   "プリエンプション",
+   "E(f)",
+   "environment effect"
+  ]
+ },
+ {
+  "name": "task_arena",
+  "category": "カーネル拡張（1.0）",
+  "summary": "タスク表のアリーナ",
+  "detail": "`task_arena @task: Task[64] stack 16384;` は、スロットごとにカーネルスタックと保存文脈（隠れた列）を持つアリーナ。`@task.start(値, 入口, 引数)`・`current()`・`yield_to(id)`・`resume(id)`（irq の中だけ）・`enter(id)`・`exit()`。方針（次のタスクの選択）は Fascon で書く。",
+  "constraints": "入口は `fn(u64)`。現在のタスクは free できない（F2605）。`spawn_on` を使うプログラムでは、タスク表はコアごとに 1 つ（スロット i はコアごとに別のタスク）。",
+  "remedy": "",
+  "aliases": [
+   "task_arena",
+   "タスク",
+   "コンテキストスイッチ",
+   "context switch",
+   "start",
+   "yield_to",
+   "resume",
+   "enter",
+   "current"
+  ]
+ },
+ {
+  "name": "#[wire(le)] / #[wire(be)]",
+  "category": "カーネル拡張（1.0）",
+  "summary": "ワイヤ構造体（整列 1・詰め物なし・バイト順固定の POD）",
+  "detail": "フィールドは整数・整数の配列・ワイヤ構造体だけ。どんなビット列でも正しい値になるので、ディスクのセクタ・パケット・デバイスと共有するメモリ・ユーザーメモリの上に重ねられる。",
+  "constraints": "詰め物が要る並びは F2701（フィールドを並べ替えるか、予約のフィールドを書く）。",
+  "remedy": "",
+  "aliases": [
+   "wire",
+   "ワイヤ構造体",
+   "POD",
+   "エンディアン",
+   "endian",
+   "packed"
+  ]
+ },
+ {
+  "name": ".view(T, off) / .window(off, len)",
+  "category": "カーネル拡張（1.0）",
+  "summary": "バイト列の上のビューと窓（第二級参照）",
+  "detail": "`x.view(T, off)` はバイト列の上のワイヤ構造体への参照、`x.window(off, len)` は長さ付きの参照 `&[u8]`。どちらも範囲外なら None で、止まらない。`x.read(T, off)` は複製。参照なので保存できない（F0515）。",
+  "constraints": "`if let` / `match` の対象にだけ書ける。`&a[lo..hi]` は範囲外でパニックなので、信頼できる値にだけ使う。",
+  "remedy": "",
+  "aliases": [
+   "view",
+   "view_mut",
+   "window",
+   "window_mut",
+   "read",
+   "&[u8]",
+   "スライス",
+   "窓",
+   "ビュー",
+   "ゼロコピー",
+   "zero copy"
+  ]
+ },
+ {
+  "name": "dma / dma_arena / Dma<@b>",
+  "category": "カーネル拡張（1.0）",
+  "summary": "デバイスと共有するメモリと、移動で表す貸し出し",
+  "detail": "`dma @r: [T; N];` は両者が同時に触るリング（常に volatile）。`dma_arena @b: T[N];` はバッファの表で、`Dma<@b>` は移動専用のハンドル。`@b.lend(h)` で h は消え（以後の使用は F0382）、`@b.reclaim(index)` が範囲内かつ貸し出し中のときだけハンドルを返す。",
+  "constraints": "要素は POD（F2702）。ハンドルは bump_arena と static に置けない（F2703）。",
+  "remedy": "番地は `h.phys()` / `@r.phys()` で整数として取り出し、記述子に書く。",
+  "aliases": [
+   "dma",
+   "dma_arena",
+   "Dma",
+   "lend",
+   "reclaim",
+   "phys",
+   "virtio",
+   "DMA"
+  ]
+ },
+ {
+  "name": "syscall / user_mem / trap",
+  "category": "カーネル拡張（1.0）",
+  "summary": "ユーザー空間（AArch64 の EL0・x86_64 の ring 3）との境界",
+  "detail": "`user_mem umem for task: 0x8_0000 at 0x1_0000_0000;` はタスクごとのユーザーメモリ（大きさと番地は 4 KiB の倍数。ユーザー側からは全タスク同じ仮想番地）。タスクごとにページ表（アドレス空間）があり、ページは初めて触れたときに 4 KiB ずつ割り当てられる（デマンドページング）。`task.start_user(値, 入口, スタック)` がユーザーのタスクを作り、`if let Some(m) = umem.of(id) { .. }` でカーネルから像を書き込む。`syscall write at 1 (fd: u32, buf: &[u8]) -> i64 { .. }` はユーザーからの入口: 窓とワイヤ構造体への参照は、そのタスクのユーザーメモリに収まることを入口で確かめてから本体に届く（外れたら本体に入らず -14。`&mut` の窓がほかの窓と重なっても -14）。マルチコアでは、入口が窓を 1 回だけシャドウバッファへ写すので、ほかのコアが途中で書き換えても本体の見る値は変わらない（`&mut` の窓は出口で書き戻す）。本体の無い `syscall .. -> i64;` はユーザー側の宣言で、svc（x86_64 では `int $0x80`）になる。`trap user_fault(esr: u64, far: u64, pc: u64) { .. }` はユーザーの例外で呼ばれ、戻るとそのタスクだけが終わる（x86_64 の例外も AArch64 の ESR の分類に直して渡す。far は CR2、pc は RIP）。",
+  "constraints": "Id・own・Dma・Str・bool・関数ポインタは引数にできない（F2801）。番号は 0〜255 で重ならない（F2802）。",
+  "remedy": "Id は u32 で受けて `@a.validate(raw)` を通す。",
+  "aliases": [
+   "syscall",
+   "システムコール",
+   "SVC",
+   "EL0",
+   "user_mem",
+   "trap",
+   "ユーザー空間",
+   "start_user",
+   "embed"
+  ]
+ },
+ {
+  "name": "F2601",
+  "category": "カーネル拡張（1.0）",
+  "summary": "共有リージョンへの保護なしアクセス",
+  "detail": "開いた区間（割り込み許可）で、ほかの実行ルート（irq ハンドラ・別のタスク）が書く・解放する・確保するリージョンを触った。マルチコアでは、irq の本体は「そのコアの割り込み禁止」にすぎず、ほかのコアは止まらないので、共有の実体（shared arena など）には critical（ロック）が要る。ほかのコアの全ルート（task・syscall・irq）の効果も環境効果 E_env に含めて調べる（コアごとのアリーナは除く）。",
+  "constraints": "",
+  "remedy": "該当の文を `critical { .. }` で囲む（Quick Fix）か、関数を `critical fn` にする。",
+  "aliases": [
+   "保護なし",
+   "unprotected",
+   "critical",
+   "共有リージョン"
+  ]
+ },
+ {
+  "name": "F2603",
+  "category": "カーネル拡張（1.0）",
+  "summary": "割り込み文脈での切り替え / 割り込みの外での resume",
+  "detail": "irq ハンドラから届く関数が、切り替えうる関数（`yield_to`・`exit`）を呼んだ。または `@task.resume` を irq の外で呼んだ。マルチコアでは、critical の中のブロッキング操作（チャネルの send / recv_wait、タスクの切り替えや待ち）もこの番号で拒む（ロックを持ったまま眠ると、ほかのコアが止まる）。",
+  "constraints": "",
+  "remedy": "irq の中では `resume`、タスクの中では `yield_to` を使う。",
+  "aliases": [
+   "irq",
+   "yield_to",
+   "resume",
+   "切り替え"
+  ]
+ },
+ {
+  "name": "F2701 / F2702 / F2703",
+  "category": "カーネル拡張（1.0）",
+  "summary": "ワイヤ構造体の形 / DMA の要素が POD でない / Dma ハンドルの置き場",
+  "detail": "F2701: ワイヤ構造体に詰め物が要る、または整数・整数の配列・ワイヤ構造体でないフィールドがある。F2702: `dma` / `dma_arena` の要素に bool・Option・Id・own・Str・関数ポインタがある。F2703: `Dma<@b>` を bump_arena・static・別の表に置いた。",
+  "constraints": "",
+  "remedy": "F2701: `#[wire(le)]` か `#[wire(be)]` を付け、フィールドを整数・整数の配列・ワイヤ構造体だけにする。F2702: DMA の要素は整数と整数の配列（ワイヤ構造体）だけにし、Id や own はふつうのアリーナに置く。F2703: ハンドルは `alloc` と `reclaim` が返すものを使い、ローカル変数かふつうのアリーナ・配列に持つ（dma_arena そのものは回さない）。デバイスが返した添字は `reclaim(raw)` で検証する。",
+  "aliases": [
+   "wire",
+   "POD",
+   "dma",
+   "Dma"
+  ]
+ },
+ {
+  "name": "F2704",
+  "category": "カーネル拡張（1.0・設計中）",
+  "summary": "信頼できない値を停止しうる操作へ渡した",
+  "detail": "デバイス・ユーザーメモリ・回線・システムコールの引数から来た整数を、検査付きの算術・停止する添字・`unwrap` に直接使った。カーネルを外から止められる。 設計確定案です。同梱の 1.0 コンパイラではまだ通りません（docs/SPEC-1.0-KERNEL.ja.md）。",
+  "constraints": "",
+  "remedy": "`checked_add`・`wrapping_add`・`min`・`window`（どれも止まらない）を通す。",
+  "aliases": [
+   "汚染",
+   "taint",
+   "untrusted",
+   "信頼できない値"
+  ]
+ },
+ {
+  "name": "F2801 / F2802 / F2803",
+  "category": "カーネル拡張（1.0）",
+  "summary": "システムコールの形 / 番号とレジスタ / 使えない場所",
+  "detail": "F2801: システムコールの引数が整数・`&[u8]` / `&mut [u8]`・ワイヤ構造体への参照でない（Id は `u32` で受けて `validate` を通す）、戻り値が `i64` でない、`trap` の形が違う、syscall / trap をカーネルの中から呼んだ。F2802: 番号が 0〜255 の外・重複、引数がレジスタ 8 本を超える（窓は 2 本）。F2803: ユーザープログラム（EL0）でカーネルの項目を使った、`user_mem` の大きさ・番地が 4 KiB の倍数でない・恒等マップ（0〜0x8000_0000）の中・0x80_0000_0000 以上・1 GiB の区画をまたぐ（x86_64 の仮想 BIOS では、さらに 4 GiB 以上を BSP が起動時に確かめる）、`user_mem` の無い task_arena で `start_user` を呼んだ、ABI のソースが読めない。",
+  "constraints": "",
+  "remedy": "F2801: Id は `u32` で受け取って本体で `validate` する、バイト列は窓 `&[u8]` / `&mut [u8]` で渡す、結果は `i64` にする。F2802: 番号を 0〜255 の空いている値にし、引数をレジスタ 8 本以内（窓は 2 本）に収める。F2803: カーネルの項目はカーネルのファイルに書く。`user_mem` の大きさと番地は 4 KiB の倍数で、恒等マップの外・0x80_0000_0000 未満・1 GiB の区画の中に置く。",
+  "aliases": [
+   "syscall",
+   "user_mem",
+   "ABI"
+  ]
+ },
+ {
+  "name": "F2804",
+  "category": "エラーコード",
+  "summary": "embed の誤り",
+  "detail": "`static 名前: [u8; N] = embed(\"ファイル名\");` のファイルが読めない、ファイルが N バイトより大きい、またはこの形以外で `embed` を使った。相対パスはソースファイルのあるフォルダから数える。",
+  "constraints": "",
+  "remedy": "ファイルの場所を確かめ、N をファイルの大きさ以上にする（メッセージが勧める大きさを使ってよい）。",
+  "aliases": [
+   "バイナリ",
+   "binary",
+   "embed のエラー",
+   "embed error"
+  ]
+ },
+ {
+  "name": "F2602 / F2605",
+  "category": "カーネル拡張（1.0）",
+  "summary": "割り込みハンドラの形 / task_arena の形",
+  "detail": "F2602: INTID が 16〜1019 の外、同じ INTID のハンドラが 2 つ、割り込みハンドラを関数として呼んだ。F2605: task_arena のスタックが 4096〜1048576 の 16 の倍数でない、容量が 256 を超える、task_arena が 2 つある、タスクの入口が `fn(u64)` でない。",
+  "constraints": "",
+  "remedy": "F2602: INTID を 16〜1019 の重ならない値にし、ハンドラは呼び出さずに割り込みで走らせる（共通の処理は別の関数にして両方から呼ぶ）。F2605: スタックを 4096〜1048576 の 16 の倍数、容量を 256 以下にし、task_arena は 1 つにまとめ、入口を `fn(u64)` にする。",
+  "aliases": [
+   "irq",
+   "task_arena",
+   "INTID",
+   "stack"
+  ]
+ },
+ {
+  "name": "timer_arm / irq_open / wait_irq",
+  "category": "カーネル拡張（1.0）",
+  "summary": "タイマーと割り込み許可の組み込み関数",
+  "detail": "`timer_freq()`（Hz）・`timer_now()`（カウンタ）・`timer_arm(ticks)`（ticks 後にタイマー割り込み）、`irq_open()`（割り込みを許可。main ではここより前が起動時の文脈）、`wait_irq()`（割り込みを待つ。確認と待ちの間の割り込みを取りこぼさない）。時計は全コアで共通、タイマーはコアごと。AArch64 では仮想タイマー（INTID 27）、x86_64 の仮想 BIOS では時計が HPET、タイマーが LAPIC タイマー（同じ irq 27）。PC 実行では仮想の時計で、`cpu_relax()`・`wait_irq()`・閉じた区間の出口が割り込まれうる点になる。",
+  "constraints": "同じ名前の関数を自分で定義していれば、そちらが優先される。",
+  "remedy": "",
+  "aliases": [
+   "timer_freq",
+   "timer_now",
+   "timer_arm",
+   "irq_open",
+   "wait_irq",
+   "タイマー",
+   "Generic Timer"
+  ]
+ },
+ {
+  "name": "put_bytes / embed",
+  "category": "カーネル拡張（1.0）",
+  "summary": "窓の中身をコンソールへ / ファイルを static に埋め込む",
+  "detail": "`put_bytes(buf)` は窓（`&[u8]`・`&[u8; N]`・文字列）のバイト列をそのまま出す。`static IMG: [u8; N] = embed(\"file.bin\");` はファイルの中身を埋め込む（足りない分は 0。相対パスはソースのフォルダから）。ユーザープログラムの像をカーネルに入れるのに使う。",
+  "constraints": "F2804: ファイルが読めない、配列に収まらない、`static 名前: [u8; N] = embed(\"..\")` の形でない。",
+  "remedy": "像は `fascon build app.fsc --out app.bin` で作る。",
+  "aliases": [
+   "put_bytes",
+   "embed",
+   "埋め込み",
+   "user_init.bin"
+  ]
+ },
+ {
+  "name": "// fascon-abi: kernel.fsc",
+  "category": "カーネル拡張（1.0）",
+  "summary": "このファイルはユーザープログラム（EL0）",
+  "detail": "ファイルの先頭のコメント `// fascon-abi: kernel.fsc` で、そのカーネルのソースから `syscall` の宣言とワイヤ構造体を読む（`fascon build --user app.fsc --abi kernel.fsc` と同じ）。`fascon build app.fsc --out app.bin` が、カーネルの `user_mem` の番地にリンクした平らな像を作る。print 系は ABI の `write(fd: u32, buf: &[u8])` の fd 1 へ、main の終わりとパニック（終了コード 70）は `exit(code)` へ流れる。",
+  "constraints": "F2803: ユーザープログラムでは mmio・port_io・irq・critical・dma・task_arena・user_mem・trap・本体のある syscall・shared arena・chan・spawn_on は使えない。",
+  "remedy": "",
+  "aliases": [
+   "fascon-abi",
+   "--user",
+   "--abi",
+   "ユーザープログラム",
+   "user program",
+   "EL0"
+  ]
+ },
+ {
+  "name": "shared arena",
+  "category": "カーネル拡張（1.0）",
+  "summary": "全コアで 1 つのアリーナ（Fascon 1.0 の SMP 拡張）",
+  "detail": "`shared arena procs: Proc[64];`。ふつうの `arena` は、`spawn_on` を使うプログラムではコアごとに 1 つの実体になり、1 コアのときと同じコード（ロックなし）で触る。共有アリーナは `critical { }`（書き手）か `for id in procs.par()`（読み手）の中でだけ触れる（外なら F2601）。Id はコアの間で渡せる。",
+  "constraints": "F2611: 共有アリーナの要素に、コアごとのアリーナの Id を置けない。",
+  "remedy": "仕様: docs/SPEC-1.0-SMP.ja.md",
+  "aliases": [
+   "shared",
+   "共有アリーナ",
+   "SMP",
+   "マルチコア",
+   "multi-core"
+  ]
+ },
+ {
+  "name": "spawn_on / cpu_count",
+  "category": "カーネル拡張（1.0）",
+  "summary": "別のコアで関数を走らせる（Fascon 1.0 の SMP 拡張）",
+  "detail": "`spawn_on(1, worker);` / `spawn_on(2, worker, arg);`。関数は引数 0〜1 個・戻り値なし。引数は整数・bool・共有アリーナの Id・`own T`（own は移動する）。`cpu_count()` は動かせるコアの数。`fascon qemu` は `-smp 4` で起動し（`--smp N` で 1〜4）、PC 実行ではコア = スレッド。コアが無い・使用中ならパニック 0x0012。",
+  "constraints": "F2615: 関数の形・引数の型の誤り。以前の F2614（`spawn_on` と irq・task_arena・dma_arena・syscall・trap の組み合わせの禁止）は廃止され、タスク表・いまのタスク・実行待ちの列・タイマーはコアごとになった。x86_64 の仮想 BIOS（`--target x86_64`）も 4 コアで動く（AArch64 の仮想 BIOS は PSCI が無いので 1 コアのまま）。",
+  "remedy": "同じ名前の関数を自分で定義していれば、そちらが優先される。",
+  "aliases": [
+   "spawn_on",
+   "cpu_count",
+   "コア",
+   "core",
+   "PSCI",
+   "-smp"
+  ]
+ },
+ {
+  "name": "for id in a.par()",
+  "category": "カーネル拡張（1.0）",
+  "summary": "共有アリーナの読み取り専用の並列走査（Fascon 1.0 の SMP 拡張）",
+  "detail": "読み手として入る走査。ほかのコアの `par()` と同時に進み、書き手（`critical`）は待つ。1 つのループを自動でコアに分配するものではない。集計はローカル変数に取り、ループの後で `critical` の中から書く。",
+  "constraints": "F2612: 中に、共有アリーナへの書き込み・確保・解放、それを行う関数の呼び出し（効果 E(f) で判定）、`critical` がある。コアごとのアリーナには使えない。",
+  "remedy": "",
+  "aliases": [
+   "par",
+   "並列走査",
+   "parallel scan",
+   "読み手"
+  ]
+ },
+ {
+  "name": "F2611",
+  "category": "カーネル拡張（1.0）",
+  "summary": "コアごとのアリーナの Id がコアの間を渡る",
+  "detail": "チャネルの要素・共有アリーナの要素・`spawn_on` の引数が、ふつうのアリーナの Id を（構造体や own の中まで調べて）含んでいる。ふつうのアリーナはコアごとに別の実体なので、ほかのコアでは別の表を指してしまう。",
+  "constraints": "",
+  "remedy": "コアの間で共有する表は `shared arena` にする。コアごとのデータは `own T` に入れて所有権ごと送る。",
+  "aliases": [
+   "F2611",
+   "コアごと",
+   "per-core",
+   "Id"
+  ]
+ },
+ {
+  "name": "F2612 / F2613",
+  "category": "カーネル拡張（1.0）",
+  "summary": "並列走査の中の書き込み / 装置への保護なしアクセス",
+  "detail": "F2612: `par()` の中に、共有アリーナを書き換えるもの（直接の書き込み・確保・解放、効果にそれを持つ関数の呼び出し、`critical`）がある。F2613: 2 本以上のコアのルートから届く MMIO・ポート・`mmio_read` / `mmio_write` が `critical` の外にある。",
+  "constraints": "",
+  "remedy": "F2612: 結果をローカル変数に集め、ループの後で `critical { .. }` の中から書く。F2613: 文を `critical { .. }` で囲むか、関数を `critical fn` にする（Quick Fix あり: F2601 と同じ形）。",
+  "aliases": [
+   "F2612",
+   "F2613",
+   "par",
+   "mmio",
+   "装置"
+  ]
+ },
+ {
+  "name": "F2614 / F2615",
+  "category": "カーネル拡張（1.0）",
+  "summary": "spawn_on と併用できない項目 / spawn_on・chan の形",
+  "detail": "F2614（廃止）: 以前は `spawn_on` を使うプログラムで irq・task_arena・dma_arena・syscall・trap を拒んでいた。いまはコアごとのタスクの表・コアごとのタイマー・タスクごとのアドレス空間で一緒に使える（危ない組み合わせは F2616・F2601・F2603・F2613 が弾く）。F2615: `spawn_on` の 2 番目が関数の名前でない、引数の数・型が合わない、チャネルの容量が 2 の累乗（2〜65536）でない、要素が `own T` でも解放の要らない値でもない。",
+  "constraints": "",
+  "remedy": "F2615: `spawn_on(コア, 関数名[, 引数])` の関数は引数 0〜1 個・戻り値なし、引数は整数・bool・共有アリーナの Id・`own T`。チャネルの容量は 2〜65536 の 2 の累乗、要素は `own T` か解放の要らない値。F2614 は廃止されたので、以前この番号で拒まれた組み合わせはそのまま書ける。",
+  "aliases": [
+   "F2614",
+   "F2615",
+   "spawn_on",
+   "chan"
+  ]
+ },
+ {
+  "name": "F2616",
+  "category": "カーネル拡張（1.0）",
+  "summary": "共有の割り込みのハンドラからコアごとのアリーナに触った",
+  "detail": "マルチコアのプログラムで、共有の周辺の割り込み（INTID 32 以上。CPU0 にだけ届く）のハンドラが、コアごとのアリーナ（ふつうの arena・task_arena など、コアごとに実体があるもの）に触った。ほかのコアで作った Id を CPU0 の表で引いてしまう。",
+  "constraints": "",
+  "remedy": "そのアリーナを `shared arena` にして `critical { .. }` の中で触る、またはデータを `chan` で持ち主のコアへ渡す。コアごとの割り込み（16〜31。タイマーの INTID 27 など）のハンドラは、自分のコアの実体に触れてよい。",
+  "aliases": [
+   "F2616",
+   "spawn_on",
+   "irq",
+   "SPI",
+   "コアごと",
+   "per-core"
+  ]
+ },
+ {
+  "name": "fascon_plat_vm_*",
+  "category": "カーネル拡張（1.0）",
+  "summary": "タスクごとのアドレス空間と、TLB を消さない切り替え",
+  "detail": "ユーザーのタスクはそれぞれ自分のページ表を持つ（AArch64 は 16 ビットの ASID と TTBR0、x86_64 は PML4 と CR3 + PCID）。切り替えはページ表の番地を書くだけで TLB を消さない。TLB を消すのは、ページを外すときと空間を捨てるときだけで、その ASID を使ったコアにだけ届ける（ほかのコアへは IPI / SGI のシュートダウン。送り手は一度に 1 人で、待つ間も自分あての依頼に応える）。ユーザーメモリの中の未割り当てのページに触れると、例外の中で 4 KiB を割り当ててやり直す（デマンドページング）。",
+  "constraints": "ページの大きさは 4 KiB。QEMU の TCG は PCID を持たないので、x86_64 の PCID の経路はこの環境では動かしていない（TCG では CR3 を書くと大域でない TLB が消える）。",
+  "remedy": "",
+  "aliases": [
+   "ASID",
+   "PCID",
+   "CR3",
+   "TTBR0",
+   "TLB",
+   "シュートダウン",
+   "shootdown",
+   "アドレス空間",
+   "address space",
+   "デマンドページング",
+   "demand paging"
+  ]
+ },
+ {
+  "name": "copy_from_user / copy_to_user",
+  "category": "カーネル拡張（1.0）",
+  "summary": "システムコールの窓を 1 回だけ写すシャドウバッファ（TOCTOU を構造で防ぐ）",
+  "detail": "マルチコアでは、ユーザーのメモリをほかのコアのスレッドが同時に書き換えられる。そこで syscall の入口は、検査した窓を `fascon_plat_copy_from_user` でカーネルのシャドウバッファへ 1 回だけ写し、本体はその写しだけを読む（同じ値を 2 回読まないので、検査と使用の間にすり替えられない）。`&mut` の窓は、出口で `fascon_plat_copy_to_user` が書き戻す。写すのはユーザーの権限で行い（AArch64 は LDTRB / STTRB、x86_64 は SMAP の STAC / CLAC）、失敗は例外表で EFAULT（-14）に変わる。",
+  "constraints": "シャドウバッファは 0xFFF0 バイトまで（超える窓は E2BIG = -7）。写しは 1 バイトずつで、速さはまだ調整していない。",
+  "remedy": "",
+  "aliases": [
+   "シャドウバッファ",
+   "shadow buffer",
+   "TOCTOU",
+   "二重読み",
+   "double fetch",
+   "SMAP",
+   "EFAULT"
+  ]
+ },
+ {
+  "name": "panic_broadcast / core_parked",
+  "category": "カーネル拡張（1.0）",
+  "summary": "パニックで全コアを止める",
+  "detail": "どこかのコアでパニックが起きると、`fascon_plat_panic_broadcast` がほかの全コアへ止まる割り込みを送る（AArch64 は SGI 2、x86_64 は NMI）。待ちのループでパニックに気づいたコアも `fascon_plat_core_parked` で止まり、止まったコアの数が数えられて「N other core(s) stopped」と報告される（終了コード 70）。NMI は割り込み禁止の区間にも届くので、コンソールのロックを持ったまま止まったコアがあっても、パニックしたコアが一定時間の後にコンソールを引き継いで報告する。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "NMI",
+   "SGI",
+   "全コア停止",
+   "stop all cores",
+   "パニック時の停止",
+   "panic stop"
+  ]
+ },
+ {
+  "name": "Id<a>",
+  "category": "アリーナ・世代（1.0）",
+  "summary": "アリーナに着色されたハンドル（32 ビット: 世代 32-K + 添字 K、K は容量から決まる）",
+  "detail": "`Id<file>` と `Id<process>` は別の型で、混ぜると F2101。コピーできる値なので構造体に何個でも保存でき、循環グラフ（親子・兄弟・逆リンク）を参照なしで表せる。`Option<Id<a>>` は 0 を None に使うので 4 バイトのまま。bump_arena の Id は 64 ビット（世代 64-K | 添字 K）。",
+  "constraints": "整数から Id は作れない（外部の値は validate で検証）。",
+  "remedy": "`.index()` / `.generation()` / `.raw()` で中身を見られる。",
+  "aliases": [
+   "Id",
+   "Id<@a>",
+   "ハンドル",
+   "handle",
+   "cross-index",
+   "クロス・インデックス型",
+   "着色",
+   "coloring"
+  ]
+ },
+ {
+  "name": "a.get / a.get_mut",
+  "category": "アリーナ・世代（1.0）",
+  "summary": "一時的なルックアップ（if let / match の中だけの参照）",
+  "detail": "`if let Some(p) = process.get_mut(pid) { p.state = 1; }`。p は第二級参照で、ブロックの外へ出られない。古い Id なら None の腕へ。`process.get_mut(pid).unwrap().state = 1;` は `process[pid].state = 1;` と同じ式（厳格形の書き方。`.get(id).unwrap()` は読み出し専用で、書くと F0596）。",
+  "constraints": "参照が生きている間、同じアリーナのスロットを触る（解放する）関数は呼べない: F2502。効果は呼び出し先まで推移的に計算される。",
+  "remedy": "必要な値をローカルへ写してからブロックを出て操作する。",
+  "aliases": [
+   "get",
+   "get_mut",
+   "lookup",
+   "ルックアップ",
+   "if let",
+   "@a.get",
+   "unwrap"
+  ]
+ },
+ {
+  "name": "a[id]",
+  "category": "アリーナ・世代（1.0）",
+  "summary": "検査付きのスロット参照（古い Id なら安全に停止）。`pcb_table[id].id = 100;` は世代タグで検証する `.get_mut(id)` と同じ",
+  "detail": "フィールドの読み書き・`&mut @a[id]` の受け渡しに使う。alloc の直後・成功したルックアップの中・一度検査した後など、生存を静的に証明できる場所では世代検査を省く（`fascon regions` で件数を確認）。",
+  "constraints": "同じ呼び出しに同じアリーナの &mut を 2 つ渡すと F0499（Id が同じかもしれない）。",
+  "remedy": "片方の値をローカルへ写すか、呼び出しを分ける。",
+  "aliases": [
+   "index",
+   "スロット",
+   "slot",
+   "生存証明",
+   "liveness proof",
+   "@a[id]"
+  ]
+ },
+ {
+  "name": "a.alloc / free / remove / validate",
+  "category": "アリーナ・世代（1.0）",
+  "summary": "スロットの確保・解放・取り出し・外部値の検証",
+  "detail": "alloc(v) → Option<Id>（満杯なら None）。free(id) → bool（own フィールドも解放し、世代 +1）。remove(id) → Option<T>（所有権ごと取り出す）。validate(raw: u32) → Option<Id>（システムコールなど外から来た値を安全に Id へ戻す）。`for id in @a { }` で生存スロットだけを回れる（本体で free してよい）。",
+  "constraints": "再利用は FIFO（解放した順）。",
+  "remedy": "",
+  "aliases": [
+   "alloc",
+   "free",
+   "remove",
+   "validate",
+   "contains",
+   "for id in",
+   "@a.alloc"
+  ]
+ },
+ {
+  "name": "bump_arena",
+  "category": "アリーナ・世代（1.0）",
+  "summary": "呼び出しリージョンごとに O(1) で一括解放するアリーナ `bump_arena 名前: T[N];`",
+  "detail": "確保は先頭（top）を 1 進めるだけ（比較 1 回 + 格納）。確保した関数（呼び出しリージョン）のすべての出口で、入口で取った印へ top を戻す 1 回の格納でまとめて解放する。Id は 64 ビット [世代 64-K | 添字 K]: スロットを確保するたびにそのスロットの世代を +1 し、検査は「添字 < top かつ 世代が一致」。巻き戻した後の古い Id は None（`b[id]` ならラッチ → 次のコミット点で停止）になるので、他人のデータには届かない。Id を返す関数・`&mut` 引数で Id を外へ渡す関数の確保は、呼び出し元のリージョンへ昇格する。`for id in b` は 0..top の直線ループ。`b.len()` は今の top。",
+  "constraints": "1 つずつの free / remove は無い（F2401）。要素は own を持てない（F2103）。長く生きる表（ふつうのアリーナ・別のバンプアリーナ）の要素と static には Id を置けない（F2402）。",
+  "remedy": "1 つずつ解放したい値・長く保存したい Id は `arena` に置く。",
+  "aliases": [
+   "bump",
+   "バンプアロケーション",
+   "bump allocation",
+   "呼び出しリージョン",
+   "call region",
+   "bump_arena!",
+   "scratch"
+  ]
+ },
+ {
+  "name": "port_io",
+  "category": "固定番地リージョン（1.0）",
+  "summary": "x86 の I/O ポート `port_io 名前[: u8 | u16 | u32 | [u8; N]] at_port 番号;`",
+  "detail": "値として読むと in、代入すると out になる（`com1 = c;` → x86_64: `out dx, al`、`let s = lsr;` → `in al, dx`）。型を省くと u8。配列のポートは `p[i]`（境界検査付き）。AArch64 には I/O ポート空間が無いので、コンパイラが MMIO へ写す: COM1（0x3f8〜0x3ff）は QEMU virt の PL011（0x0900_0000）で 16550 を真似る（送受信 → DR、LSR ← FR、DLAB の間の除数は覚えるだけ）、COM2〜4 はつながっていない（LSR = 0x60）、isa-debug-exit（0xf4 / 0x501）は終了、それ以外は PCI の I/O 窓（0x3eff_0000 + 番号）。`#[mmio_map(番地)]` で写し先を指定できる。PC 実行ではプラットフォーム層が真似る（COM1 の送信は標準出力）。`--target x86_64 / aarch64` でそのターゲットの形だけを出す。厳格形では `p.read()` / `p.write(v)` / `p.read_at(i)` / `p.write_at(i, v)`。",
+  "constraints": "要素は u8 / u16 / u32、番号は 0〜0xFFFF（F2205）。重なるポートは F2203。参照は作れない（F2204）。",
+  "remedy": "",
+  "aliases": [
+   "port",
+   "io port",
+   "I/O ポート",
+   "in",
+   "out",
+   "out dx, al",
+   "at_port",
+   "port_io!",
+   "COM1",
+   "16550",
+   "mmio_map"
+  ]
+ },
+ {
+  "name": "put(x)",
+  "category": "キーワード",
+  "summary": "整数・Str・bool を型で選んで出力する組み込み（改行なし）",
+  "detail": "リフレーミングでは `println!(\"pid {} = {:#x}\", a, b)` が `{ put_str(\"pid \"); put(a); put_str(\" = \"); put_hex(b); print_str(\"\"); }` になる（`{name}` の取り込みも可）。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "put",
+   "println!",
+   "print!",
+   "format"
+  ]
+ },
+ {
+  "name": "型推論",
+  "category": "型",
+  "summary": "let に型注釈は要らない（F0282 を根絶）",
+  "detail": "`let task = create_process(100);` の型は戻り値から、`let mut best = None;` や `let x;` は後の代入・比較・呼び出し・アリーナの添字から決まる（関数ごとに型検査を 2 周し、1 周目で決まった型を 2 周目の前提にする）。何にも使われない整数・None は i32 に既定化する。F0282 が残るのは、型が決まらないままフィールド・メソッド・添字の土台に使われる場合だけ。",
+  "constraints": "",
+  "remedy": "F0282 が出たら、その let に型を 1 つ書く（--emit-strict-fascon で推論の結果を見られる）。",
+  "aliases": [
+   "inference",
+   "type inference",
+   "F0282",
+   "推論"
+  ]
+ },
+ {
+  "name": "@（省略可）",
+  "category": "アリーナ・世代（1.0）",
+  "summary": "リージョンの名前に `@` は要らない（宣言順も自由）",
+  "detail": "1 周目で全ての構造体・アリーナ・関数・ポートの名前を登録し、2 周目で本体を読む。名前だけの式は、同じ名前のローカルがスコープに無ければリージョンを指す（`pcb_table[id]`）。古い `@名前` は「いつもリージョン」という明示の印として使える（ローカルが同じ名前でも）。どちらも同じ式になるので、検査の省略・走査の速さは変わらない。",
+  "constraints": "リージョンの名前は関数・static・型と同じ名前空間（重なると F0428）。",
+  "remedy": "",
+  "aliases": [
+   "@",
+   "sigil",
+   "2 パス",
+   "two-pass",
+   "宣言順",
+   "declaration order",
+   "F2104"
+  ]
+ },
+ {
+  "name": "自動リフレーミング",
+  "category": "CLI",
+  "summary": "ふつうの Rust の構文を、コンパイル前に Fascon の本来の形へ書き換える（ON / OFF）",
+  "detail": "ファイル先頭の `#![reframing(rust)]` か `--reframing=rust`（環境変数 FASCON_REFRAMING）でオン、`#![reframing(off)]` / `--reframing=off` でオフ。`#[link_section = \".uart\"] static mut UART: [u8; 8]` → port_io（x86: COM1、AArch64: PL011）、`.mmio.0x..` → mmio、`.port.0x3f8` → port_io、`.fb.0x..` → #[framebuffer] mmio、`arena!` / `bump_arena!` / `port_io!` / `mmio!` / `own_alloc!`、`println!` の書式、`unsafe` / `pub` / `use` / `extern \"C\"` / `#[no_mangle]` / `#![no_std]` の除去、文字リテラル・ライフタイム、`while let`、`-> !`、`#[panic_handler]`。意味はすべて Fascon の規則（世代タグ・境界検査・own）で検査される。",
+  "constraints": "impl・トレイト・ジェネリクス・クロージャは書き換えない（Fascon の規則どおりエラー）。",
+  "remedy": "",
+  "aliases": [
+   "reframing",
+   "--reframing",
+   "#![reframing(rust)]",
+   "Rust 構文",
+   "pure Rust",
+   "FASCON_REFRAMING"
+  ]
+ },
+ {
+  "name": "--emit-strict-fascon",
+  "category": "CLI",
+  "summary": "機能安全証明形態の厳格な Fascon を書き出す",
+  "detail": "<出力フォルダ>/<名前>.strict.fsc に、すべての let の型・整数リテラルの型の接尾辞・世代タグで検証するルックアップ（書き込み = `.get_mut(i).unwrap()`、読み出し = `.get(i).unwrap()`）・ポートの `read` / `write`・展開済みの型の別名・呼び出しリージョンの注釈・リフレーミングの記録を書く。この文書をもう一度コンパイルすると元と同じ C になる（tests で確かめている）。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "strict",
+   "厳格形",
+   "機能安全",
+   "functional safety",
+   "emit-strict"
+  ]
+ },
+ {
+  "name": "仮想 BIOS",
+  "category": "CLI",
+  "summary": "1 つのソースから x86_64 と AArch64 の BIOS の像を作る（fascon bios / fascon qemu --target）",
+  "detail": "x86_64: QEMU の -bios に渡す像。リセットベクタ（0xFFFF_FFF0）→ プロテクトモード → 0〜4 GiB を 2 MiB ページで恒等マップしてロングモード → カーネル像を RAM の 1 MiB へ写し、COM1・256 本の割り込みの入口・GDT / TSS・ramfb（fw_cfg の I/O ポート）を設定して main。マルチコア（INIT-SIPI-SIPI で最大 4 コア、コアごとの TLS は FS で指す）、LAPIC タイマー（irq 27）と HPET の時計、I/O APIC（入力 n は irq 32 + n）、ring 3 のユーザープロセス（`int $0x80`）、タスクごとのページ表（CR3 + PCID）、パニックで全コアを止める NMI を持つ。AArch64: QEMU virt の -bios（フラッシュの 0 番地）→ カーネル像を 0x4008_0000 へ写して BSP へ（1 コア）。どちらも SeaBIOS / UEFI を使わない。`fascon bios app.fsc` で両方、`fascon qemu app.fsc --target x86_64 | aarch64` で起動。",
+  "constraints": "clang + ld.lld（または x86_64 / aarch64 の gcc）と qemu-system-x86_64 / qemu-system-aarch64 が必要。",
+  "remedy": "",
+  "aliases": [
+   "bios",
+   "fascon bios",
+   "--target",
+   "x86_64",
+   "aarch64",
+   "virtual BIOS",
+   "BIOS",
+   "reset vector"
+  ]
+ },
+ {
+  "name": "F0282",
+  "category": "エラーコード",
+  "summary": "型が決まらないまま、フィールド・メソッド・添字の土台に使われた",
+  "detail": "2 周の型検査でも決まらなかったときだけ出る（ふつうは後の代入・呼び出しから決まる）。",
+  "constraints": "",
+  "remedy": "その let に型を 1 つ書く。",
+  "aliases": []
+ },
+ {
+  "name": "F2401",
+  "category": "エラーコード",
+  "summary": "bump_arena のスロットは 1 つずつ解放できない（呼び出しリージョンが戻るとまとめて O(1)）",
+  "detail": "bump_arena のスロットを `free` / `remove` で 1 つずつ解放しようとした。bump_arena は、呼び出しリージョンが戻るときにまとめて O(1) で巻き戻す。",
+  "constraints": "",
+  "remedy": "1 つずつ解放したい値は `arena` に置く。",
+  "aliases": []
+ },
+ {
+  "name": "F2402",
+  "category": "エラーコード",
+  "summary": "bump_arena の Id を、それより長く生きる場所（表の要素・static）に置こうとした",
+  "detail": "呼び出しリージョンが戻ると、その Id は世代と top で無効になる（実行時も安全だが、保存する意味が無いのでコンパイル時に知らせる）。",
+  "constraints": "",
+  "remedy": "長く保存する相手は `arena` にする。",
+  "aliases": []
+ },
+ {
+  "name": "F2205",
+  "category": "エラーコード",
+  "summary": "port_io の宣言が不正（要素は u8 / u16 / u32、番号は 0〜0xFFFF）",
+  "detail": "`port_io` の宣言の形が正しくない: 型が u8 / u16 / u32 かその配列でない（x86 の in / out は 8・16・32 ビット）、または範囲が I/O 空間（0〜0xFFFF）に収まらない。",
+  "constraints": "",
+  "remedy": "要素の幅と番号をデバイスに合わせる。メモリに写ったレジスタは `mmio` で書く。",
+  "aliases": []
+ },
+ {
+  "name": "F2304",
+  "category": "エラーコード",
+  "summary": "own_alloc(T) で own の子が終わりなく続く",
+  "detail": "own_alloc は Option でない own の子を 0 で作るので、型の中で own が自分へ戻ると作り終わらない。",
+  "constraints": "",
+  "remedy": "戻る道の own を `Option<own T>` にする（None から始まる）。",
+  "aliases": []
+ },
+ {
+  "name": "--target rtos",
+  "category": "ユニバーサル OS 拡張（1.0）",
+  "summary": "組込みベアメタル向けのプロファイル（32 ビット Id・固定長 .fascon_arena・再帰禁止）",
+  "detail": "ソースを変えずに `--target rtos`（またはファイル先頭の `// fascon-target: rtos`）で翻訳すると、Id は 32 ビット [世代 32-K | 添字 K]、アリーナは .fascon_arena（2 MiB 境界・固定長、最大 16,777,216 スロット）のまま。呼び出しグラフ（関数ポインタの候補を含む）に閉路があれば F3001。`fascon stack` が C の呼び出しグラフ（GCC の -fcallgraph-info=su）からスタックの最大消費量を求め、上限と比べる。",
+  "constraints": "再帰は書けない（ループと明示的なスタックに直す）。",
+  "remedy": "`fascon stack app.fsc --target rtos --limit 8192`",
+  "aliases": [
+   "rtos",
+   "FASCON2_RTOS",
+   "profile",
+   "プロファイル",
+   "fascon-target"
+  ]
+ },
+ {
+  "name": "--target generic-os",
+  "category": "ユニバーサル OS 拡張（1.0）",
+  "summary": "汎用マルチプロセス OS 向けのプロファイル（64 ビット Id・仮想番地を予約したアリーナ・Per-CPU マガジン・RCU・PAC / BTI・Spectre 対策）",
+  "detail": "同じソースが `f20_id_t = uint64_t`（上位 32 = 世代・下位 32 = 添字、0ULL = None）になり、着色（F2101）はそのまま。共有アリーナの alloc / free は Per-CPU マガジンでロックフリー（critical の外で書ける）、free は RCU の猶予期間の後で回収。外から来た値に由来する添字は Spectre v1 のマスク + CSDB、関数ポインタは PACIA で署名して呼ぶ前に AUTIA、コールバックの候補の入口に BTI c、mmio は高位の仮想番地の写しを通る（仮想 0〜2 MiB は守りの未マップ）。",
+  "constraints": "生の Id を整数で受け渡すときは `IdRaw` 型を使う（rtos では u32、generic-os では u64）。",
+  "remedy": "`fascon run app.fsc --target generic-os` / `// fascon-target: generic-os`",
+  "aliases": [
+   "generic-os",
+   "FASCON2_GENERIC_OS",
+   "FASCON2_ID64",
+   "IdRaw",
+   "Per-CPU magazine",
+   "マガジン",
+   "PAC",
+   "BTI",
+   "Spectre",
+   "CSDB"
+  ]
+ },
+ {
+  "name": "Result<T, E>",
+  "category": "ユニバーサル OS 拡張（1.0）",
+  "summary": "成功値 T か失敗値 E（E はコピーできる型。ふつうは FaultError）",
+  "detail": "`Ok(v)` / `Err(e)` で作り、`match` / `if let` の `Ok(x)` / `Err(e)`、`e?`（失敗なら同じ形で早期リターン）、`is_ok()`・`is_err()`・`unwrap()`・`unwrap_or(v)` で使う。C では {is_some, value, err} の構造体。山括弧の型はこれと `Option<T>`・`Id<a>` だけ（ジェネリクスは増やさない）。",
+  "constraints": "`?` は Result を返す関数の中で Result にだけ使える（F3105）。",
+  "remedy": "",
+  "aliases": [
+   "Result",
+   "Ok",
+   "Err",
+   "?",
+   "FaultError",
+   "EINVAL",
+   "EFAULT",
+   "ESTALE",
+   "EPERM",
+   "fault()"
+  ]
+ },
+ {
+  "name": "catch_fault",
+  "category": "ユニバーサル OS 拡張（1.0）",
+  "summary": "区間の中のラッチ異常・ユーザーメモリの例外・unwrap の失敗を Result<T, FaultError> で受ける式",
+  "detail": "`let r = catch_fault { .. };`。区間の中のコミット点は止めずにローカルな goto で後始末へ飛び（大域脱出なし）、区間で作った値は解放してから飛ぶ。区間から呼ばれる関数はラッチをコアごとの保留へ移して戻り、呼び出し元が取り込む。異常は errno に写る（古い Id → ESTALE、あふれ → EOVERFLOW、ユーザーメモリ → EFAULT、装置の窓の外 → EIO）。",
+  "constraints": "区間の外の値を中で移動できない（F3106）。",
+  "remedy": "",
+  "aliases": [
+   "F3106",
+   "ESTALE",
+   "EOVERFLOW"
+  ]
+ },
+ {
+  "name": "user T",
+  "category": "ユニバーサル OS 拡張（1.0）",
+  "summary": "ユーザー空間のバッファ（`user [u8; N]` / `user Str`）。#[syscall(N)] の引数にだけ書ける",
+  "detail": "カーネルは中身を直接読めない（F3101）。`copy_from_user(ubuf)?` が 1 回だけカーネルのスタック（固定長）か own [u8; 上限]（user Str）へ写し、2 回目の読み出しも F3101（TOCTOU の防止）。user Str の長さは写す前に上限（既定 4096、board.toml の limits.user_str_max）と比べ、超えれば写さずに EFAULT とラッチ F20_FAULT_USER。`copy_to_user(ubuf, &kbuf)?` は書き出し。generic-os の AArch64 では PAN = 1 のまま LDTR / STTR と例外表（.ex_table）で写す。",
+  "constraints": "構造体は user [u8; N] で受けて、写したバイト列を `.read(T, 0)` で読む（F3102）。",
+  "remedy": "",
+  "aliases": [
+   "copy_from_user",
+   "copy_to_user",
+   "user Str",
+   "F3101",
+   "F3102",
+   "TOCTOU",
+   "PAN",
+   "LDTR",
+   "ex_table"
+  ]
+ },
+ {
+  "name": "#[syscall(N)]",
+  "category": "ユニバーサル OS 拡張（1.0）",
+  "summary": "システムコールの入口（属性の形）。番号の検査・表・レジスタの型ごとの検証をコンパイラが作る",
+  "detail": "`#[syscall(0)] fn sys_read(fd: u32, ubuf: user [u8; 256]) -> Result<usize, FaultError>`。AArch64 は SVC #0（x8 = 番号）、x86_64 は SYSCALL。入口で整数の範囲・bool（0 / 1）・Id（validate。偽造なら EBADF）・user T の範囲（EFAULT）を検査してから本体を呼ぶ。Ok(v) は x0 = v、Err(e) は x0 = -errno。本体のラッチの異常はカーネルを止めず Err(errno) になる。",
+  "constraints": "戻り値は Result<整数か (), FaultError> か i64（F3104）。1.0 の `syscall .. at N` の形では user T と bool は受けられない（F3103）。",
+  "remedy": "",
+  "aliases": [
+   "syscall",
+   "F3103",
+   "F3104",
+   "SVC",
+   "SYSCALL"
+  ]
+ },
+ {
+  "name": "#[trap]",
+  "category": "ユニバーサル OS 拡張（1.0）",
+  "summary": "EL0 のページフォールトの処理 `#[trap] fn user_fault(pid: Id<表>, addr: u64, is_write: bool)`",
+  "detail": "入口が (ESR, FAR, PC) から引数を作る（pid はいまのタスクの Id を validate したもの、is_write は ESR の WnR）。本体はトラップ専用の _flt ラッチを持ち、Sleep 効果の呼び出しは F3203。Copy-on-Write は own [u8; 4096] の移動だけで書ける: `procs.cow_copy(pid, va)` で新しい own ページへ写し、`procs.map_page(pid, va, page, true)` で所有権ごと差し替え、`procs.tlb_flush(pid, va)` が cpu_mask を見てローカルの TLBI か IPI を選ぶ。",
+  "constraints": "形が違えば F3204。",
+  "remedy": "",
+  "aliases": [
+   "trap",
+   "user_fault",
+   "F3204",
+   "Copy-on-Write",
+   "CoW",
+   "map_page",
+   "cow_copy",
+   "share_page",
+   "unmap_page",
+   "tlb_flush",
+   "cpu_mask",
+   "on_cpu",
+   "off_cpu"
+  ]
+ },
+ {
+  "name": "atomic",
+  "category": "ユニバーサル OS 拡張（1.0）",
+  "summary": "1 つのスロットの整数（か bool）フィールドへの不可分な読み書き 1 回",
+  "detail": "`atomic { t[id].f |= 1; }`（文）/ `let old = atomic { t[id].n += 1 };`（`;` の無い値の形は更新前の値。= は交換）/ `atomic { t[id].f }`（読み出し）。AArch64 では LSE の LDADDAL / LDSETAL / SWPAL / LDAR の 1 命令。+= / -= のあふれはラッチ。atomic で更新されるフィールドと #[no_column] のフィールドが関わる集計は、エラーにせず射影列を作らないフェーズ 1 の走査へ自動で戻る（理由は fascon regions に出る）。",
+  "constraints": "呼び出し・ループ・複数のスロットや文は F3201（critical で書く）。",
+  "remedy": "",
+  "aliases": [
+   "F3201",
+   "LSE",
+   "fetch_add",
+   "exchange",
+   "column fallback"
+  ]
+ },
+ {
+  "name": "rcu_read",
+  "category": "ユニバーサル OS 拡張（1.0）",
+  "summary": "プリエンプション禁止の読み取り専用区間（RCU の読み手）",
+  "detail": "中は &T の読み取りだけ。書き込み・確保・解放・それを行う関数の呼び出しは F3202、眠る呼び出しは F3203。generic-os では共有アリーナの free は世代 +1 とスロットの再利用を猶予期間（すべてのコアのエポックが 2 回進む）まで遅延キューへ保留するので、読み手が持っている古いスロットは読み終わるまで書き換わらない（ABA なし）。",
+  "constraints": "各フィールドは古いか新しいかのどちらか。複数のフィールドを一貫して見せたいときは、新しいスロットを作って Id を atomic で差し替える。",
+  "remedy": "",
+  "aliases": [
+   "RCU",
+   "F3202",
+   "rcu_synchronize",
+   "grace period",
+   "猶予期間"
+  ]
+ },
+ {
+  "name": "Sleep 効果",
+  "category": "ユニバーサル OS 拡張（1.0）",
+  "summary": "眠りうる関数の印（schedule・sleep_ticks・rcu_synchronize・#[sleep]・#[asm(effects = \"sleep\")]、それに待つ操作）",
+  "detail": "呼び出しグラフの推移閉包で求める。rcu_read / atomic / #[trap] の中、または第二級参照が生きている間に呼ぶと F3203（眠っている間にほかのタスクが参照先を解放しうる）。プリエンプションでは TCB に汎用レジスタ（_flt ラッチを含む）・フレームリージョンの位置・catch_fault の保留ラッチを退避・復元する。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "Sleep",
+   "sleep",
+   "schedule",
+   "sleep_ticks",
+   "F3203"
+  ]
+ },
+ {
+  "name": "#[secret]",
+  "category": "ユニバーサル OS 拡張（1.0）",
+  "summary": "秘密の値（鍵など）: 複製・出力・秘密に依存する分岐を禁止し、破棄で揮発性の 0 埋め",
+  "detail": "構造体・フィールド・`#[secret] let` に付ける。秘密でない場所への写し・値渡し・出力は F3301、秘密に依存する if / match / while / 比較 / && / 添字は F3302（定数時間の `ct_eq(&a, &b)` を使う）、asm のオペランドは F3303、ct_eq の型の不一致は F3304。破棄のすべての経路で fascon_secure_zero（volatile の格納 + 番地を入力に取る asm + バリア: DSE で消えない）。#[on_drop] と併用すると 1. on_drop → 2. 0 埋め + バリア → 3. 解放 の順。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "secret",
+   "ct_eq",
+   "F3301",
+   "F3302",
+   "F3303",
+   "F3304",
+   "constant time",
+   "定数時間"
+  ]
+ },
+ {
+  "name": "dma own T",
+  "category": "ユニバーサル OS 拡張（1.0）",
+  "summary": "デバイスと共有する所有値（4 KiB 境界の独立したページ。構造体へ詰め込まない）",
+  "detail": "`dma_alloc(T)` で作り、`submit_dma(buf)` で貸し出すと値は消え（IOVA を返す。以後の使用は F3401）、`complete_dma(T, iova)` が Option<dma own T> で返す（偽の IOVA・二重の完了は None）。貸すときは DC CVAC + DSB SY、返すときは DC IVAC + DSB SY、generic-os では IOMMU（Arm SMMU / Intel VT-d）の IOVA を写して外す。構造体のフィールドは Option<dma own T>（.take() で外す。直接置くと F3402）。T は POD（F3403）。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "dma_alloc",
+   "submit_dma",
+   "complete_dma",
+   "F3401",
+   "F3402",
+   "F3403",
+   "IOMMU",
+   "SMMU",
+   "VT-d",
+   "IOVA"
+  ]
+ },
+ {
+  "name": "bind_mmio",
+  "category": "ユニバーサル OS 拡張（1.0）",
+  "summary": "バス列挙（DTB / ACPI / PCIe）で見つけた装置のレジスタ構造体を結ぶ `bind_mmio(Regs, 番地)`",
+  "detail": "型名を第一引数に取る（ジェネリクスなし）。登録された装置の窓（board.toml の [[device]]・DTB の reg・PCIe の BAR）の中なら高位の仮想番地の写しを返し、フィールドと添字の読み書きは volatile（固定番地の mmio と同じ保証）。窓の外なら読み出しが全 1・書き込みを捨てる窓へ逸らしてラッチ（catch_fault では EIO）。Regs はレジスタ構造体（F3404）。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "mmio T",
+   "F3404",
+   "DTB",
+   "ACPI",
+   "PCIe",
+   "device window",
+   "装置の窓"
+  ]
+ },
+ {
+  "name": "extern \"C\"",
+  "category": "ユニバーサル OS 拡張（1.0）",
+  "summary": "C との境界（取り込み `extern \"C\" fn f(..) -> T;` / 公開 `extern \"C\" fn f(..) { .. }`）",
+  "detail": "渡せるのは整数・bool・Id・Option<Id>・FaultError（F3601）。C から来た生の Id（rtos は uint32_t、generic-os は uint64_t）にはコンパイラが validate を差し込み、世代 0・範囲外の添字・正規形でない値は None になる。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "extern",
+   "FFI",
+   "F3601",
+   "validate"
+  ]
+ },
+ {
+  "name": "#[asm(..)]",
+  "category": "ユニバーサル OS 拡張（1.0）",
+  "summary": "安全インラインアセンブリの境界 `#[asm(aarch64 = \"..\", x86_64 = \"..\", host = \"..\", effects = \"..\")] fn f(..) -> T;`",
+  "detail": "オペランドは整数か bool だけ（メモリを指す値は渡せない: F3503）、#[secret] の値も渡せない（F3303）。effects（none / sleep / barrier / irq / mmio）が効果解析に入り、sleep なら Sleep 効果。{r} は結果、{名前} / {番号} は引数。PC 実行では host の C の式。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "asm",
+   "F3503",
+   "inline assembly",
+   "インラインアセンブリ"
+  ]
+ },
+ {
+  "name": "#[on_drop(f)] / #[no_column] / #[stable_abi]",
+  "category": "ユニバーサル OS 拡張（1.0）",
+  "summary": "ライブラリを書くための属性: 破棄のフック・列を作らないフィールド・レイアウトの固定",
+  "detail": "#[on_drop(f)]: 破棄のとき最初に `fn f(x: &mut S)` を呼ぶ（形が違えば F3505。眠れない）。#[no_column]: 書き込みの多いフィールド。関わる集計は射影列を作らない。#[stable_abi]: 宣言順・C の自然な整列・列なしで固定。フィールドは整数・bool・その配列・ワイヤ構造体・ほかの #[stable_abi] だけ（F3502）。Id<@a> は rtos（32 ビット）と generic-os（64 ビット）で幅が変わるので直接置けない（F3501。外へは u64 で渡して validate で戻す）。動的に載せるドライバや IPC の境界で使う。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "on_drop",
+   "no_column",
+   "stable_abi",
+   "F3501",
+   "F3502",
+   "PowerGuard",
+   "F3505"
+  ]
+ },
+ {
+  "name": "import",
+  "category": "ユニバーサル OS 拡張（1.0）",
+  "summary": "モジュールの取り込み `import net::tcp;`（`tcp::connect(..)` で使う）",
+  "detail": "このファイルのフォルダ → fsc_modules/（`fascon pkg add`）→ FASCON_PATH → 実行ファイルの横の lib/ → 埋め込みの標準ライブラリ の順に探す。中の項目は `net_tcp__connect` / `Net_Tcp__Conn` に付け替わる（ライフタイムもジェネリクスも持ち込まない名前空間）。モジュールごとの検査は並列で、通ったものは .fascon-cache/ に内容のハッシュで覚える。見つからなければ F3701、モジュールのエラーは F3702、別名の衝突は F3703（`import a::b as c;`）。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "module",
+   "F3701",
+   "F3702",
+   "F3703",
+   "fsc_modules",
+   "FASCON_PATH",
+   "namespace",
+   "名前空間"
+  ]
+ },
+ {
+  "name": "fascon pkg",
+  "category": "ユニバーサル OS 拡張（1.0）",
+  "summary": "パッケージ管理（fascon.toml の [dependencies] を fsc_modules/ へ）",
+  "detail": "`fascon pkg init` / `new <名前>` / `add <名前> --path <dir>` / `add <名前> --git <url> [--rev r]` / `install` / `list` / `std`。fascon.lock に入れたものと内容のハッシュを書く。標準ライブラリ: sync::spinlock・sync::mutex・collections::vec・time::wheel・sched::hmp・net::wire・net::udp・net::tcp・fs::pagecache・fs::cowfs・ipc::rpc・loader::elf・pm::power。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "pkg",
+   "fascon.toml",
+   "fascon.lock",
+   "package",
+   "パッケージ",
+   "stdlib",
+   "標準ライブラリ"
+  ]
+ },
+ {
+  "name": "board.toml",
+  "category": "ユニバーサル OS 拡張（1.0）",
+  "summary": "宣言的なボード定義（メモリマップ・割り込みコントローラ・タイマー・UART・装置の窓）",
+  "detail": "`--board boards/qemu-virt-aarch64.toml`。[board] name / arch / profile / cpus、[memory] ram_base / ram_size、[uart] kind / base、[irq] kind / gicd / gicc / gicr、[timer] intid / hz、[[device]] name / base / size、[limits] user_str_max / dma_pool_pages、[vm] mmio_mirror / arena_va_base、[cpu] big = [..]。生成 C の横に fascon_board.h を書き、BSP と生成 C の両方が読む。誤りは F3801。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "board",
+   "--board",
+   "BSP",
+   "fascon_board.h",
+   "F3801"
+  ]
+ },
+ {
+  "name": "F3001",
+  "category": "エラーコード",
+  "summary": "`--target rtos` での再帰",
+  "detail": "呼び出しグラフ（関数ポインタの候補を含む）の閉路。スタックの最大消費量を静的に証明できなくなる。",
+  "constraints": "",
+  "remedy": "ループと明示的なスタックへ。",
+  "aliases": [
+   "recursion",
+   "再帰"
+  ]
+ },
+ {
+  "name": "F3010 / F3011",
+  "category": "エラーコード",
+  "summary": "generic-os の生の Id の幅（警告）/ generic-os 専用の操作",
+  "detail": "F3010: generic-os の validate に 64 ビット未満の整数を渡した（世代が入らないのでいつも None）。F3011: アドレス空間・TLB の操作を generic-os 以外で使った。",
+  "constraints": "",
+  "remedy": "IdRaw 型を使う / --target generic-os を付ける。",
+  "aliases": [
+   "F3010",
+   "F3011"
+  ]
+ },
+ {
+  "name": "F3105",
+  "category": "エラーコード",
+  "summary": "Result と `?` の誤り",
+  "detail": "`?` を Result でない値に使った、Result を返さない関数で使った、または Result の失敗の型がコピーできない。",
+  "constraints": "",
+  "remedy": "Option は if let で受けて `return Err(EINVAL);`。",
+  "aliases": [
+   "?"
+  ]
+ },
+ {
+  "name": "F3401 / F3402 / F3403 / F3404",
+  "category": "エラーコード",
+  "summary": "DMA と MMIO の規則",
+  "detail": "F3401: 貸し出し中（submit_dma〜complete_dma）の値を CPU から使った。F3402: dma own をフィールドに直接置いた。F3403: デバイスと共有する値が POD でない。F3404: bind_mmio / mmio T の型がレジスタ構造体でない。",
+  "constraints": "",
+  "remedy": "complete_dma で取り戻した値を使う / Option<dma own T> にする / 整数・配列・ワイヤ構造体だけにする。",
+  "aliases": [
+   "F3401",
+   "F3402",
+   "F3403",
+   "F3404"
+  ]
+ },
+ {
+  "name": "F3503 / F3504 / F3601 / F3801",
+  "category": "エラーコード",
+  "summary": "境界の型・属性・ボード定義の誤り",
+  "detail": "F3503: #[asm] の形・オペランド・効果の誤り。F3504（警告）: 知らない属性。F3601: extern \"C\" を渡れない型。F3801: board.toml が読めない・必須の項目が無い。",
+  "constraints": "",
+  "remedy": "F3503: `#[asm(..)]` の形・オペランド・効果を `fascon dict #[asm(..)]` の例に合わせる。F3504: 属性の綴りを直す（警告なのでビルドは続く）。F3601: extern \"C\" の引数と戻り値を、整数・bool・Id・`Option<Id>`・FaultError にする（入ってきた Id は validate を通る）。F3801: board.toml の構文と必須のキーを `fascon dict board.toml` の例に合わせる。",
+  "aliases": [
+   "F3503",
+   "F3504",
+   "F3601",
+   "F3801"
+  ]
+ },
+ {
+  "name": "gc_arena",
+  "category": "メモリ",
+  "summary": "fascon-gc が回収するアリーナ（決定論的・正確な GC）",
+  "detail": "`gc_arena nodes: Node[N];`（共有は `shared gc_arena`）。要素は Id<nodes>（着色型・F2101・F0515・F0520 はそのまま）で指す。gc_collect(nodes) が、型記述子（.rodata）・生存ビットマップ・Id 専用の射影列だけを読んで印を付け、live & ~mark を ctz / blsr で掃除する。死んだスロットはアリーナの free（own の drop・0 埋め・世代 +1・列の unmirror・空きリスト / マガジン。共有は RCU の猶予期間の後）へ渡る。根は静的変数・ふつうの arena / bump_arena のスロット・シャドウスタック（gc の Id を持つローカル・引数）・止まっているタスク。",
+  "constraints": "手動の free / remove は F2621。#[trap]・rcu_read・atomic・critical・irq の中での確保と gc_collect は F2622。--gc=off では F2623。要素に dma own T は F2624。コアごとのアリーナに共有の gc_arena の Id は F2625。回収点は gc_collect の文（と共有の gc_arena ではループの頭・待ちの安全点）。式の途中の一時値も根になる（回収しうる式の前に評価した gc の Id は、コンパイラが一時変数に移してシャドウスタックに登録する。登録はその文の終わりまで）。共有の gc_arena の Id を運べるチャネルは、送られて受け取られていない要素も根として読まれる。",
+  "remedy": "参照をやめたら次の gc_collect で回収される。満杯（alloc が None）なら gc_collect してから確保し直す。",
+  "aliases": [
+   "gc",
+   "fascon-gc",
+   "ガベージコレクション",
+   "garbage collection",
+   "gc_collect",
+   "shared gc_arena",
+   "一時値の根",
+   "temporary roots",
+   "チャネルの根",
+   "channel roots"
+  ]
+ },
+ {
+  "name": "promote_to_gc",
+  "category": "メモリ",
+  "summary": "bump_arena の生き残りを gc_arena へ写す（世代別の退避）",
+  "detail": "`promote_to_gc(nodes, bump_id)` は Option<Id<nodes>>。一時的なものを bump_arena に O(1) で作り、残すものだけを写す。残りは関数の出口の巻き戻し 1 回で消える。エスケープ解析による自動昇格: bump_arena の Id を、同じ要素型の gc_arena の Id が要る場所（戻り値・引数・フィールド・let の型）へ渡すと、コンパイラが promote_to_gc を差し込む。",
+  "constraints": "要素型が同じであること（bump_arena の要素は own を持てない）。",
+  "remedy": "",
+  "aliases": [
+   "escape promotion",
+   "自動昇格",
+   "evacuation"
+  ]
+ },
+ {
+  "name": "F2621 / F2622 / F2623 / F2624 / F2625",
+  "category": "エラーコード",
+  "summary": "fascon-gc の誤り",
+  "detail": "F2621: gc_arena に free / remove（解放は GC の仕事）。F2622: #[trap]・rcu_read・atomic・critical・irq のハンドラの中で（そこから呼ぶ関数も含めて）gc_arena へ確保・gc_collect・promote_to_gc（回収の時間が読めず、止めたコアと待ち合って行き詰まりうる）。F2623: --gc=off（FASCON_GC=off）で gc_arena を使った（GC のランタイムを 1 バイトもリンクしない完全決定論のビルド）。F2624: gc_arena の要素に dma own T（転送中に回収されうる）。F2625: コアごとのアリーナの要素に共有の gc_arena の Id（回収するコアから見えない根）。仕様の F2601〜F2604 は Fascon 1.0 で別の意味に使われているため、下 1 桁を合わせて F2621〜F2624 に置いた。",
+  "constraints": "",
+  "remedy": "F2621: free / remove を消し、回収は gc_collect に任せる（Quick Fix あり）。F2622: 確保と回収を、閉じた区間・irq・#[trap]・rcu_read・atomic の外（ふつうのタスクの開いた区間）へ移す。F2623: `--gc=off` をやめるか、gc_arena をふつうの arena にする。F2624: dma own T は gc_arena でなくふつうのアリーナに置く。F2625: 共有の gc_arena の Id は、共有のアリーナ（shared arena / shared gc_arena）に置く。",
+  "aliases": [
+   "F2621",
+   "F2622",
+   "F2623",
+   "F2624",
+   "F2625"
+  ]
+ },
+ {
+  "name": "Pure Safe / Low-Level / Hardware",
+  "category": "パッケージ",
+  "summary": "fascon pkg の安全性のラベル",
+  "detail": "fascon pkg label（と fascon pkg install・パッケージの中の fascon build）が、パッケージの全ソースの字句を走査して fascon.toml の [package] に safety と safety_reasons を書く。#[asm] も extern \"C\" も装置の境界（mmio・port_io・bind_mmio・dma・irq・#[trap]・#[syscall]・user_mem・volatile_bypass）も無ければ Pure Safe、あれば Low-Level / Hardware（理由と場所を列挙）。fascon.lock にも依存ごとのラベルが入る。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "safety label",
+   "安全性のラベル",
+   "fascon pkg label",
+   "Pure Safe",
+   "Low-Level"
+  ]
+ },
+ {
+  "name": "hal::console / hal::timer / hal::block / hal::net",
+  "category": "標準ライブラリ",
+  "summary": "標準 HAL（関数ポインタの構造体）",
+  "detail": "Console { putc, getc, flush }・Timer { now_ns, freq_hz, arm_oneshot, cancel }・BlockDevice { sectors, read, write, flush }・NetDevice { mac, mtu, send, recv, link_up }。ボードのパッケージが中身を埋め（board_hal.fsc の console() など）、上位のライブラリは &Console などだけを受け取るので、ボードを替えてもそのまま動く。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "HAL",
+   "board_hal",
+   "Console",
+   "BlockDevice",
+   "NetDevice"
+  ]
+ },
+ {
+  "name": "board.toml [boot] / --board",
+  "category": "ボード",
+  "summary": "board.toml だけで実機の像を作る",
+  "detail": "[boot] に load_addr・stack_size・smp（spin-table / psci-hvc / psci-smc / ipi / none）・release_addrs・exit（loop / psci / semihosting）・entry_el を書くと、fascon build --board <名前> が汎用 BSP（EL3 / EL2 / EL1 のどれからでも EL1 へ降りる start.S・bsp.c・生成したリンカスクリプト）で ELF と生の .img（フラッシュ・SD カードへそのまま）を作る。[dma] coherent = false でキャッシュラインごとの掃き出し・無効化、bus_offset で装置から見た番地（bus_addr）。boards/<名前>/ に board.toml と純粋な Fascon のドライバ（board_hal.fsc など）、必要なら start.S・bsp.c・[toolchain]（RISC-V など）を置けば、コンパイラを変えずにボードを足せる。fascon qemu --board は [qemu] machine で起動する。",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "--board",
+   "board.toml",
+   "boot image",
+   "spin-table",
+   "PSCI",
+   "bus_addr",
+   "dma_coherent",
+   "raspberrypi3b"
+  ]
+ },
+ {
+  "name": "fascon_plat_*",
+  "category": "マルチアーキテクチャ基盤（1.0）",
+  "summary": "生成された C が呼ぶ、CPU に依存しない関数の集まり（ボードごとの BSP が実装する）",
+  "detail": "コンパイラが出す C には CPU 固有の命令が無く、`runtime/fascon2_rt.h` で宣言されたこれらの関数だけを呼ぶ: 割り込みとロック（`irq_save` / `irq_restore` / `irq_open` / `wait_irq`、`critical_enter` / `critical_exit`）、時計（`timer_now` / `timer_freq` / `timer_arm`）、タスク（`task_create` / `task_create_user` / `task_enter` / `task_yield` / `task_resume` / `task_exit` / `task_current`）、マルチコア（`spawn_on` / `cpu_count` / `cpu_id`）、アドレス空間（`vm_space` / `vm_map` / `vm_unmap` / `vm_switch` / `vm_flush` / `vm_drop`）、ユーザー空間（`user_register` / `user_window` / `copy_from_user` / `copy_to_user` / `syscall_register` / `trap_register`）、パニック（`panic_broadcast` / `core_parked`）、fascon-gc（`gc_task_tops`）。実装は bsp/qemu-virt-aarch64・bsp/qemu-x86_64-bios（すべて）、bsp/generic-aarch64・boards/qemu-virt-riscv64（割り込み・時計・コア数）、bsp/portable-stub（移植の雛形）、bsp/host（PC 実行）。",
+  "constraints": "割り込みコントローラ・ページ表・TLB の命令は BSP の中だけに置き、コンパイラ（src/*.rs）には置かない。",
+  "remedy": "新しいボードは `boards/<名前>/` にこれらの関数を C で書き、`board.toml` で説明する（コンパイラは変えない）。`python3 tools/cross_check.py target/release/fascon` で、生成した C が 5 つのアーキテクチャで `-Werror` のままコンパイル・リンクできることを確かめる。",
+  "aliases": [
+   "fascon_plat",
+   "プラットフォーム API",
+   "platform API",
+   "BSP",
+   "移植",
+   "porting",
+   "マルチアーキテクチャ",
+   "multi-architecture"
+  ]
+ },
+ {
+  "name": "f32 / f64",
+  "category": "浮動小数点・列（1.0）",
+  "summary": "IEEE-754 の浮動小数点数（単精度・倍精度）。既定は書いた順の演算でビット一致",
+  "detail": "リテラルは `1.5`・`2.0f32`・`1e-3`、接尾辞なしは推論（決まらなければ f64）。演算は IEEE-754 のまま（C の FMA への縮約は止める）、整数への `as` は飽和（NaN は 0）、`put(x)` は往復できる最短の 10 進（Rust の `{:?}` と同じ形）。値のメソッドは `to_bits()`・`is_nan()`・`is_finite()`・`abs()`、`f32::from_bits(u)` / `f64::from_bits(u)`、定数 `f64::INFINITY`・`f64::NAN`・`f64::EPSILON` など。集計の並列化（再結合）は `#[fast_math]` を付けたときだけ。",
+  "constraints": "浮動小数点数は wire 構造体には置けない（F2701）。`==` は IEEE-754 の比較（NaN は自分とも等しくない）。",
+  "remedy": "ビットで比べたいときは `x.to_bits() == y.to_bits()`。",
+  "aliases": [
+   "f32",
+   "f64",
+   "float",
+   "double",
+   "浮動小数点",
+   "IEEE-754",
+   "to_bits",
+   "from_bits",
+   "is_nan",
+   "is_finite",
+   "NaN",
+   "-0.0"
+  ]
+ },
+ {
+  "name": "#[fast_math]",
+  "category": "浮動小数点・列（1.0）",
+  "summary": "ループか関数の浮動小数点の集計に、並列レーンでの加算（再結合）と列化を許す属性",
+  "detail": "`#[fast_math] for id in @a { s += @a[id].x; }` のような総和・条件付き総和は f32 / f64 の完全列化の列（float / double）を 4 本の独立したベクトル累計（f20_col_sum_f32 / _f64、条件付きは _m）で読む。最小 / 最大は IEEE-754 の順序を保つ鍵の列（F20_KEY_F32 / F20_KEY_F64: 符号ビット 0 なら符号ビットだけ反転、1 なら全ビット反転。NaN は選ばない、-0.0 は +0.0 として比べる）。属性のないループは今までどおり書いた順でビット一致。`--fast-math`（FASCON_FAST_MATH=1）はプログラム全体に付ける。",
+  "constraints": "和の結果の最後の桁は、書いた順の和と変わりうる（レーンごとに足してから合わせるため）。",
+  "remedy": "ビット一致が要る集計には付けない。`--columns off` で列を使わない走査に戻る。",
+  "aliases": [
+   "fast_math",
+   "--fast-math",
+   "FASCON_FAST_MATH",
+   "再結合",
+   "reassociation",
+   "f20_col_sum_f32",
+   "f20_col_sum_f64",
+   "F20_KEY_F32",
+   "F20_KEY_F64"
+  ]
+ },
+ {
+  "name": "完全列化（True SoA）",
+  "category": "浮動小数点・列（1.0）",
+  "summary": "集計が読むフィールドを、スロットから外して列そのものを正本にする表（書き込みは 1 回）",
+  "detail": "`--columns on`（既定）では、集計が読み、要素まるごとの参照やアドレスを取られないフィールドを完全列化（True-SoA: 単一書き込み）にし、`@a[id].f` はスロットではなく列 `ts_f[i]` を読み書きする。写しの列（Mirrored-SoA: 二重書き込み）は条件のビット列や鍵の列など、スロットに残るフィールドから作る列だけ。8 MiB 以上の列への一括上書きは非時間的ストア（F20_NT_STORE と出口の F20_SFENCE）。書き込みの多いフィールド（書き込みの重みが走査の重みを超える）は写しの列を作らない。`fascon regions` に表ごとの判定と理由が出る。",
+  "constraints": "#[stable_abi]・#[wire]・extern \"C\" の境界・アドレスを取られるフィールドは列にしない（理由が regions に出る）。",
+  "remedy": "`--columns mirrored` で写しの列だけ、`--columns off` で 1.0.0 の表、`--nontemporal off` で非時間的ストアなし。",
+  "aliases": [
+   "True SoA",
+   "True-SoA",
+   "Mirrored-SoA",
+   "--columns mirrored",
+   "--nontemporal",
+   "F20_NT_STORE",
+   "F20_SFENCE",
+   "single-write",
+   "dual-write",
+   "単一書き込み",
+   "二重書き込み"
+  ]
+ },
+ {
+  "name": "条件付き一括更新（Masked Column RMW）",
+  "category": "浮動小数点・列（1.0）",
+  "summary": "`for id in @a { if 条件 { @a[id].f += x / = x } }` を、条件のビット列を語ごとに読む分岐なしのベクトル更新にする",
+  "detail": "f が完全列化の列（u32・u64・i32・i64、#[fast_math] の下では f32・f64）、条件が条件のビット列にでき、x がループの中で変わらない値（リテラル・ローカル・static・定数）のとき、f20_col_masked_add_* / f20_col_masked_set_* が 64 スロットずつ処理する: 0 の語は列の行に触れずに飛ばし、全部 1 の語はマスクなしのベクトル演算（8 MiB 以上なら非時間的ストア）、それ以外はビットをレーンへ広げた述語付きの演算でその場で更新する。整数の加算はレーンごとにあふれを確かめ、あふれる語は元に戻してから逐次のループで続ける（同じ場所・同じ panic）。",
+  "constraints": "共有アリーナ・割り込みやタスクと共有する表・dma / gpu / gc / bump / task のアリーナは対象外。",
+  "remedy": "`fascon regions` の「masked column RMW」に、列・ビット列・走査関数・ストアの種類が出る。`--columns off` で逐次のループに戻る。",
+  "aliases": [
+   "masked RMW",
+   "Masked Column RMW",
+   "f20_col_masked_add",
+   "f20_col_masked_set",
+   "条件付き一括更新",
+   "predicated SIMD"
+  ]
+ },
+ {
+  "name": "gpu_arena / GpuBuf<@g> / GpuFence<@g>",
+  "category": "HPC・アクセラレータ（1.0）",
+  "summary": "アクセラレータ（GPU / NPU）へスロットを貸し出す表。ハンドルは移動専用、完了は引換券で確かめる",
+  "detail": "`gpu_arena @g: T[N];` は .bss.fascon_gpu の 2 MiB 境界（ピン留めできるページ）に置かれる。`@g.alloc(v)` が `Option<GpuBuf<@g>>` を返し、CPU は持っている間だけ `@g[h]` で読み書きできる。`@g.dispatch(kernel, grid, block, h)` で h は消え（以後の使用は F0382）、引換券 `GpuFence<@g>` が返る。`@g.reclaim(f)` は終わっていればハンドルを返し（待たない）、`@g.reclaim_wait(f)` は終わるまで待つ（Sleep 効果: critical・irq では F2603、rcu_read では F3203）。同じ引換券の 2 度目は None。生成 C は fascon_plat_gpu_register / dispatch / poll / wait だけを呼び、PC ではワーカースレッドが `<名前>.gpu.c` の FASCON_GPU_KERNEL(番号) を走らせる。",
+  "constraints": "要素は POD（整数・浮動小数点数と、その配列・構造体。F2705）。for で回せず、Id を使う操作もない（F2706）。",
+  "remedy": "`--gpu=off`（FASCON_GPU=off）で装置へ出さず、dispatch は呼んだコアでその場で走る（F2707 の警告）。",
+  "aliases": [
+   "gpu_arena",
+   "GpuBuf",
+   "GpuFence",
+   "dispatch",
+   "gpu_dispatch",
+   "reclaim_wait",
+   "FASCON_GPU_KERNEL",
+   "--gpu=off",
+   "fascon_plat_gpu_register",
+   "fascon_plat_gpu_dispatch",
+   "fascon_plat_gpu_poll",
+   "fascon_plat_gpu_wait",
+   ".gpu.c",
+   "GPU"
+  ]
+ },
+ {
+  "name": "--target hpc",
+  "category": "HPC・アクセラレータ（1.0）",
+  "summary": "HPC・計算ノード向けのプロファイル（64 ビット Id・2 MiB 境界のアリーナ・物理コアへのピン留め・NUMA ローカルな固定）",
+  "detail": "`--target hpc` か `// fascon-target: hpc`。Id は 64 ビット [世代 32 | 添字 32]、どの表も 2 MiB 境界（PC は MADV_HUGEPAGE）。main と spawn_on の入口で 1 回、fascon_plat_pin_core がコアを物理コアへ固定し（SMT の兄弟を避ける）、コアごとのアリーナ・fascon__cpu[core]・own ヒープを fascon_plat_numa_bind でそのコアの NUMA ノードへ固定する（MPOL_BIND）。共有の表は `#[numa_node(n)]` でノードを選べる。計算ノードの形は `--topology cores=N,smt=K,numa=M` か `// fascon-topology: ..`（既定 cores=128 smt=2 numa=8）。管理コア（0）と計算コア（1..N）を分ける検査は F3901〜F3903。",
+  "constraints": "ピン留めと固定は助言で、拒まれても止まらない（FASCON_HPC_NO_PIN で止める）。`#[no_smt]` は fn main に付ける。",
+  "remedy": "`fascon regions` の HPC の節に、コアごとの役割・物理コア・NUMA ノード・計算コアから届く関数が出る。",
+  "aliases": [
+   "hpc",
+   "FASCON2_HPC",
+   "--topology",
+   "fascon-topology",
+   "numa_node",
+   "no_smt",
+   "allow(hpc_io)",
+   "fascon_plat_pin_core",
+   "fascon_plat_numa_bind",
+   "fascon_plat_numa_node",
+   "fascon_plat_topology",
+   "NUMA",
+   "SMT",
+   "MPOL_BIND",
+   "計算コア",
+   "管理コア"
+  ]
+ },
+ {
+  "name": "F2705",
+  "category": "HPC・アクセラレータ（1.0）",
+  "summary": "gpu_arena の要素が POD でない",
+  "detail": "装置はスロットのバイト列をそのまま読み書きする。own・Id・Str・参照・関数ポインタ・bool・Option はほかの表やヒープを指すか、装置が書いたビット列では壊れた値になるので置けない。置けるのは整数・浮動小数点数と、その配列・構造体（ワイヤ構造体でなくてよい）。",
+  "constraints": "",
+  "remedy": "CPU 側の情報（Id・own・Str）はふつうの arena に置き、`h.index()` の添字で結ぶ。装置へ出さないならふつうの `arena` にする。",
+  "aliases": [
+   "gpu_arena POD"
+  ]
+ },
+ {
+  "name": "F2706",
+  "category": "HPC・アクセラレータ（1.0）",
+  "summary": "gpu_arena のハンドル・引換券の誤用（別の表のもの・型違い・for・Id の操作）",
+  "detail": "`GpuBuf<@g>` と `GpuFence<@g>` は、出てきた gpu_arena にだけ使える。別の gpu_arena のハンドルを dispatch / free / `@g[h]` に渡した、引換券の代わりに整数やハンドルを reclaim に渡した、gpu_arena でない表を `GpuBuf<..>` に書いた、gpu_arena を for で回した（貸し出し中のスロットがある）、get・contains・validate など Id の操作を呼んだ、のどれか。",
+  "constraints": "",
+  "remedy": "ハンドルは alloc と reclaim が、引換券は dispatch が返す。ハンドルを自分の表（arena・配列）に持ち、そこを回す。ふつうの表の Id なら `Id<@a>` と書く。",
+  "aliases": [
+   "GpuBuf misuse",
+   "GpuFence misuse"
+  ]
+ },
+ {
+  "name": "F2707",
+  "category": "HPC・アクセラレータ（1.0）",
+  "summary": "`--gpu=off` なのに gpu_arena を使っている（警告）",
+  "detail": "`--gpu=off`（FASCON_GPU=off）では装置へ出さない。dispatch は呼んだコアでその場で、FASCON_GPU_KERNEL(番号) で登録された C の関数を走らせ（登録が無ければ何もしない）、すぐ完了する。生成 C は fascon_plat_gpu_* を呼ばない。",
+  "constraints": "",
+  "remedy": "装置へ出すときは `--gpu=off` を外す。CPU だけで使う表なら、ふつうの `arena` にする。",
+  "aliases": [
+   "--gpu=off warning"
+  ]
+ },
+ {
+  "name": "F3901",
+  "category": "HPC・アクセラレータ（1.0）",
+  "summary": "計算コアのルートから外部 I/O が届く（--target hpc の警告）",
+  "detail": "`spawn_on(k, ..)`（k > 0、または実行時に決まるコア）で起動した関数から、MMIO・I/O ポート・dma・bind_mmio・submit_dma・gpu_dispatch / reclaim が届く。計算コアへの OS / I/O の雑音（割り込み・待ち・キャッシュの汚れ）になる。`fascon regions` の HPC の節にも出る。",
+  "constraints": "",
+  "remedy": "装置・DMA・GPU への出し入れは管理コア（コア 0）に任せ、計算コアとは chan / shared arena でやりとりする。わざとなら、その関数かルートに `#[allow(hpc_io)]` を付ける。",
+  "aliases": [
+   "hpc_io",
+   "allow(hpc_io)"
+  ]
+ },
+ {
+  "name": "F3902",
+  "category": "HPC・アクセラレータ（1.0）",
+  "summary": "計算コアで動的な確保か、列の写しの表ごとの作り直しをする（--target hpc）",
+  "detail": "計算コアのルートから届く道で、own・own_alloc・gc_arena の確保・promote_to_gc・gc_collect・dma_alloc をする（ページフォールトとジッタ）。または `for id in @a` の中で（本体から呼ぶ関数の中も含めて）、Mirrored-SoA の列（条件のビット列・鍵の列など）が読むフィールドへ書き、写しを表ごと作り直す（どの列が写しになるかは C 生成で決まるので、その後で調べる）。",
+  "constraints": "",
+  "remedy": "確保は管理コアで計算の前に済ませ、`own` の引数・shared arena・chan で渡す。写しは `fascon regions` の理由を取り除いて完全列化にするか、`#[no_column]` を付けるか、表ごとの更新を管理コアで行う。",
+  "aliases": [
+   "hpc allocation",
+   "mirror rebuild"
+  ]
+ },
+ {
+  "name": "F3903",
+  "category": "HPC・アクセラレータ（1.0）",
+  "summary": "コア番号・NUMA ノードが計算ノードの形を超える、#[no_smt] で兄弟スレッドに重複割り当て（--target hpc）",
+  "detail": "spawn_on の定数のコア番号が論理コアの数以上、`#[numa_node(n)]` が NUMA ノードの数以上、または `fn main` に `#[no_smt]` があるのに、2 つのコア（管理コア 0 を含む）が同じ物理コアの兄弟スレッドになる。形は `--topology`・`// fascon-topology:`・プロファイルの既定（cores=128 smt=2 numa=8）の順に決まる。兄弟は既定で c と c + 物理コア数（layout=adjacent なら隣どうし）。",
+  "constraints": "",
+  "remedy": "計算ノードにあるコア・ノードを選ぶか、`--topology cores=N,smt=K,numa=M` / `// fascon-topology: ..` を実機に合わせる。#[no_smt] では兄弟でないコアを選ぶ。",
+  "aliases": [
+   "topology",
+   "no_smt violation"
+  ]
+ }
+]

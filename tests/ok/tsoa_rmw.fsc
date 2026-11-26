@@ -1,0 +1,147 @@
+// 条件付き一括更新（Masked Column RMW）: `for id in @a { if 条件 { @a[id].col += x / = x } }`（col は完全列化の列、条件は
+// 条件のビット列）を、条件のビット列を語ごとに読む分岐なしのベクトル更新にする。0 の語は飛ばし、全部 1 の語はマスクなし、
+// それ以外は述語付き。整数（u32・u64・i32・i64）と、#[fast_math] の下の浮動小数点（f32・f64）
+// masked column RMW: `for id in @a { if cond { @a[id].col += x / = x } }` (col a True-SoA column, the condition a filter
+// bit column) becomes a branch-free vector update reading the filter bit column word by word: zero words are skipped,
+// all-one words go unmasked, the rest predicated. Integers (u32, u64, i32, i64) and, under #[fast_math], floats (f32, f64)
+
+struct Item {
+    hits: u32,
+    total: u64,
+    delta: i32,
+    stamp: i64,
+    heat: f32,
+    level: f64,
+    group: u32,
+    hot: bool,
+}
+
+arena items: Item[5000];
+
+fn report(label: Str) {
+    let mut h = 0u64;
+    let mut t = 0u64;
+    let mut d = 2147483647i32;
+    let mut s = -9223372036854775807i64;
+    let mut heat: f32 = 0.0;
+    let mut level = 0.0;
+    for id in items {
+        h += items[id].hits as u64;
+    }
+    for id in items {
+        t += items[id].total;
+    }
+    // 符号付きの列は最小 / 最大で読む / the signed columns are read by a min / max
+    for id in items {
+        if items[id].delta < d {
+            d = items[id].delta;
+        }
+    }
+    for id in items {
+        if items[id].stamp > s {
+            s = items[id].stamp;
+        }
+    }
+    #[fast_math]
+    for id in items {
+        heat += items[id].heat;
+    }
+    #[fast_math]
+    for id in items {
+        level += items[id].level;
+    }
+    put(label);
+    put(" ");
+    put(h);
+    put(" ");
+    put(t);
+    put(" ");
+    put(d);
+    put(" ");
+    put(s);
+    put(" ");
+    put(heat);
+    put(" ");
+    put(level);
+    put("\n");
+}
+
+fn main() {
+    let mut i = 0u32;
+    while i < 5000u32 {
+        // 群 0 は 64 スロットの塊ごとに全部・半分・なし（全部 1・ばらばら・0 の語を作る） / group 0 comes in 64-slot runs:
+        // all, half, none (all-one, mixed and zero words)
+        let run = (i / 64u32) % 3u32;
+        let g = if run == 0u32 { 0u32 } else if run == 1u32 { i % 2u32 } else { 1u32 + i % 3u32 };
+        if items.alloc(Item { hits: i % 10u32, total: 1u64, delta: 0, stamp: 0, heat: 0.5, level: 1.0, group: g, hot: i % 7u32 == 0u32 }).is_none() {
+            panic("full");
+        }
+        i += 1u32;
+    }
+    // ところどころ解放（死んだスロットは条件のビット列で 0、列も 0 のまま） / free some (dead slots are 0 in the filter
+    // bit column, and their column entries stay 0)
+    let mut n = 0u32;
+    for id in items {
+        if n % 11u32 == 5u32 {
+            items.free(id);
+        }
+        n += 1u32;
+    }
+    report("start");
+    let bonus = 3u32;
+    for id in items {
+        if items[id].group == 0u32 {
+            items[id].hits += bonus;
+        }
+    }
+    for id in items {
+        if items[id].group == 0u32 && items[id].hot {
+            items[id].total = 40u64;
+        }
+    }
+    for id in items {
+        if items[id].group != 0u32 {
+            items[id].delta += -7;
+        }
+    }
+    let at = 12i64;
+    for id in items {
+        if items[id].hot || items[id].group == 2u32 {
+            items[id].stamp = at;
+        }
+    }
+    report("int");
+    #[fast_math]
+    for id in items {
+        if items[id].group == 0u32 {
+            items[id].heat += 0.25;
+        }
+    }
+    #[fast_math]
+    for id in items {
+        if items[id].group == 1u32 {
+            items[id].level = -0.0;
+        }
+    }
+    // 属性がなければふつうのループ（同じ結果） / without the attribute: a plain loop (the same result)
+    for id in items {
+        if items[id].group == 3u32 {
+            items[id].heat += 1.0;
+        }
+    }
+    report("float");
+    // 新しく確保したスロットも、条件のビット列に入る / newly allocated slots enter the filter bit column too
+    let mut k = 0u32;
+    while k < 300u32 {
+        if items.alloc(Item { hits: 1u32, total: 2u64, delta: 1, stamp: 5, heat: 2.0, level: 4.0, group: 0u32, hot: true }).is_none() {
+            panic("full");
+        }
+        k += 1u32;
+    }
+    for id in items {
+        if items[id].group == 0u32 {
+            items[id].hits += bonus;
+        }
+    }
+    report("again");
+}

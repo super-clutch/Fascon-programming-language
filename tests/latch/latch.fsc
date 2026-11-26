@@ -1,0 +1,239 @@
+// 遅延フォールト（ラッチ）と 32 ビット Id のテスト。tests/latch/harness.c（C）から関数を直接呼んで確かめる
+// tests for deferred faults (the latch) and 32-bit Ids; tests/latch/harness.c (C) calls these functions directly
+//
+//   fascon build tests/latch/latch.fsc --out-dir build/latch
+//   cc -O2 -std=c11 -Ibuild/latch tests/latch/harness.c -o build/latch/harness && build/latch/harness
+
+struct Task {
+    pid: u32,
+    prio: u32,
+    vruntime: u64,
+}
+
+arena @task: Task[8];
+
+fn make(pid: u32, v: u64) -> Id<@task> {
+    @task.alloc(Task { pid: pid, prio: 1, vruntime: v }).unwrap()
+}
+
+// 古い Id への書き込み: 番兵へ逸れ、関数の終わりのコミット点で止まる
+// a write through a stale Id goes to the sentinel and stops at the commit point at the end of the function
+fn poke(stale: Id<@task>) {
+    @task[stale].vruntime = 99;
+}
+
+// 古い Id の読み出しのあとの出力: 出力の直前で止まり、何も出ない
+// output after a stale read: stops right before the output, so nothing is printed
+fn peek_print(stale: Id<@task>) {
+    let v = @task[stale].vruntime;
+    print_int(v as i64);
+}
+
+// 古い値で終わり方が決まるループ: 各周回の先頭のコミット点で止まる
+// a loop whose exit depends on a stale value: stops at the commit point at the top of the iteration
+fn spin(stale: Id<@task>) -> u64 {
+    let mut n: u64 = 0;
+    while @task[stale].pid != 12345 {
+        n += 1;
+    }
+    n
+}
+
+// 総和の特殊化（生存スロットだけの合計） / the sum specialization (a sum over live slots only)
+fn total() -> u64 {
+    let mut s: u64 = 0;
+    for id in @task {
+        s += @task[id].vruntime;
+    }
+    s
+}
+
+// 2 つの項（64 ビットと 32 ビット）・if let の形 / two terms (64-bit and 32-bit) in the if-let form
+fn total2() -> u64 {
+    let mut s: u64 = 0;
+    for id in @task {
+        if let Some(t) = @task.get(id) {
+            s = s + t.vruntime + (t.prio as u64);
+        }
+    }
+    s
+}
+
+// 32 ビットの累積（あふれは u32 の範囲で判定） / a 32-bit accumulator (overflow judged against u32)
+fn pids() -> u32 {
+    let mut s: u32 = 0;
+    for id in @task {
+        s += @task[id].pid;
+    }
+    s
+}
+
+// ───── 1.0 の分岐なし走査（生存ビットマップ・マスク付き集計・コミット点の移動）のテスト ─────
+// ───── tests of the branch-free scans (live bitmap, masked reductions, moved commit points) ─────
+arena @big: Task[200];
+
+static RUNNING: u32 = 0;
+
+fn big_make(pid: u32, prio: u32, v: u64) -> Option<Id<@big>> {
+    @big.alloc(Task { pid: pid, prio: prio, vruntime: v })
+}
+
+fn big_free(id: Id<@big>) -> bool {
+    @big.free(id)
+}
+
+// 個数: prio == RUNNING の生存スロット（死んだスロットも prio は 0 なので、生存ビットのマスクが要る）
+// count: live slots with prio == RUNNING (dead slots have prio 0 too, so the live-bit mask is needed)
+fn big_count_running() -> u64 {
+    let mut n: u64 = 0;
+    for id in @big {
+        if @big[id].prio == RUNNING {
+            n += 1;
+        }
+    }
+    n
+}
+
+// 外のローカルを読む条件付きの個数 / a filtered count that reads an outer local
+fn big_count_above(x: u32) -> u64 {
+    let mut n: u64 = 0;
+    for id in @big {
+        if @big[id].prio > x {
+            n += 2;
+        }
+    }
+    n
+}
+
+// 条件なしの個数（st.live × 定数） / an unfiltered count (st.live × constant)
+fn big_live3() -> u64 {
+    let mut n: u64 = 0;
+    for id in @big {
+        n += 3;
+    }
+    n
+}
+
+// 条件付き総和（if let + 入れ子の if + &&） / a filtered sum (if let + nested if + &&)
+fn big_sum_if(lim: u64) -> u64 {
+    let mut s: u64 = 0;
+    for id in @big {
+        if let Some(t) = @big.get(id) {
+            if t.prio >= 2 && t.vruntime < lim {
+                if (t.pid & 1) == 0 {
+                    s += t.vruntime;
+                }
+            }
+        }
+    }
+    s
+}
+
+// 最小値（死んだスロットの 0 は選ばれない） / the minimum (a dead slot's 0 is never chosen)
+fn big_min() -> u64 {
+    let mut best: u64 = 0xFFFF_FFFF_FFFF_FFFF;
+    for id in @big {
+        if @big[id].vruntime < best {
+            best = @big[id].vruntime;
+        }
+    }
+    best
+}
+
+// 最小の Id（同じ値なら最初のもの） / the Id of the minimum (the first one on a tie)
+fn big_argmin() -> Option<Id<@big>> {
+    let mut best: u64 = 0xFFFF_FFFF_FFFF_FFFF;
+    let mut pick: Option<Id<@big>> = None;
+    for id in @big {
+        if @big[id].vruntime < best {
+            best = @big[id].vruntime;
+            pick = Some(id);
+        }
+    }
+    pick
+}
+
+// 最大の Id（>=: 同じ値なら最後のもの）、条件付き / the Id of the maximum (>=: the last one on a tie), filtered
+fn big_argmax_le(cap: u64) -> Option<Id<@big>> {
+    let mut best: u64 = 0;
+    let mut pick: Option<Id<@big>> = None;
+    for id in @big {
+        if @big[id].prio != 7 && best <= @big[id].vruntime && @big[id].vruntime < cap {
+            best = @big[id].vruntime;
+            pick = Some(id);
+        }
+    }
+    pick
+}
+
+// 一般のループ（書き込み）: ビットマップ + ctz / a general loop (writes): bitmap + ctz
+fn big_bump() {
+    for id in @big {
+        @big[id].prio = @big[id].prio + 1;
+    }
+}
+
+// 一般のループで解放（語を読み直す形） / freeing inside a general loop (the reloading form)
+fn big_free_odd() -> u64 {
+    let mut n: u64 = 0;
+    for id in @big {
+        if @big[id].pid % 2 == 1 {
+            @big.free(id);
+            n += 1;
+        }
+    }
+    n
+}
+
+// break と continue / break and continue
+fn big_first_over(x: u64) -> u32 {
+    let mut found: u32 = 0;
+    for id in @big {
+        if @big[id].vruntime <= x {
+            continue;
+        }
+        found = @big[id].pid;
+        break;
+    }
+    found
+}
+
+// 小さな表（2^K < 64: 1 語に 8 スロット）のマスク付き集計 / masked reductions on a small table (2^K < 64: 8 slots per word)
+fn task_count_prio1() -> u64 {
+    let mut n: u64 = 0;
+    for id in @task {
+        if @task[id].prio == 1 {
+            n += 1;
+        }
+    }
+    n
+}
+
+fn task_argmin() -> Option<Id<@task>> {
+    let mut best: u64 = 0xFFFF_FFFF_FFFF_FFFF;
+    let mut pick: Option<Id<@task>> = None;
+    for id in @task {
+        if let Some(t) = @task.get(id) {
+            if t.vruntime <= best {
+                best = t.vruntime;
+                pick = Some(id);
+            }
+        }
+    }
+    pick
+}
+
+// 回数の決まったループの中の古い Id: ループの出口で止まる / a stale Id inside a fixed-trip loop: stops at the loop exit
+fn sweep(stale: Id<@task>) -> u64 {
+    let mut s: u64 = 0;
+    for i in 0..4 {
+        s += @task[stale].vruntime + (i as u64);
+    }
+    s
+}
+
+fn main() {
+    let a = make(1, 10);
+    print_int(total() as i64);
+    @task.free(a);
+}

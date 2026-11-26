@@ -1,0 +1,62 @@
+// bump_arena: 呼び出しリージョンごとの O(1) 一括解放・64 ビットの世代つき Id・昇格・古い Id の検出
+// bump_arena: O(1) bulk release per call region, 64-bit generation-tagged Ids, promotion, stale-Id detection
+fn main() {
+    let raw = leak();                            // leak の呼び出しリージョンは戻ったので、そのスロットは死んでいる
+    print_int(if scratch.validate(raw).is_none() { 1 } else { 0 });
+    let keep = scratch.alloc(Node { v: 7 }).unwrap();   // main のリージョン: 同じスロットを新しい世代で
+    print_int(if scratch.validate(raw).is_none() { 1 } else { 0 });   // 世代違い → None
+    print_int(scratch[keep].v);
+    print_int(scratch.len() as i64);
+    let p = make(5);                              // Id<scratch> を返す関数の確保は呼び出し元のリージョンへ昇格
+    print_int(scratch.len() as i64);
+    print_int(scratch[p].v);
+    let mut slot = None;
+    fill(&mut slot);                              // &mut 引数で外へ出る Id も昇格
+    print_int(scratch.len() as i64);
+    if let Some(s) = slot {
+        print_int(scratch[s].v);
+    }
+    let before = scratch.len();
+    print_int(depth(5));                          // 再帰: 内側のリージョンは自分の確保だけを戻す
+    print_int((scratch.len() - before) as i64);
+    let mut sum = 0;
+    for id in scratch {                           // 0..top の直線ループ
+        sum += scratch[id].v;
+    }
+    print_int(sum);
+    print_int(keep.generation() as i64);
+    print_int(scratch_peak());
+}
+
+fn leak() -> u64 {
+    let id = scratch.alloc(Node { v: 42 }).unwrap();
+    id.raw()
+}
+
+fn make(v: i64) -> Id<scratch> {
+    scratch.alloc(Node { v: v }).unwrap()
+}
+
+fn fill(out: &mut Option<Id<scratch>>) {
+    *out = scratch.alloc(Node { v: 9 });
+}
+
+fn depth(n: i64) -> i64 {
+    let id = scratch.alloc(Node { v: n }).unwrap();
+    let r = if n > 0 { depth(n - 1) } else { 0 };
+    scratch[id].v + r
+}
+
+fn scratch_peak() -> i64 {
+    let mut k = 0;
+    while k < 20 {
+        if scratch.alloc(Node { v: k }).is_none() {
+            break;
+        }
+        k += 1;
+    }
+    k
+}
+
+struct Node { v: i64 }
+bump_arena scratch: Node[16];

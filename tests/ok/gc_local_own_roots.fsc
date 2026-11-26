@@ -1,0 +1,241 @@
+// fascon-gc: ローカルの own T・Option<own T>・own フィールドを持つ構造体・その配列の中にある gc_arena の Id も根になる。
+// 移動・上書き・take・drop のたびに C の変数を NULL / 0 にするので、根が解放済みの own を指すことはない。仮引数・
+// 一時値・フレームリージョン・詰めた子・#[on_drop] の中の回収・戻り値の入れ物も同じ（旧版ではどれも回収されて 0 になった）
+// fascon-gc: gc_arena Ids inside local own T, Option<own T>, structs with own fields and arrays of them are roots too.
+// Every move, overwrite, take and drop clears the C variable to NULL / 0, so a root never points at a freed own.
+// Parameters, temporaries, the frame region, packed children, collections inside #[on_drop] and return slots work the
+// same way (before this change each of them was collected and read back as 0)
+struct Node { v: u64, next: Option<Id<nodes>> }
+struct Holder { id: Option<Id<nodes>>, tag: u64 }
+struct Pair { a: own Holder, b: Option<own Holder>, w: u64 }
+struct Wrap { inner: own Holder, pad: u64 }
+#[on_drop(on_guard_drop)]
+struct Guard { id: Option<Id<nodes>>, keep: Option<own Holder> }
+struct Cell { v: u64, g: Option<own Guard> }
+
+gc_arena nodes: Node[64];
+gc_arena cells: Cell[8];
+
+fn value(x: Option<Id<nodes>>) -> u64 {
+    match x {
+        Some(id) => match nodes.get(id) {
+            Some(n) => n.v,
+            None => 0,
+        },
+        None => 0,
+    }
+}
+
+// ゴミを作ってから回収する（回収した数を返す） / make garbage, then collect (returns how many were reclaimed)
+fn churn(k: u64) -> u64 {
+    for i in 0..6 {
+        nodes.alloc(Node { v: 900 + k * 10 + i, next: None });
+    }
+    gc_collect(nodes) as u64
+}
+
+fn mk(v: u64) -> Option<Id<nodes>> {
+    nodes.alloc(Node { v: v, next: None })
+}
+
+fn show(label: Str, v: u64) {
+    put(label);
+    put(" ");
+    put(v);
+    put("\n");
+}
+
+// #[on_drop]: 破棄の途中で回収する。破棄中の値は持ち主から届くので、その Id は生きている
+// #[on_drop]: collect in the middle of a drop; the value being dropped is reached through its owner, so its Ids are alive
+fn on_guard_drop(g: &mut Guard) {
+    let c = gc_collect(nodes);
+    put("on_drop: collected ");
+    put(c);
+    put(", own id ");
+    put(value(g.id));
+    if let Some(h) = g.keep {
+        put(", kept ");
+        put(value(h.id));
+    }
+    put("\n");
+}
+
+// 1. ローカルの own Holder・Option<own Holder>・own フィールドを持つ構造体・Option<own> の配列
+// 1. local own Holder, Option<own Holder>, a struct with own fields, an array of Option<own>
+fn case_locals() {
+    let a = own Holder { id: mk(11), tag: 1 };
+    let mut b: Option<own Holder> = Some(own Holder { id: mk(12), tag: 2 });
+    let p = Pair { a: own Holder { id: mk(13), tag: 3 }, b: Some(own Holder { id: mk(14), tag: 4 }), w: 5 };
+    let mut arr: [Option<own Holder>; 3] = [None, None, None];
+    arr[1] = Some(own Holder { id: mk(15), tag: 6 });
+    show("1 collected", churn(1));
+    show("1 own Holder", value(a.id));
+    if let Some(h) = b {
+        show("1 Option<own Holder>", value(h.id));
+    }
+    show("1 own field", value(p.a.id));
+    if let Some(h) = p.b {
+        show("1 Option<own> field", value(h.id));
+    }
+    if let Some(h) = arr[1] {
+        show("1 array of Option<own>", value(h.id));
+    }
+    b = None;
+    show("1 after b = None, collected", churn(2));
+    show("1 tags", a.tag + p.w + 10 * p.a.tag);
+}
+
+// 2. 値渡しの仮引数と、その関数の中での移動 / 2. by-value parameters and a move inside the function
+fn consume(h: own Holder, step: u64) -> u64 {
+    churn(step);
+    let moved = h;
+    churn(step + 1);
+    value(moved.id) * 100 + moved.tag
+}
+
+fn take_pair(p: Pair) -> u64 {
+    churn(5);
+    value(p.a.id)
+}
+
+fn case_params() {
+    let h = own Holder { id: mk(21), tag: 7 };
+    show("2 by-value own param", consume(h, 3));
+    let q = Pair { a: own Holder { id: mk(22), tag: 8 }, b: None, w: 9 };
+    show("2 by-value struct param", take_pair(q));
+}
+
+// 3. 移動・上書き・take のあとの回収（移動元は 0 / NULL） / 3. collections after a move, an overwrite and a take (the
+//    source is 0 / NULL)
+fn case_moves() {
+    let x = own Holder { id: mk(31), tag: 0 };
+    let y = x;
+    show("3 after move, collected", churn(6));
+    show("3 moved own", value(y.id));
+    let mut z = own Holder { id: mk(32), tag: 0 };
+    show("3 before overwrite", value(z.id));
+    z = own Holder { id: mk(33), tag: 0 };
+    show("3 after overwrite, collected", churn(7));
+    show("3 overwritten own", value(z.id));
+    let mut o: Option<own Holder> = Some(own Holder { id: mk(34), tag: 0 });
+    let t = o.take();
+    show("3 after take, collected", churn(8));
+    if let Some(h) = t {
+        show("3 taken own", value(h.id));
+    }
+    show("3 source is None after take", if o.is_none() { 1 } else { 0 });
+    let mut s = Pair { a: own Holder { id: mk(35), tag: 0 }, b: None, w: 0 };
+    s.a = own Holder { id: mk(36), tag: 0 };
+    s.b = Some(own Holder { id: mk(37), tag: 0 });
+    show("3 after field overwrite, collected", churn(9));
+    show("3 overwritten own field", value(s.a.id));
+    if let Some(h) = s.b {
+        show("3 assigned Option<own> field", value(h.id));
+    }
+}
+
+// 4. 一時値: own Node { next: .. } を引数に直接渡しながら、別の引数が回収する / 4. temporaries: an own Node { next: .. }
+//    passed straight as an argument while another argument collects
+fn link(h: own Node, n: u64) -> u64 {
+    value(h.next) * 1000 + n % 1000
+}
+
+fn link2(n: u64, h: own Holder) -> u64 {
+    value(h.id) * 1000 + n % 1000
+}
+
+fn link3(h: own Holder, n: u64) -> u64 {
+    value(h.id) + 0 * n
+}
+
+fn opt_val(o: Option<own Holder>, n: u64) -> u64 {
+    match o {
+        Some(h) => value(h.id) + 0 * n,
+        None => 0,
+    }
+}
+
+fn wrap_val(w: own Wrap, n: u64) -> u64 {
+    value(w.inner.id) + 0 * n
+}
+
+struct Row { h: own Holder, arr: [u64; 2] }
+
+fn case_temps() {
+    let r = link(own Node { v: 0, next: mk(41) }, churn(10));
+    show("4 own Node temporary, a later argument collects", r / 1000);
+    let r2 = link2(churn(11), own Holder { id: mk(42), tag: 0 });
+    show("4 own temporary after a collecting argument", r2 / 1000);
+    let m = own Holder { id: mk(43), tag: 0 };
+    show("4 moved local as an argument", link3(m, churn(12)));
+    let w = Pair { a: own Holder { id: mk(44), tag: 0 }, b: None, w: churn(13) };
+    show("4 own field before a collecting field", value(w.a.id));
+    show("4 Some(own) temporary", opt_val(Some(own Holder { id: mk(45), tag: 0 }), churn(31)));
+    show("4 packed own temporary", wrap_val(own Wrap { inner: own Holder { id: mk(46), tag: 0 }, pad: 0 }, churn(32)));
+    let row = Row { h: own Holder { id: mk(47), tag: 0 }, arr: [churn(33), 1] };
+    show("4 own field before a collecting array literal", value(row.h.id) + 0 * row.arr[1]);
+}
+
+// 5. エスケープしない own はフレームリージョンへ（詰めた子も） / 5. non-escaping owns go to the frame region (packed
+//    children too)
+fn case_frame() {
+    let f = own Holder { id: mk(51), tag: 0 };
+    let bx = own Wrap { inner: own Holder { id: mk(52), tag: 0 }, pad: 1 };
+    show("5 collected", churn(14));
+    show("5 frame own", value(f.id));
+    show("5 packed child in the frame", value(bx.inner.id) + 0 * bx.pad);
+}
+
+// 6. #[on_drop] の中の回収: 破棄の順序（on_drop → 子の解放 → NULL → 記憶域 → 根から外す）
+// 6. collections inside #[on_drop]: the drop order (on_drop → children freed → NULL → storage → off the roots)
+fn case_on_drop() {
+    {
+        let g1 = own Guard { id: mk(61), keep: Some(own Holder { id: mk(62), tag: 0 }) };
+        let g2 = Guard { id: mk(63), keep: Some(own Holder { id: mk(64), tag: 0 }) };
+        show("6 guards made, collected", churn(15));
+        show("6 guard ids", value(g1.id) * 100 + value(g2.id));
+    }
+    let g3 = own Guard { id: mk(65), keep: None };
+    drop(g3);
+    show("6 after the guards, collected", churn(16));
+    // 回収の掃除の中で #[on_drop] が gc_collect を呼んでも、入れ子の回収は何もしない（0 を返す）
+    // an #[on_drop] calling gc_collect inside the sweep of a collection: the nested collection does nothing (returns 0)
+    cells.alloc(Cell { v: 2, g: Some(own Guard { id: mk(66), keep: None }) });
+    show("6 cells swept", gc_collect(cells) as u64);
+}
+
+// 7. 戻り値: 末尾の式を入れたあと、スコープの終わりの #[on_drop] が回収しても漏れない / 7. return values: after the tail
+//    is stored, an #[on_drop] at scope end may collect without losing it
+fn make_guarded(v: u64) -> own Holder {
+    let g = Guard { id: None, keep: None };
+    own Holder { id: mk(v), tag: 0 }
+}
+
+fn early_guarded(v: u64, early: bool) -> own Holder {
+    let g = Guard { id: None, keep: None };
+    if early {
+        return own Holder { id: mk(v), tag: 1 };
+    }
+    own Holder { id: mk(v + 1), tag: 2 }
+}
+
+fn case_return() {
+    let h = make_guarded(71);
+    show("7 returned own", value(h.id));
+    let e = early_guarded(72, true);
+    show("7 early return", value(e.id) * 10 + e.tag);
+}
+
+fn main() {
+    let base = heap_live_blocks();
+    case_locals();
+    case_params();
+    case_moves();
+    case_temps();
+    case_frame();
+    case_on_drop();
+    case_return();
+    show("final collect", churn(17));
+    show("live nodes", nodes.len() as u64);
+    show("own blocks leaked", (heap_live_blocks() - base) as u64);
+}

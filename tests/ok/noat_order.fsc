@@ -1,0 +1,40 @@
+// `@` なしの名前と、自由な宣言順（2 パス解析）。古い `@名前` も同じ意味でそのまま使える
+// names without `@` and free declaration order (two-pass analysis); the old `@name` still works with the same meaning
+fn main() {
+    let a = spawn_proc(1);
+    let b = spawn_proc(2);
+    pcb_table[a].state = 1;                 // 世代タグで検証する .get_mut(a) と同じ / same as the verified .get_mut(a)
+    @pcb_table[b].state = 2;                // 古い書き方 / the old spelling
+    pcb_table.get_mut(b).unwrap().state += 10;   // 厳格形 / the strict form
+    print_int(pcb_table.get(a).unwrap().state as i64);
+    print_int(pcb_table[b].state as i64);
+    let pcb_table = 5;                      // 同じ名前のローカルはローカルが優先 / a local of the same name wins
+    print_int(pcb_table);
+    print_int(@pcb_table[a].pid as i64);    // `@` はいつもリージョン / `@` always means the region
+    print_int(count_live());
+    print_int(link(a, b));
+}
+
+fn count_live() -> i64 {
+    let mut n = 0;
+    for id in pcb_table {
+        n += 1;
+    }
+    n
+}
+
+fn link(x: ProcId<pcb_table>, y: ProcId<pcb_table>) -> i64 {
+    pcb_table[x].next = Some(y);
+    match pcb_table[x].next {
+        Some(z) => pcb_table[z].pid as i64,
+        None => -1,
+    }
+}
+
+fn spawn_proc(pid: u32) -> ProcId<pcb_table> {
+    pcb_table.alloc(Pcb { pid: pid, state: 0, next: None }).unwrap()
+}
+
+type ProcId<a: Pcb> = Id<a>;                // 型の別名の引数にも `@` は要らない / no `@` in alias parameters either
+arena pcb_table: Pcb[8];
+struct Pcb { pid: u32, state: u8, next: Option<Id<pcb_table>> }

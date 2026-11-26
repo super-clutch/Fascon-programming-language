@@ -1,0 +1,4 @@
+// expect: F3701
+// 見つからないモジュール / a module that cannot be found
+import no_such::module;
+fn main() {}

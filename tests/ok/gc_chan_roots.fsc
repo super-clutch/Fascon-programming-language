@@ -1,0 +1,63 @@
+// fascon-target: generic-os
+// fascon-gc: チャネルのリングバッファに滞留している値（own の中まで）にある共有の gc_arena の Id も根になる。CPU0 が 5 通を
+// 送ってから（送った Id はほかのどこからも指されない）回収し、コア 1 が受け取って中身を確かめる。旧版では、チャネルの中の
+// Id は根にならず回収されていた（仕様 5.7 の「チャネルで送っている途中の own」）
+// fascon-gc: shared gc_arena Ids inside values waiting in the ring buffer of a channel (inside own, too) are roots. CPU0 sends
+// five messages (their Ids are referenced from nowhere else), collects, and core 1 receives them and checks the
+// contents. Before this change Ids inside a channel were no roots and got collected ("own in transit", spec 5.7)
+struct Node { v: u64, next: Option<Id<nodes>> }
+struct Msg { node: Option<Id<nodes>>, tag: u64 }
+struct Report { ok: u64, sum: u64 }
+
+shared gc_arena nodes: Node[64];
+chan inbox: own Msg[8];
+chan done: own Report[2];
+
+fn value(x: Option<Id<nodes>>) -> u64 {
+    match x {
+        Some(id) => match nodes.get(id) {
+            Some(n) => n.v,
+            None => 0,
+        },
+        None => 0,
+    }
+}
+
+fn worker() {
+    let mut ok: u64 = 0;
+    let mut sum: u64 = 0;
+    for i in 0..5 {
+        let m = inbox.recv_wait();
+        let v = value(m.node);
+        if v == 10 + m.tag && m.tag == i { ok += 1; }
+        sum += v;
+    }
+    done.send(own Report { ok: ok, sum: sum });
+}
+
+fn main() {
+    for i in 0..5 {
+        // 確保した Id はメッセージの中にしか無い / the allocated Id lives only inside the message
+        let n = nodes.alloc(Node { v: 10 + i, next: None });
+        inbox.send(own Msg { node: n, tag: i });
+    }
+    for i in 0..20 {
+        nodes.alloc(Node { v: 1000 + i, next: None });
+    }
+    let freed = gc_collect(nodes);
+    put_str("collected while 5 messages wait in the channel: ");
+    print_int(freed as i64);
+    // 猶予期間を待って回収を終わらせ、空いたスロットを別の値で埋め直す（古い Id なら別の値か None が見える）
+    // wait for the grace period so the reclamation completes, then refill the freed slots with other values (a stale Id
+    // would see another value or None)
+    rcu_synchronize();
+    for i in 0..25 {
+        nodes.alloc(Node { v: 5000 + i, next: None });
+    }
+    spawn_on(1, worker);
+    let r = done.recv_wait();
+    put_str("received intact on core 1: ");
+    put_int(r.ok as i64);
+    put_str(" of 5, sum ");
+    print_int(r.sum as i64);
+}

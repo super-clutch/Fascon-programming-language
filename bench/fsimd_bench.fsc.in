@@ -1,0 +1,135 @@
+// fsimd_bench.fsc.in — 浮動小数点の完全列化（#[fast_math]）と条件付き一括更新（Masked Column RMW）の計測用プログラムの
+// ひな形（@CAP@ を粒子の数に置き換える: bench/fsimd_bench.sh）
+// the template of the float True-SoA (#[fast_math]) and masked column RMW benchmark program (@CAP@ becomes the particle
+// count: bench/fsimd_bench.sh)
+//
+// 32 バイトの Particle。読み出し: mass（f64）の総和・x（f32）の総和・HOT の粒子の energy（f64）の和。書き込み: HOT の粒子だけ
+// energy += 0.5（f64 の条件付き加算）・HOT の粒子だけ x += 1.0（f32 の条件付き加算）・COLD の粒子だけ energy = e（f64 の
+// 条件付き代入）・全粒子 mass = m（f64 の一括上書き）。検算は値のビットの並みの整数の和（順序によらず正確）
+// a 32-byte Particle. Reads: the sum of mass (f64), the sum of x (f32), the energy (f64) sum of HOT particles. Writes:
+// energy += 0.5 for HOT particles (an f64 masked add), x += 1.0 for HOT particles (an f32 masked add), energy = e for COLD
+// particles (an f64 masked set), mass = m for every particle (an f64 bulk overwrite). The checks are integer sums of
+// bit patterns of the values (exact in any order)
+
+struct Particle {
+    x: f32,
+    vx: f32,
+    mass: f64,
+    energy: f64,
+    kind: u32,
+    tag: u32,
+}
+
+arena @p: Particle[@CAP@];
+
+static N: u64 = @CAP@;
+static HOT: u32 = 1;
+static COLD: u32 = 2;
+
+fn build() -> u64 {
+    let mut k: u64 = 0;
+    let mut made: u64 = 0;
+    while k < N {
+        let kd = ((k * 2654435761) >> 13) % 4;
+        let px = Particle { x: (k % 1000) as f32 * 0.25, vx: 1.0, mass: (k % 977) as f64 * 0.5 + 1.0, energy: (k % 61) as f64, kind: kd as u32, tag: k as u32 };
+        if @p.alloc(px).is_some() {
+            made += 1;
+        }
+        k += 1;
+    }
+    made
+}
+
+fn total_mass() -> f64 {
+    let mut s = 0.0;
+    #[fast_math]
+    for id in @p {
+        s += @p[id].mass;
+    }
+    s
+}
+
+fn total_x() -> f32 {
+    let mut s: f32 = 0.0;
+    #[fast_math]
+    for id in @p {
+        s += @p[id].x;
+    }
+    s
+}
+
+fn hot_energy() -> f64 {
+    let mut s = 0.0;
+    #[fast_math]
+    for id in @p {
+        if @p[id].kind == HOT {
+            s += @p[id].energy;
+        }
+    }
+    s
+}
+
+fn heat_hot() {
+    #[fast_math]
+    for id in @p {
+        if @p[id].kind == HOT {
+            @p[id].energy += 0.5;
+        }
+    }
+}
+
+fn push_hot() {
+    #[fast_math]
+    for id in @p {
+        if @p[id].kind == HOT {
+            @p[id].x += 1.0;
+        }
+    }
+}
+
+fn reset_cold(e: f64) {
+    #[fast_math]
+    for id in @p {
+        if @p[id].kind == COLD {
+            @p[id].energy = e;
+        }
+    }
+}
+
+fn set_mass(m: f64) {
+    for id in @p {
+        @p[id].mass = m;
+    }
+}
+
+// 検算: ビットの並みの上位 32 ビットと下位 32 ビットの和（4 百万 × 2^32 は u64 に収まる） / checks: sums of the high and low
+// 32 bits of the bit patterns (4 million × 2^32 fits in u64)
+fn bits_x() -> u64 {
+    let mut h: u64 = 0;
+    for id in @p {
+        h += @p[id].x.to_bits() as u64;
+    }
+    h
+}
+
+fn bits_hi(which: u32) -> u64 {
+    let mut h: u64 = 0;
+    for id in @p {
+        let v = if which == 0 { @p[id].mass } else { @p[id].energy };
+        h += v.to_bits() >> 32;
+    }
+    h
+}
+
+fn bits_lo(which: u32) -> u64 {
+    let mut h: u64 = 0;
+    for id in @p {
+        let v = if which == 0 { @p[id].mass } else { @p[id].energy };
+        h += v.to_bits() & 0xFFFF_FFFF;
+    }
+    h
+}
+
+fn main() {
+    print_int(build() as i64);
+}

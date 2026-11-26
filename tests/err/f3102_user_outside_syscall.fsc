@@ -1,0 +1,4 @@
+// expect: F3102
+// user T は #[syscall(N)] の引数にだけ書ける / user T only appears as a #[syscall(N)] parameter
+fn keep(buf: user [u8; 8]) -> u32 { 0 }
+fn main() {}

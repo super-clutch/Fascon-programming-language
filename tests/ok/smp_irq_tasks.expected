@@ -1,0 +1,4 @@
+tasks done: 4, pid sum 66
+checksum 131999934000000
+each task ran on the core that created it: 4
+preempted by its own core timer: 4

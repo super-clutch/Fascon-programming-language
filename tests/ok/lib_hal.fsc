@@ -1,0 +1,54 @@
+// 標準 HAL（hal::console・hal::timer・hal::block・hal::net）: ボードが関数ポインタの構造体を埋め、上位のコードは
+// ボードを知らずに &Console・&Timer・&BlockDevice・&NetDevice だけで動く（ここでは PC 上の作り物のボード）
+// the standard HAL: a board fills structs of function pointers and upper code runs on &Console, &Timer, &BlockDevice and
+// &NetDevice without knowing the board (here a fake board on the PC)
+import hal::console;
+import hal::timer;
+import hal::block;
+import hal::net;
+
+struct Disk { data: [u8; 512] }
+arena disks: Disk[4];
+
+fn fake_putc(b: u8) {
+    put_int(b as u64);
+    put_str(" ");
+}
+fn fake_getc() -> Option<u8> { None }
+fn fake_flush() {}
+
+fn fake_now() -> u64 { 1000 }
+fn fake_freq() -> u64 { 62500000 }
+fn fake_arm(ns: u64) -> bool { ns > 1000 }
+fn fake_cancel() {}
+
+fn fake_sectors() -> u64 { 4 }
+fn fake_read(lba: u64, buf: &mut [u8; 512]) -> bool {
+    buf[0] = lba as u8 + 10;
+    true
+}
+fn fake_write(lba: u64, buf: &[u8; 512]) -> bool { buf[0] == 7 && lba < 4 }
+fn fake_bflush() -> bool { true }
+
+fn fake_mac() -> u64 { 0x5254_0012_3456 }
+fn fake_mtu() -> u32 { 1500 }
+fn fake_send(f: &[u8; 1514], len: u32) -> bool { f[12] == 8 && len >= 60 }
+fn fake_recv(f: &mut [u8; 1514]) -> u32 { 0 }
+fn fake_link() -> bool { true }
+
+fn main() {
+    let con = console::Console { putc: fake_putc, getc: fake_getc, flush: fake_flush };
+    console::console_put_dec(&con, 2026);
+    print_str("");
+    let tm = timer::Timer { now_ns: fake_now, freq_hz: fake_freq, arm_oneshot: fake_arm, cancel: fake_cancel };
+    print_int(timer::timer_elapsed_ns(&tm, 400));
+    let bd = block::BlockDevice { sectors: fake_sectors, read: fake_read, write: fake_write, flush: fake_bflush };
+    let mut sec: [u8; 512] = [0; 512];
+    print_int(if block::block_read_checked(&bd, 2, &mut sec) { sec[0] as u64 } else { 0 });
+    print_int(if block::block_read_checked(&bd, 9, &mut sec) { 1 } else { 0 });
+    let nd = net::NetDevice { mac: fake_mac, mtu: fake_mtu, send: fake_send, recv: fake_recv, link_up: fake_link };
+    let mut f: [u8; 1514] = [0; 1514];
+    f[12] = 8;
+    print_int(if net::net_send_checked(&nd, &f, 60) { 1 } else { 0 });
+    print_int(if net::net_send_checked(&nd, &f, 9000) { 1 } else { 0 });
+}

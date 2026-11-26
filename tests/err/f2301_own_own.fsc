@@ -1,0 +1,6 @@
+// expect: F2301
+// own は 1 段で足りる（`own own T` は書けない）。own の中身は値の型（構造体・整数・bool・Str・Id・配列・Option）
+// one level of own is enough (`own own T` is not allowed); an own holds a value type (struct, integer, bool, Str, Id, array, Option)
+struct Leaf { v: i64 }
+struct Holder { leaf: own own Leaf }
+fn main() { }

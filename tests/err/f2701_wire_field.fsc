@@ -1,0 +1,3 @@
+// expect: F2701
+#[wire(le)] struct Hdr { a: u8, ok: bool }
+fn main() { print_int(1); }

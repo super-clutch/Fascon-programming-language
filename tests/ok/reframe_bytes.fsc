@@ -1,0 +1,60 @@
+#![reframing(rust)]
+// 自動リフレーミング: Str をバイト列として使うふつうの Rust の書き方（for b in s.bytes()・s.as_bytes()[i]・&[u8]・b"..."）
+// automatic reframing: ordinary Rust ways of using a str as bytes (for b in s.bytes(), s.as_bytes()[i], &[u8], b"...")
+#[link_section = ".uart"]
+static mut UART: [u8; 8] = [0; 8];
+
+fn putc(c: u8) {
+    unsafe {
+        while UART[5] & 0x20 == 0 {}
+        UART[0] = c;
+    }
+}
+
+fn puts(s: &str) {
+    for b in s.bytes() {
+        putc(b);
+    }
+}
+
+fn puts2(s: &str) {
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        putc(bytes[i]);
+        i += 1;
+    }
+}
+
+fn write_bytes(data: &[u8]) {
+    for &b in data.iter() {
+        putc(b);
+    }
+    for b in data {
+        if b == b'!' {
+            break;
+        }
+    }
+}
+
+fn checksum(s: &str) -> u32 {
+    let mut sum: u32 = 0;
+    for &b in s.as_bytes() {
+        sum = sum + b as u32;
+    }
+    for _ in s.bytes() {
+        sum += 1;
+    }
+    sum + s.as_bytes()[0] as u32 + s.as_bytes().len() as u32
+}
+
+fn main() {
+    puts("a\n");
+    puts2("b\n");
+    write_bytes(b"c!\n");
+    let n = checksum("AB");
+    println!("checksum = {}", n);
+    let x: u32 = 300;
+    let y = x as u8;
+    println!("{}", y);
+}

@@ -1,0 +1,7 @@
+// expect: F2402
+// 長く生きる表の要素にバンプの Id は置けない（呼び出しリージョンが戻ると無効になる） / no bump Ids inside long-lived tables
+struct Tmp { v: i64 }
+struct Task { scratch: Option<Id<tmp>> }
+bump_arena tmp: Tmp[16];
+arena tasks: Task[8];
+fn main() { }

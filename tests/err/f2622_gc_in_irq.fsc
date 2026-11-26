@@ -1,0 +1,12 @@
+// expect: F2622
+// 割り込みハンドラ（irq）の中の gc_arena の確保: ハードリアルタイムの道は決定論的に保つ
+// a gc_arena allocation inside an interrupt handler (irq): hard real-time paths stay deterministic
+struct Node { v: u64 }
+gc_arena nodes: Node[16];
+irq tick at 27 {
+    timer_arm(1000);
+    nodes.alloc(Node { v: 1 });
+}
+fn main() {
+    irq_open();
+}

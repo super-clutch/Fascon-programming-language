@@ -1,0 +1,10 @@
+// expect: F3202
+// rcu_read の中は &T の読み取りだけ / only &T reads inside rcu_read
+struct Sock { port: u32, rx: u32 }
+arena socks: Sock[16];
+fn main() {
+    let s = socks.alloc(Sock { port: 80, rx: 0 }).unwrap();
+    rcu_read {
+        socks[s].rx = 1;
+    }
+}

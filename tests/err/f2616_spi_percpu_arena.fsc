@@ -1,0 +1,18 @@
+// expect: F2616
+// マルチコアのプログラムで、共有の周辺の割り込み（SPI: INTID 48）のハンドラがコアごとのアリーナに触る。SPI は CPU0 にだけ
+// 届くので、ほかのコアで作った Id を CPU0 の表で引いてしまう（コアごとの割り込み = INTID 16〜31 なら自分の実体に触れる）
+// in a multi-core program the handler of a shared peripheral interrupt (SPI: INTID 48) touches a per-core arena. SPIs
+// reach CPU0 only, so it would look up Ids made on other cores in the table of CPU0 (a per-core interrupt, INTID 16 to 31,
+// may touch the instance of its own core)
+struct Item { v: u64 }
+arena items: Item[8];
+irq dev at 48 {
+    for id in items {
+        items[id].v += 1;
+    }
+}
+fn worker() {}
+fn main() {
+    spawn_on(1, worker);
+    irq_open();
+}

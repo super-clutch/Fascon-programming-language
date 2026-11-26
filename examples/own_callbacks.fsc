@@ -1,0 +1,131 @@
+// own フィールドとコールバック（Fascon 1.0）
+//   1. 構造体のフィールドに `own` を持てる。中身は構造体でなくてもよい（`own i32` / `own [u8; N]` / `own Str`）。
+//   2. own フィールドを持つ構造体も Move 専用。移動・スコープの終わり・上書き・drop で、中の own も連動して解放される。
+//      移動した後に使うと F0382、own フィールドだけを取り出すと F0507（二重解放は静的に起きない）。
+//   3. 関数ポインタ `fn(&mut i32)` を引数に取る高階関数。コールバックは受け取った参照を自分のスタックフレームの中でだけ
+//      使う（stack_only）。参照を外へ逃がそうとすると F0520（根本原因のタイムライン付き）。
+// own fields and callbacks (Fascon 1.0)
+//   1. struct fields can be `own`, and the contents need not be a struct (`own i32` / `own [u8; N]` / `own Str`).
+//   2. a struct with own fields is move-only too: moves, scope ends, overwrites and drop free the owns inside along with it.
+//      Using it after a move is F0382, taking only an own field out is F0507 (double frees cannot happen, statically).
+//   3. higher-order functions taking function pointers `fn(&mut i32)`. A callback uses the reference it receives only inside
+//      its own stack frame (stack_only); letting it escape is F0520 (with a root-cause timeline).
+
+struct MyContext {
+    buffer: own i32,          // 所有権付きポインタ（C では int32_t *。解放は構造体の解放と連動） / an owning pointer
+    size: i32,
+}
+
+struct Frame {
+    pixels: own [u8; 64],     // ヒープの配列（構造体の外の 1 ブロック） / a heap array (one block outside the struct)
+    title: own Str,
+    ctx: MyContext,           // own を持つ構造体を値として埋め込む / a struct with own embedded by value
+}
+
+struct Button { label: Str, clicks: u32 }
+struct Handler { name: Str, on_click: fn(&mut Button) }
+
+// ───── 1. own フィールド / own fields ─────
+
+fn new_context(n: i32) -> MyContext {
+    MyContext { buffer: own n, size: 4 }
+}
+
+fn grow(c: &mut MyContext) {
+    *c.buffer += c.size;              // own の中身は `*` で読み書きする / read and write the contents with `*`
+}
+
+fn consume(c: MyContext) -> i32 {     // 値で受け取る = 所有権ごと移る。戻ると c.buffer も解放 / taken by value
+    *c.buffer * 10 + c.size
+}
+
+// ───── 2. 高階関数とコールバック / higher-order functions and callbacks ─────
+
+fn for_each(a: &mut [i32; 4], f: fn(&mut i32)) {
+    for i in 0..4 {
+        f(&mut a[i]);                 // a[i] への参照を 1 回の呼び出しの間だけ貸す / lend a reference to a[i] for one call
+    }
+}
+
+fn add_one(x: &mut i32) { *x += 1; }
+fn square(x: &mut i32) { *x = *x * *x; }
+
+fn reduce(a: &[i32; 4], f: fn(i64, i32) -> i64) -> i64 {
+    let mut acc = 0;
+    for i in 0..4 {
+        acc = f(acc, a[i]);
+    }
+    acc
+}
+fn plus(acc: i64, v: i32) -> i64 { acc + v as i64 }
+
+fn click(b: &mut Button) { b.clicks += 1; }
+fn double_click(b: &mut Button) { b.clicks += 2; }
+
+static HANDLERS: [fn(&mut Button); 2] = [click, double_click];
+
+fn press_all(b: &mut Button, hs: &[Handler; 2]) {
+    for i in 0..2 {
+        (hs[i].on_click)(b);          // フィールドの関数ポインタは括弧で囲んで呼ぶ / call a field's pointer in parentheses
+    }
+}
+
+// ───── F0520 の例（コメントを外すと検出される） / an F0520 example (uncomment to see it) ─────
+// struct Saved { ctx: MyContext }
+// arena keep: Saved[4];
+// fn stash(c: &mut MyContext) {
+//     keep.alloc(Saved { ctx: c });  // F0520: 借りた参照をアリーナ（呼び出しより長く生きる）へ保存しようとしている
+// }                                  //        the borrowed reference would be kept in an arena (it outlives the call)
+// fn visit(c: &mut MyContext, f: fn(&mut MyContext)) { f(c); }
+// （main の中で / in main:）visit(&mut ctx, stash);
+
+fn main() {
+    let base = heap_live_blocks();
+
+    // own i32 のフィールド / an own i32 field
+    let mut ctx = new_context(38);
+    grow(&mut ctx);
+    put_str("ctx.buffer = ");
+    print_int(*ctx.buffer as i64);                     // 42
+    ctx.buffer = own 7;                                 // own ごと差し替え: 古い own はその場で解放 / replace the own
+    let moved = ctx;                                    // 構造体まるごとの移動（ctx は以後使えない: F0382）
+    put_str("consume(moved) = ");
+    print_int(consume(moved) as i64);                   // 74（ここで buffer も解放 / buffer is freed here）
+
+    // own の配列・Str と入れ子 / own arrays, Str and nesting
+    let mut fr = Frame { pixels: own [0u8; 64], title: own "frame", ctx: new_context(1) };
+    for i in 0..64 {
+        fr.pixels[i] = i as u8;
+    }
+    let mut sum = 0;
+    for i in 0..64 {
+        sum += fr.pixels[i] as i64;
+    }
+    put_str(*fr.title);
+    put_str(" pixel sum = ");
+    print_int(sum);                                     // 2016
+    put_str("live own blocks = ");
+    print_int((heap_live_blocks() - base) as i64);     // 3（pixels・title・ctx.buffer）
+    drop(fr);                                           // 構造体の解放で中の own 3 つも解放 / frees all three owns
+
+    // コールバック / callbacks
+    let mut a = [1, 2, 3, 4];
+    for_each(&mut a, add_one);
+    for_each(&mut a, square);
+    put_str("sum of (x + 1)^2 = ");
+    print_int(reduce(&a, plus));                        // 4 + 9 + 16 + 25 = 54
+
+    let mut b = Button { label: "OK", clicks: 0 };
+    let hs = [Handler { name: "click", on_click: click }, Handler { name: "double", on_click: double_click }];
+    press_all(&mut b, &hs);
+    HANDLERS[1](&mut b);
+    put_str(b.label);
+    put_str(" clicks = ");
+    print_int(b.clicks as i64);                         // 1 + 2 + 2 = 5
+
+    put_str("leaked own blocks = ");
+    print_int((heap_live_blocks() - base) as i64);     // 0
+    if heap_live_blocks() == base && b.clicks == 5 {
+        print_str("FASCON-CALLBACK-OK");
+    }
+}

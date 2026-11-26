@@ -1,0 +1,5 @@
+// expect: F0001
+// ライフタイム注釈は字句の段階で拒否される / lifetime annotations are rejected by the lexer
+struct Holder { x: i64 }
+fn get(h: &'a Holder) -> i64 { h.x }
+fn main() { }

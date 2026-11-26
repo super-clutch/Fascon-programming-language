@@ -1,0 +1,13 @@
+// expect: F2706
+// 別の gpu_arena のハンドルを渡した / a handle of another gpu_arena is passed
+struct A { x: f32 }
+gpu_arena @left: A[4];
+gpu_arena @right: A[4];
+fn main() {
+    if let Some(h) = @left.alloc(A { x: 1.0 }) {
+        let f = @right.dispatch(1, 1, 1, h);
+        if let Some(b) = @right.reclaim_wait(f) {
+            @right.free(b);
+        }
+    }
+}

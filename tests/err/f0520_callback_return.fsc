@@ -1,0 +1,12 @@
+// expect: F0520
+// コールバックが受け取った参照を戻り値として返そうとする / a callback tries to return the reference it received
+struct Node { v: i32 }
+fn pick(x: &mut Node) -> Node { x }
+fn apply(n: &mut Node, f: fn(&mut Node) -> Node) -> i32 {
+    let r = f(n);
+    r.v
+}
+fn main() {
+    let mut n = Node { v: 3 };
+    print_int(apply(&mut n, pick) as i64);
+}

@@ -1,0 +1,16 @@
+// expect: F2625
+// fascon-target: generic-os
+// コアごとのアリーナに共有の gc_arena の Id は置けない（回収するコアから見えない根） / a per-core arena cannot hold Ids of a
+// shared gc_arena (roots the collecting core cannot see)
+struct Node { v: u64 }
+struct Cache { hot: Option<Id<nodes>> }
+shared gc_arena nodes: Node[64];
+arena caches: Cache[4];
+
+fn worker(x: u64) {
+    let c = caches.alloc(Cache { hot: None });
+}
+
+fn main() {
+    spawn_on(1, worker, 0);
+}

@@ -1,0 +1,18 @@
+// expect: F0520
+// コールバックが参照を別の関数へ渡し、その関数がアリーナへ保存しようとする（呼び出し先を通る道も追う）
+// a callback passes the reference to another function, which tries to keep it in an arena (paths through callees are followed)
+struct Holder { v: i32 }
+struct Saved { p: Holder }
+arena keep: Saved[4];
+fn keep_it(y: &mut Holder) {
+    keep.alloc(Saved { p: y });
+}
+fn cb(x: &mut Holder) {
+    x.v += 1;
+    keep_it(x);
+}
+fn visit(h: &mut Holder, f: fn(&mut Holder)) { f(h); }
+fn main() {
+    let mut h = Holder { v: 1 };
+    visit(&mut h, cb);
+}

@@ -1,0 +1,8 @@
+// expect: F0507
+// own i32 のフィールドを移動で取り出す（構造体の own が空になる）。値は `*c.buffer` でコピーして読む
+// moving an own i32 field out (it would leave the struct's own empty); read the value as a copy with `*c.buffer`
+struct MyContext { buffer: own i32, size: i32 }
+fn main() {
+    let c = MyContext { buffer: own 1, size: 4 };
+    let b = c.buffer;
+}

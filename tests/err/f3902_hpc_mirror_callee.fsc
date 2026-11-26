@@ -1,0 +1,32 @@
+// expect: F3902
+// fascon-target: hpc
+// 計算コアの `for id in cells` の本体から呼ぶ関数が、条件のビット列（Mirrored-SoA の写し）が読むフィールドを書く。
+// 呼ぶたびに写しを作り直すので、表ごとの作り直しになる（本体の書き込み集合には呼び出し先の書き込みも入る）
+// a function called from the body of `for id in cells` on a compute core writes a field a filter bit column (a
+// Mirrored-SoA mirror) reads; every call rebuilds the mirror, so the loop rebuilds it table-wide (the write set of the body
+// includes the writes of its callees)
+struct Cell { state: u32, w: u64 }
+arena cells: Cell[256];
+chan done: u64[4];
+fn touch(id: Id<cells>) {
+    cells[id].state = 2;
+}
+fn worker(k: u64) {
+    for i in 0..200 {
+        cells.alloc(Cell { state: (i % 3) as u32, w: k });
+    }
+    let mut n: u64 = 0;
+    for id in cells {
+        if cells[id].state == 1 {
+            n += 1;
+        }
+    }
+    for id in cells {
+        touch(id);
+    }
+    done.send(n);
+}
+fn main() {
+    spawn_on(1, worker, 1);
+    print_int(done.recv_wait() as i64);
+}

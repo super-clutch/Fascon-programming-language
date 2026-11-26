@@ -1,0 +1,419 @@
+// gui_dual.fsc — Fascon 1.0: 1 つのソースで x86_64 と AArch64 の両方で動く GUI カーネル（Fascon の仮想 BIOS から起動）
+//                Fascon 1.0: one GUI kernel source for both x86_64 and AArch64 (booted by Fascon's virtual BIOS)
+//
+//   fascon bios gui_dual.fsc                          # x86_64 と AArch64 の BIOS の像を両方作る / both BIOS images
+//   fascon qemu gui_dual.fsc --target x86_64          # x86_64: QEMU pc + Fascon の仮想 BIOS / QEMU pc + virtual BIOS
+//   fascon qemu gui_dual.fsc --target aarch64         # AArch64: QEMU virt + Fascon の仮想 BIOS / QEMU virt + virtual BIOS
+//   fascon run gui_dual.fsc                           # PC 上（画面は PNG） / on the PC (the screen becomes a PNG)
+//
+// - 画面は固定番地リージョン fb（QEMU の ramfb。どちらのアーキテクチャでも RAM の 0x4800_0000。BSP が fw_cfg で登録）
+//   the screen is the fixed-address region fb (QEMU ramfb at RAM 0x4800_0000 on both architectures; the BSP registers it)
+// - キー入力は port_io（COM1 = 0x3f8）。x86_64 では in 命令そのもの、AArch64 ではコンパイラが PL011 へ写す
+//   key input is port_io (COM1 = 0x3f8): the in instruction itself on x86_64, remapped to the PL011 by the compiler on AArch64
+// - デスクトップ → ウィンドウ → ボタン は own の所有ツリー（ウィンドウとボタン 2 つは 1 つの所有リージョン）
+//   desktop → window → buttons is an own tree (the window and its two buttons share one own region)
+// - 1 フレームだけ使うアイコンの配置は bump_arena へ: 描く関数が戻ると 1 回の格納でまとめて解放される
+//   icon layouts used for one frame go into a bump_arena: released in bulk by one store when the drawing function returns
+// - `@` も型注釈も要らない（宣言の順序も自由） / no `@` and no type annotations needed (declarations in any order)
+
+#[framebuffer]
+mmio fb: [[u32; 800]; 600] at 0x4800_0000;
+port_io com1 at_port 0x3f8;                     // 受信（RBR）/ 送信（THR） / receive (RBR) / transmit (THR)
+port_io com1_lsr at_port 0x3fd;                 // 回線状態: bit0 = 受信あり / line status: bit 0 = data ready
+
+static SCREEN_W: i32 = 800;
+static SCREEN_H: i32 = 600;
+static TASKBAR_H: i32 = 34;
+
+struct Rect { x: i32, y: i32, w: i32, h: i32 }
+
+struct Button {
+    label: Str,
+    rect: Rect,
+    primary: bool,
+    pressed: bool,
+}
+
+struct Window {
+    title: Str,
+    rect: Rect,
+    line1: Str,
+    line2: Str,
+    line3: Str,
+    ok: own Button,          // ウィンドウがボタンを所有する / the window owns its buttons
+    cancel: own Button,
+}
+
+struct Desktop {
+    win: Option<own Window>,
+    note: Str,                 // ウィンドウが無いときの通知 / the notice shown when no window is open
+    frame: u32,
+}
+
+// ───── 色 / colours ─────
+
+fn rgb(r: i32, g: i32, b: i32) -> u32 {
+    ((r as u32) << 16) | ((g as u32) << 8) | (b as u32)
+}
+
+fn lerp(a: i32, b: i32, t: i32, n: i32) -> i32 {
+    a + (b - a) * t / n
+}
+
+fn wallpaper(y: i32) -> u32 {
+    rgb(lerp(18, 40, y, 599), lerp(32, 104, y, 599), lerp(64, 128, y, 599))
+}
+
+fn shadow(y: i32) -> u32 {
+    rgb(lerp(18, 40, y, 599) / 2, lerp(32, 104, y, 599) / 2, lerp(64, 128, y, 599) / 2)
+}
+
+// ───── 描画の部品 / drawing primitives ─────
+
+fn draw_wallpaper() {
+    // 添字 y・x の範囲（0..600・0..800）が fb の形と一致するので境界検査は静的に消える
+    // the ranges of y and x (0..600, 0..800) match the shape of fb, so the bounds checks vanish statically
+    for y in 0..600 {
+        let c = wallpaper(y);
+        for x in 0..800 {
+            fb[y][x] = c;
+        }
+    }
+    // 細かな格子模様 / a fine dot grid
+    for gy in 0..37 {
+        for gx in 0..50 {
+            fb[gy * 16 + 8][gx * 16 + 8] = rgb(70, 130, 170);
+        }
+    }
+}
+
+fn round_rect(r: &Rect, c: u32) {
+    fb.fill_rect(r.x + 2, r.y, r.w - 4, 1, c);
+    fb.fill_rect(r.x + 1, r.y + 1, r.w - 2, 1, c);
+    fb.fill_rect(r.x, r.y + 2, r.w, r.h - 4, c);
+    fb.fill_rect(r.x + 1, r.y + r.h - 2, r.w - 2, 1, c);
+    fb.fill_rect(r.x + 2, r.y + r.h - 1, r.w - 4, 1, c);
+}
+
+fn draw_shadow(r: &Rect) {
+    // 壁紙の色を暗くした影（行ごと） / a shadow that darkens the wallpaper row by row
+    for k in 0..r.h {
+        let y = r.y + k + 7;
+        fb.fill_rect(r.x + 7, y, r.w, 1, shadow(y));
+    }
+}
+
+fn draw_text(x: i32, y: i32, s: Str, color: u32, scale: i32) {
+    let mut cx = x;
+    for i in 0..s.len() {
+        let ch = s.byte(i) as usize;
+        if ch >= 32 && ch < 127 {
+            let base = (ch - 32) * 8;
+            for row in 0..8 {
+                let bits = FONT[base + row];
+                for col in 0..6 {
+                    if (bits >> (7 - col)) & 1 == 1 {
+                        fb.fill_rect(cx + col * scale, y + row as i32 * scale, scale, scale, color);
+                    }
+                }
+            }
+        }
+        cx = cx + 6 * scale;
+    }
+}
+
+fn text_width(s: Str, scale: i32) -> i32 {
+    (s.len() as i32) * 6 * scale
+}
+
+fn draw_button(b: &Button) {
+    let face = if b.primary {
+        if b.pressed { rgb(20, 80, 190) } else { rgb(45, 127, 249) }
+    } else {
+        if b.pressed { rgb(170, 176, 188) } else { rgb(226, 230, 238) }
+    };
+    let ink = if b.primary { rgb(255, 255, 255) } else { rgb(30, 36, 48) };
+    let edge = Rect { x: b.rect.x - 1, y: b.rect.y - 1, w: b.rect.w + 2, h: b.rect.h + 2 };
+    round_rect(&edge, rgb(150, 160, 178));
+    round_rect(&b.rect, face);
+    let tw = text_width(b.label, 2);
+    draw_text(b.rect.x + (b.rect.w - tw) / 2, b.rect.y + (b.rect.h - 16) / 2 + 1, b.label, ink, 2);
+}
+
+fn draw_window(w: &Window) {
+    let r = Rect { x: w.rect.x, y: w.rect.y, w: w.rect.w, h: w.rect.h };
+    draw_shadow(&r);
+    let frame = Rect { x: r.x - 1, y: r.y - 1, w: r.w + 2, h: r.h + 2 };
+    round_rect(&frame, rgb(90, 104, 128));
+    round_rect(&r, rgb(246, 248, 252));
+    // タイトルバー / title bar
+    let bar = Rect { x: r.x, y: r.y, w: r.w, h: 34 };
+    round_rect(&bar, rgb(36, 52, 84));
+    fb.fill_rect(r.x, r.y + 30, r.w, 4, rgb(36, 52, 84));
+    draw_text(r.x + 14, r.y + 9, w.title, rgb(255, 255, 255), 2);
+    // 閉じるボタン / close box
+    let cx = r.x + r.w - 30;
+    fb.fill_rect(cx, r.y + 8, 18, 18, rgb(232, 86, 86));
+    draw_text(cx + 3, r.y + 9, "x", rgb(255, 255, 255), 2);
+    // 本文 / body
+    draw_text(r.x + 22, r.y + 58, w.line1, rgb(30, 36, 48), 2);
+    draw_text(r.x + 22, r.y + 86, w.line2, rgb(70, 80, 100), 2);
+    draw_text(r.x + 22, r.y + 114, w.line3, rgb(70, 80, 100), 2);
+    fb.fill_rect(r.x + 16, r.y + r.h - 64, r.w - 32, 1, rgb(214, 220, 230));
+    draw_button(&w.ok);
+    draw_button(&w.cancel);
+}
+
+fn draw_cursor(x: i32, y: i32) {
+    // 矢印カーソル（行ごとの幅で描く） / an arrow cursor drawn row by row
+    for k in 0..15 {
+        let wdt = if k < 11 { k + 1 } else { 15 - k };
+        fb.fill_rect(x, y + k, wdt + 1, 1, rgb(10, 10, 10));
+        if wdt > 1 {
+            fb.fill_rect(x + 1, y + k, wdt - 1, 1, rgb(255, 255, 255));
+        }
+    }
+}
+
+fn draw_taskbar(desk: &Desktop) {
+    let y = SCREEN_H - TASKBAR_H;
+    fb.fill_rect(0, y, SCREEN_W, TASKBAR_H, rgb(14, 20, 32));
+    fb.fill_rect(0, y, SCREEN_W, 1, rgb(60, 80, 110));
+    fb.fill_rect(10, y + 7, 20, 20, rgb(45, 127, 249));
+    draw_text(15, y + 10, "F", rgb(255, 255, 255), 2);
+    draw_text(42, y + 13, "Fascon 1.0  x86_64 / AArch64  virtual BIOS", rgb(220, 228, 240), 1);
+    // 所有リージョンの統計（own ヒープから直接読む） / own-region statistics, read live from the own heap
+    draw_text(500, y + 13, "own regions:", rgb(150, 160, 180), 1);
+    let x1 = draw_number(578, y + 13, heap_live_blocks(), rgb(150, 230, 170), 1);
+    draw_text(x1 + 12, y + 13, "bytes:", rgb(150, 160, 180), 1);
+    draw_number(x1 + 54, y + 13, heap_live_bytes(), rgb(150, 230, 170), 1);
+    draw_text(706, y + 13, "frame", rgb(150, 160, 180), 1);
+    draw_number(742, y + 13, desk.frame as usize, rgb(220, 228, 240), 1);
+}
+
+fn draw_sticky_note() {
+    // 右端からはみ出す付箋: fill_rect が画面の外を切り捨てる（はみ出しても他のメモリは壊れない）
+    // a sticky note hanging off the right edge: fill_rect clips everything outside the screen
+    let n = Rect { x: 650, y: 84, w: 200, h: 118 };
+    round_rect(&n, rgb(255, 214, 102));
+    draw_text(n.x + 12, n.y + 12, "this note", rgb(90, 64, 0), 2);
+    draw_text(n.x + 12, n.y + 36, "hangs off", rgb(90, 64, 0), 2);
+    draw_text(n.x + 12, n.y + 60, "the edge:", rgb(90, 64, 0), 2);
+    draw_text(n.x + 12, n.y + 84, "clipped", rgb(160, 40, 20), 2);
+}
+
+fn draw_number(x: i32, y: i32, n: usize, color: u32, scale: i32) -> i32 {
+    // 10 進の各桁を小さな配列に積んでから描く（文字列の書式化は使わない） / digits are stacked in a small array
+    let mut digits = [0u8; 20];
+    let mut count: usize = 0;
+    let mut v = n;
+    loop {
+        digits[count] = (v % 10) as u8;
+        count += 1;
+        v = v / 10;
+        if v == 0 || count == 20 {
+            break;
+        }
+    }
+    let mut cx = x;
+    let mut k = count;
+    while k > 0 {
+        k -= 1;
+        let d = digits[k] as usize;
+        let base = (d + 16) * 8;
+        for row in 0..8 {
+            let bits = FONT[base + row];
+            for col in 0..6 {
+                if (bits >> (7 - col)) & 1 == 1 {
+                    fb.fill_rect(cx + col * scale, y + row as i32 * scale, scale, scale, color);
+                }
+            }
+        }
+        cx = cx + 6 * scale;
+    }
+    cx
+}
+
+fn draw_toast(text: Str) {
+    let w = text_width(text, 2) + 40;
+    let r = Rect { x: (SCREEN_W - w) / 2, y: 470, w: w, h: 44 };
+    draw_shadow(&r);
+    round_rect(&r, rgb(30, 40, 60));
+    draw_text(r.x + 20, r.y + 14, text, rgb(150, 230, 170), 2);
+}
+
+fn render(desk: &Desktop) {
+    draw_wallpaper();
+    draw_text(24, 20, "Fascon 1.0 Desktop", rgb(235, 242, 255), 3);
+    draw_text(26, 52, "one source: x86_64 + AArch64 (port_io, bump_arena, own_alloc)", rgb(170, 200, 230), 1);
+    draw_sticky_note();
+    draw_icons();
+    if let Some(w) = desk.win {
+        draw_window(&w);
+    } else {
+        draw_toast(desk.note);
+    }
+    draw_taskbar(desk);
+}
+
+// ───── デスクトップのアイコン（bump_arena） / desktop icons (bump_arena) ─────
+
+struct Icon { x: i32, y: i32, color: u32, label: Str }
+bump_arena icons: Icon[16];
+
+fn draw_icons() {
+    // この関数が呼び出しリージョン: ここで確保したアイコンは戻るときに 1 回の格納でまとめて解放される
+    // this function is a call region: the icons allocated here are released together, by one store, when it returns
+    let labels = ["Files", "Term", "Docs", "Trash"];
+    for k in 0..4 {
+        let c = rgb(60 + k * 40, 150, 230 - k * 35);
+        icons.alloc(Icon { x: 30, y: 100 + k * 84, color: c, label: labels[k] });
+    }
+    for id in icons {
+        round_rect(&Rect { x: icons[id].x, y: icons[id].y, w: 48, h: 48 }, icons[id].color);
+        draw_text(icons[id].x, icons[id].y + 54, icons[id].label, rgb(235, 242, 255), 1);
+    }
+}
+
+// ───── ウィンドウの生成と入力 / window creation and input ─────
+
+fn open_window() -> own Window {
+    // Window とボタン 2 つが 1 回の割り当てで 1 つの所有リージョンに入る
+    // the window and its two buttons go into one own region with a single allocation
+    own Window {
+        title: "Fascon 1.0",
+        rect: Rect { x: 170, y: 140, w: 460, h: 264 },
+        line1: "1 window + 2 buttons",
+        line2: "= one own region (packed)",
+        line3: "Cancel frees it in one go",
+        ok: own Button { label: "OK", rect: Rect { x: 352, y: 352, w: 120, h: 38 }, primary: true, pressed: false },
+        cancel: own Button { label: "Cancel", rect: Rect { x: 488, y: 352, w: 124, h: 38 }, primary: false, pressed: false },
+    }
+}
+
+fn hit(b: &Button, px: i32, py: i32) -> bool {
+    px >= b.rect.x && px < b.rect.x + b.rect.w && py >= b.rect.y && py < b.rect.y + b.rect.h
+}
+
+fn wait_key() {
+    // COM1 の LSR の bit0（受信あり）を待つ: x86_64 は `in al, dx`、AArch64 は PL011 の FR から作った値
+    // wait for bit 0 of COM1's LSR (data ready): `in al, dx` on x86_64, built from the PL011 FR on AArch64
+    loop {
+        if com1_lsr & 1 != 0 {
+            let c = com1;                          // 1 文字読んで捨てる / read one character and drop it
+            if c != 0xff {
+                return;
+            }
+        }
+        cpu_relax();
+    }
+}
+
+fn report(tag: Str, desk: &Desktop) {
+    put_str(tag);
+    put_str(" frame=");
+    put_int(desk.frame);
+    put_str(" own_blocks=");
+    put_int(heap_live_blocks());
+    put_str(" own_bytes=");
+    put_int(heap_live_bytes());
+    print_str("");
+}
+
+fn main() {
+    let mut desk = own_alloc(Desktop);             // 0 で埋めた own Desktop（win = None、frame = 0） / a zero-filled own Desktop
+    desk.note = "";
+    desk.win = Some(open_window());
+    desk.frame = 1;
+    render(&desk);
+    draw_cursor(560, 376);
+    report("FASCON-GUI-READY 1", &desk);
+    print_str("press a key in this terminal to click Cancel");
+    wait_key();
+
+    // Cancel をクリック: 押下状態を描いてからウィンドウを閉じる / click Cancel: draw it pressed, then close
+    let mut clicked = false;
+    if let Some(w) = desk.win {
+        if hit(&w.cancel, 560, 376) {
+            w.cancel.pressed = true;
+            draw_button(&w.cancel);
+            clicked = true;
+        }
+    }
+    if clicked {
+        let before = heap_live_blocks();
+        desk.win = None;                       // ここで所有リージョンが一括解放される / the own region is bulk-freed here
+        put_str("window closed: own blocks ");
+        put_int(before);
+        put_str(" -> ");
+        put_int(heap_live_blocks());
+        print_str("");
+        desk.note = "closed: its own region was freed in one go";
+    }
+    desk.frame = 2;
+    render(&desk);
+    draw_cursor(560, 376);
+    report("FASCON-GUI-READY 2", &desk);
+    print_str("press a key to reopen the window");
+    wait_key();
+
+    desk.win = Some(open_window());
+    desk.frame = 3;
+    render(&desk);
+    report("FASCON-GUI-READY 3", &desk);
+    halt();
+}
+
+// 8x8 ビットマップフォント（ASCII 32〜126、Fascon 1.0 の GUI デモ用に手作業でデザイン・CC0）
+// 8x8 bitmap font (ASCII 32-126), hand-designed for the Fascon 1.0 GUI demo (CC0)
+// 1 文字 8 バイト、各バイトの最上位ビットが左端 / 8 bytes per glyph, the MSB of each byte is the leftmost pixel
+static FONT: [u8; 760] = [
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20, 0x20, 0x20, 0x20, 0x20, 0x00, 0x20, 0x00,
+    0x50, 0x50, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x50, 0x50, 0xf8, 0x50, 0xf8, 0x50, 0x50, 0x00,
+    0x20, 0x78, 0xa0, 0x70, 0x28, 0xf0, 0x20, 0x00, 0xc0, 0xc8, 0x10, 0x20, 0x40, 0x98, 0x18, 0x00,
+    0x60, 0x90, 0xa0, 0x40, 0xa8, 0x90, 0x68, 0x00, 0x20, 0x20, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x10, 0x20, 0x40, 0x40, 0x40, 0x20, 0x10, 0x00, 0x40, 0x20, 0x10, 0x10, 0x10, 0x20, 0x40, 0x00,
+    0x00, 0x20, 0xa8, 0x70, 0xa8, 0x20, 0x00, 0x00, 0x00, 0x20, 0x20, 0xf8, 0x20, 0x20, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x60, 0x20, 0x40, 0x00, 0x00, 0x00, 0xf8, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x60, 0x60, 0x00, 0x08, 0x10, 0x10, 0x20, 0x40, 0x40, 0x80, 0x00,
+    0x70, 0x88, 0x98, 0xa8, 0xc8, 0x88, 0x70, 0x00, 0x20, 0x60, 0x20, 0x20, 0x20, 0x20, 0x70, 0x00,
+    0x70, 0x88, 0x08, 0x10, 0x20, 0x40, 0xf8, 0x00, 0xf8, 0x10, 0x20, 0x10, 0x08, 0x88, 0x70, 0x00,
+    0x10, 0x30, 0x50, 0x90, 0xf8, 0x10, 0x10, 0x00, 0xf8, 0x80, 0xf0, 0x08, 0x08, 0x88, 0x70, 0x00,
+    0x30, 0x40, 0x80, 0xf0, 0x88, 0x88, 0x70, 0x00, 0xf8, 0x08, 0x10, 0x20, 0x40, 0x40, 0x40, 0x00,
+    0x70, 0x88, 0x88, 0x70, 0x88, 0x88, 0x70, 0x00, 0x70, 0x88, 0x88, 0x78, 0x08, 0x10, 0x60, 0x00,
+    0x00, 0x60, 0x60, 0x00, 0x60, 0x60, 0x00, 0x00, 0x00, 0x60, 0x60, 0x00, 0x60, 0x20, 0x40, 0x00,
+    0x10, 0x20, 0x40, 0x80, 0x40, 0x20, 0x10, 0x00, 0x00, 0x00, 0xf8, 0x00, 0xf8, 0x00, 0x00, 0x00,
+    0x40, 0x20, 0x10, 0x08, 0x10, 0x20, 0x40, 0x00, 0x70, 0x88, 0x08, 0x10, 0x20, 0x00, 0x20, 0x00,
+    0x70, 0x88, 0xb8, 0xa8, 0xb8, 0x80, 0x70, 0x00, 0x70, 0x88, 0x88, 0xf8, 0x88, 0x88, 0x88, 0x00,
+    0xf0, 0x88, 0x88, 0xf0, 0x88, 0x88, 0xf0, 0x00, 0x70, 0x88, 0x80, 0x80, 0x80, 0x88, 0x70, 0x00,
+    0xe0, 0x90, 0x88, 0x88, 0x88, 0x90, 0xe0, 0x00, 0xf8, 0x80, 0x80, 0xf0, 0x80, 0x80, 0xf8, 0x00,
+    0xf8, 0x80, 0x80, 0xf0, 0x80, 0x80, 0x80, 0x00, 0x70, 0x88, 0x80, 0xb8, 0x88, 0x88, 0x78, 0x00,
+    0x88, 0x88, 0x88, 0xf8, 0x88, 0x88, 0x88, 0x00, 0x70, 0x20, 0x20, 0x20, 0x20, 0x20, 0x70, 0x00,
+    0x38, 0x10, 0x10, 0x10, 0x10, 0x90, 0x60, 0x00, 0x88, 0x90, 0xa0, 0xc0, 0xa0, 0x90, 0x88, 0x00,
+    0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0xf8, 0x00, 0x88, 0xd8, 0xa8, 0xa8, 0x88, 0x88, 0x88, 0x00,
+    0x88, 0x88, 0xc8, 0xa8, 0x98, 0x88, 0x88, 0x00, 0x70, 0x88, 0x88, 0x88, 0x88, 0x88, 0x70, 0x00,
+    0xf0, 0x88, 0x88, 0xf0, 0x80, 0x80, 0x80, 0x00, 0x70, 0x88, 0x88, 0x88, 0xa8, 0x90, 0x68, 0x00,
+    0xf0, 0x88, 0x88, 0xf0, 0xa0, 0x90, 0x88, 0x00, 0x78, 0x80, 0x80, 0x70, 0x08, 0x08, 0xf0, 0x00,
+    0xf8, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x00, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x70, 0x00,
+    0x88, 0x88, 0x88, 0x88, 0x88, 0x50, 0x20, 0x00, 0x88, 0x88, 0x88, 0xa8, 0xa8, 0xa8, 0x50, 0x00,
+    0x88, 0x88, 0x50, 0x20, 0x50, 0x88, 0x88, 0x00, 0x88, 0x88, 0x50, 0x20, 0x20, 0x20, 0x20, 0x00,
+    0xf8, 0x08, 0x10, 0x20, 0x40, 0x80, 0xf8, 0x00, 0x70, 0x40, 0x40, 0x40, 0x40, 0x40, 0x70, 0x00,
+    0x80, 0x40, 0x40, 0x20, 0x10, 0x10, 0x08, 0x00, 0x70, 0x10, 0x10, 0x10, 0x10, 0x10, 0x70, 0x00,
+    0x20, 0x50, 0x88, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf8, 0x00,
+    0x40, 0x20, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x70, 0x08, 0x78, 0x88, 0x78, 0x00,
+    0x80, 0x80, 0xb0, 0xc8, 0x88, 0x88, 0xf0, 0x00, 0x00, 0x00, 0x70, 0x80, 0x80, 0x88, 0x70, 0x00,
+    0x08, 0x08, 0x68, 0x98, 0x88, 0x88, 0x78, 0x00, 0x00, 0x00, 0x70, 0x88, 0xf8, 0x80, 0x70, 0x00,
+    0x30, 0x48, 0x40, 0xe0, 0x40, 0x40, 0x40, 0x00, 0x00, 0x00, 0x78, 0x88, 0x88, 0x78, 0x08, 0x70,
+    0x80, 0x80, 0xb0, 0xc8, 0x88, 0x88, 0x88, 0x00, 0x20, 0x00, 0x60, 0x20, 0x20, 0x20, 0x70, 0x00,
+    0x10, 0x00, 0x30, 0x10, 0x10, 0x10, 0x90, 0x60, 0x80, 0x80, 0x90, 0xa0, 0xc0, 0xa0, 0x90, 0x00,
+    0x60, 0x20, 0x20, 0x20, 0x20, 0x20, 0x70, 0x00, 0x00, 0x00, 0xd0, 0xa8, 0xa8, 0xa8, 0xa8, 0x00,
+    0x00, 0x00, 0xb0, 0xc8, 0x88, 0x88, 0x88, 0x00, 0x00, 0x00, 0x70, 0x88, 0x88, 0x88, 0x70, 0x00,
+    0x00, 0x00, 0xf0, 0x88, 0x88, 0xf0, 0x80, 0x80, 0x00, 0x00, 0x78, 0x88, 0x88, 0x78, 0x08, 0x08,
+    0x00, 0x00, 0xb0, 0xc8, 0x80, 0x80, 0x80, 0x00, 0x00, 0x00, 0x70, 0x80, 0x70, 0x08, 0xf0, 0x00,
+    0x40, 0x40, 0xe0, 0x40, 0x40, 0x48, 0x30, 0x00, 0x00, 0x00, 0x88, 0x88, 0x88, 0x98, 0x68, 0x00,
+    0x00, 0x00, 0x88, 0x88, 0x88, 0x50, 0x20, 0x00, 0x00, 0x00, 0x88, 0x88, 0xa8, 0xa8, 0x50, 0x00,
+    0x00, 0x00, 0x88, 0x50, 0x20, 0x50, 0x88, 0x00, 0x00, 0x00, 0x88, 0x88, 0x88, 0x78, 0x08, 0x70,
+    0x00, 0x00, 0xf8, 0x10, 0x20, 0x40, 0xf8, 0x00, 0x10, 0x20, 0x20, 0x40, 0x20, 0x20, 0x10, 0x00,
+    0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x00, 0x40, 0x20, 0x20, 0x10, 0x20, 0x20, 0x40, 0x00,
+    0x00, 0x00, 0x40, 0xa8, 0x10, 0x00, 0x00, 0x00,
+];

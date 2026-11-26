@@ -1,0 +1,67 @@
+// マルチコア: コアごとのアリーナ・チャネル（own の移動）・共有アリーナ（critical と par()）・別のコアでの解放
+struct Msg { n: u64, payload: own [u64; 4] }
+struct Slot { v: u64 }
+struct Total { sum: u64, parts: u32, scans: u64 }
+
+arena local: Slot[32];
+shared arena totals: Total[1];
+chan jobs: own Msg[4];
+chan acks: u64[8];
+
+fn worker(k: u64) {
+    let mut sum: u64 = 0;
+    loop {
+        let m = jobs.recv_wait();
+        if m.n == 0 { break; }
+        local.alloc(Slot { v: m.n * k + m.payload[3] });
+        // m はここで解放される（確保したのは別のコア）
+    }
+    for id in local {
+        sum += local[id].v;
+    }
+    let mut seen: u64 = 0;
+    for id in totals.par() {
+        seen += totals[id].parts as u64 + 1;
+    }
+    critical {
+        for id in totals {
+            totals[id].sum += sum;
+            totals[id].parts += 1;
+            totals[id].scans += seen;
+        }
+    }
+    acks.send(sum);
+}
+
+fn main() {
+    totals.alloc(Total { sum: 0, parts: 0, scans: 0 });
+    local.alloc(Slot { v: 1000 });               // コア 0 の local。ワーカーからは見えない
+    spawn_on(1, worker, 1);
+    spawn_on(2, worker, 1);
+    let mut expect: u64 = 0;
+    for i in 1..21 {
+        jobs.send(own Msg { n: i, payload: own [0, 0, 0, i * 10] });
+        expect += i + i * 10;
+    }
+    jobs.send(own Msg { n: 0, payload: own [0; 4] });
+    jobs.send(own Msg { n: 0, payload: own [0; 4] });
+    let a = acks.recv_wait();
+    let b = acks.recv_wait();
+    print_int((a + b) as i64);
+    print_int(expect as i64);
+    let mut mine: u64 = 0;
+    for id in local { mine += local[id].v; }
+    print_int(mine as i64);
+    critical {
+        for id in totals {
+            print_int(totals[id].sum as i64);
+            print_int(totals[id].parts as i64);
+        }
+    }
+    match acks.recv() {
+        Some(x) => print_int(x as i64),
+        None => print_str("empty"),
+    }
+    print_int(cpu_count() as i64);
+    print_str("smp ok");
+}

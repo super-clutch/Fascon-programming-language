@@ -1,0 +1,5 @@
+// expect: F2603
+irq tick at 27 {
+    wait_irq();
+}
+fn main() { irq_open(); }

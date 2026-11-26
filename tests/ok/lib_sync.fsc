@@ -1,0 +1,27 @@
+// 標準ライブラリ: sync::spinlock・sync::mutex（優先度継承）・collections::vec / the standard library: spin lock, mutex, vec
+import sync::spinlock;
+import sync::mutex;
+import collections::vec;
+fn main() {
+    let l = spinlock::create().unwrap();
+    spinlock::lock(l);
+    print_int(if spinlock::try_lock(l) { 1 } else { 0 });
+    spinlock::unlock(l);
+    print_int(if spinlock::try_lock(l) { 1 } else { 0 });
+    spinlock::unlock(l);
+    print_int(spinlock::acquires(l));
+    let m = mutex::create().unwrap();
+    mutex::lock(m, 1, 5);
+    print_int(mutex::effective_prio(m));
+    print_int(if mutex::try_lock(m, 2, 9) { 1 } else { 0 });
+    mutex::unlock(m);
+    let mut v = vec::empty();
+    for i in 0..40 {
+        vec::push(&mut v, (i * 3) as u64);
+    }
+    print_int(vec::size(&v));
+    print_int(vec::at(&v, 37).unwrap_or(0));
+    print_int(vec::total(&v));
+    vec::clear(&mut v);
+    print_int(vec::size(&v));
+}

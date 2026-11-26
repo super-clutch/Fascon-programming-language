@@ -1,0 +1,12 @@
+// expect: F2032
+// 64 バイト境界の型は own の所有リージョン（16 バイト境界）に置けない
+// a 64-byte-aligned type cannot live in an own region (16-byte aligned)
+#[repr(align(64))]
+struct Counter { hits: u64 }
+
+struct Holder { c: Counter }
+
+fn main() {
+    let h = own Holder { c: Counter { hits: 1 } };
+    print_int(h.c.hits as i64);
+}

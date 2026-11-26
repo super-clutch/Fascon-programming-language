@@ -1,0 +1,62 @@
+// sync::mutex — 眠るミューテックス（Sleep 効果）と優先度継承（priority inheritance）
+// sync::mutex — a sleeping mutex (Sleep effect) with priority inheritance
+//
+//   lock は取れないと schedule() で眠る。そのため rcu_read / atomic / #[trap] の中や、第二級参照が生きている間には
+//   呼べない（F3203 でコンパイラが止める）。待ち手の優先度は持ち主の実効優先度へ継承される（スケジューラは
+//   effective_prio を見る）
+//   lock sleeps with schedule() when the mutex is taken, so it cannot be called inside rcu_read / atomic / #[trap] or while a
+//   second-class reference is live (the compiler stops it with F3203). Waiters' priorities are inherited by the owner's
+//   effective priority (the scheduler reads effective_prio)
+
+struct Mutex { held: u32, owner: u32, base_prio: u32, boost: u32, waiters: u32, sleeps: u64 }
+shared arena mutexes: Mutex[64];
+
+fn create() -> Option<Id<mutexes>> {
+    mutexes.alloc(Mutex { held: 0, owner: 0, base_prio: 0, boost: 0, waiters: 0, sleeps: 0 })
+}
+
+fn lock(m: Id<mutexes>, me: u32, prio: u32) {
+    loop {
+        let was = atomic { mutexes[m].held = 1 };
+        if was == 0 {
+            atomic { mutexes[m].owner = me; }
+            atomic { mutexes[m].base_prio = prio; }
+            return;
+        }
+        // 優先度継承: 持ち主の実効優先度を待ち手の優先度まで上げる（上げるだけ。下げるのは unlock）
+        // priority inheritance: raise the owner's effective priority to the waiter's (only up; unlock resets it)
+        atomic { mutexes[m].waiters += 1; }
+        let cur = atomic { mutexes[m].boost };
+        if prio > cur {
+            atomic { mutexes[m].boost = prio; }
+        }
+        atomic { mutexes[m].sleeps += 1; }
+        schedule();
+        atomic { mutexes[m].waiters -= 1; }
+    }
+}
+
+fn try_lock(m: Id<mutexes>, me: u32, prio: u32) -> bool {
+    let was = atomic { mutexes[m].held = 1 };
+    if was == 0 {
+        atomic { mutexes[m].owner = me; }
+        atomic { mutexes[m].base_prio = prio; }
+    }
+    was == 0
+}
+
+fn unlock(m: Id<mutexes>) {
+    atomic { mutexes[m].boost = 0; }
+    atomic { mutexes[m].held = 0; }
+}
+
+// 持ち主の実効優先度 = max(自分の優先度, 継承した優先度) / the owner's effective priority
+fn effective_prio(m: Id<mutexes>) -> u32 {
+    let b = atomic { mutexes[m].base_prio };
+    let x = atomic { mutexes[m].boost };
+    max(b, x)
+}
+
+fn waiters(m: Id<mutexes>) -> u32 {
+    atomic { mutexes[m].waiters }
+}

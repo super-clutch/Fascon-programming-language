@@ -1,0 +1,12 @@
+// expect: F2612
+struct Proc { pid: u32, ticks: u64 }
+shared arena procs: Proc[16];
+fn worker() {
+    for id in procs.par() {
+        procs[id].ticks += 1;
+    }
+}
+fn main() {
+    procs.alloc(Proc { pid: 1, ticks: 0 });
+    spawn_on(1, worker);
+}

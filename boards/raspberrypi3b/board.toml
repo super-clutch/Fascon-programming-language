@@ -1,0 +1,57 @@
+# Raspberry Pi 3 Model B（BCM2837・Cortex-A53 x4）— ボードのパッケージ（board.toml + 純粋な Fascon のドライバ）
+# Raspberry Pi 3 Model B (BCM2837, Cortex-A53 x4) — a board package (board.toml + pure-Fascon drivers)
+#
+#   fascon build --board raspberrypi3b app.fsc   → app.raspberrypi3b.elf と app.raspberrypi3b.img（SD カードの kernel8.img）
+#                                                 → app.raspberrypi3b.elf and app.raspberrypi3b.img (kernel8.img on the SD card)
+#   fascon qemu --board raspberrypi3b app.fsc    → QEMU の raspi3b で試す（終わりはセミホスティング）/ try it on QEMU raspi3b
+#
+#   QEMU raspi3b で確かめた（PL011・スピンテーブルの SMP・メールボックス）。実機ではファームウェア（start.elf）が
+#   kernel8.img を 0x80000 に置き、EL2 で入る / verified on QEMU raspi3b (PL011, spin-table SMP, mailbox). On hardware the
+#   firmware (start.elf) loads kernel8.img at 0x80000 and enters at EL2
+
+[board]
+name = "raspberrypi3b"
+arch = "aarch64"
+cpus = 4
+
+[memory]
+ram_base = 0x0000_0000
+ram_size = 0x3f00_0000          # 0x3F00_0000 から上は装置 / peripherals from 0x3F00_0000
+
+[uart]
+kind = "pl011"
+base = 0x3f20_1000
+
+[irq]
+kind = "none"                   # この雛形は割り込みを使わない（ポーリング）/ this template polls
+
+[timer]
+kind = "arm-generic"
+hz = 19_200_000                 # CNTFRQ が 0 のときだけ使う / used only when CNTFRQ is 0
+
+[boot]
+load_addr = 0x8_0000            # kernel8.img
+stack_size = 0x1_0000           # コアごと 64 KiB / 64 KiB per core
+smp = "spin-table"              # ファームウェアのスタブがコア 1〜3 を待たせている / the firmware stub parks cores 1-3
+release_addrs = [0xe0, 0xe8, 0xf0]   # コア 1・2・3（コア 0 は 0xd8）/ cores 1, 2, 3 (core 0 is 0xd8)
+exit = "loop"                   # 実機は止まるだけ（`fascon qemu --board` はセミホスティングで終わる）
+entry_el = "el2"
+
+[dma]
+coherent = false                # VideoCore とのやりとりはキャッシュの掃き出し・無効化が要る
+cache_line = 64
+bus_offset = 0xc000_0000        # VideoCore は ARM の RAM を 0xC000_0000 の別名（キャッシュ無し）で見る
+
+[[device]]
+name = "mailbox"
+base = 0x3f00_b880
+size = 0x40
+
+[[device]]
+name = "pl011"
+base = 0x3f20_1000
+size = 0x1000
+
+[qemu]
+machine = "raspi3b"
+args = []

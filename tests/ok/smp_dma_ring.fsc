@@ -1,0 +1,74 @@
+// マルチコア × dma_arena × dma のリング（F2614 の解除）: dma_arena とリングは全コアで 1 つの実体なので、触るのは critical の中だけ
+// （書き忘れは F2601 / F2613）。コア 1〜3 がバッファを装置へ貸し（lend）、CPU0 が装置の完了の代わりに回収（reclaim）して中身を確かめる
+// multi-core × dma_arena × a dma ring (F2614 lifted): dma_arena and the ring have one instance for every core, so they are
+// touched inside critical only (forgetting it is F2601 / F2613). Cores 1 to 3 lend buffers to the device; CPU0 reclaims
+// them in place of the completion of the device and checks their contents
+#[wire(le)] struct Desc { idx: u32, len: u32, core: u32, seq: u32 }
+#[wire(le)] struct Buf { data: [u8; 64] }
+
+dma_arena bufs: Buf[16];
+dma ring: [Desc; 16];
+chan done: own Desc[4];
+
+fn producer(c: u64) {
+    let mut lent: u32 = 0;
+    for k in 0..4 {
+        critical {
+            if let Some(h) = bufs.alloc(Buf { data: [(c * 16 + k) as u8; 64] }) {
+                let i = h.index();
+                ring[i].idx = i as u32;
+                ring[i].len = 64;
+                ring[i].core = c as u32;
+                ring[i].seq = k as u32;
+                bufs.lend(h);                       // 所有権は装置へ（h は消える） / ownership goes to the device
+                lent += 1;
+            }
+        }
+    }
+    done.send(own Desc { idx: 0, len: lent, core: c as u32, seq: 0 });
+}
+
+fn main() {
+    spawn_on(1, producer, 1);
+    spawn_on(2, producer, 2);
+    spawn_on(3, producer, 3);
+    let mut lent: u32 = 0;
+    for k in 0..3 {
+        let d = done.recv_wait();
+        lent += d.len;
+    }
+    // 装置の完了の代わり: リングの記述子から添字を読んで回収し、中身が貸したコアの印と一致するか確かめる
+    // in place of the completion of the device: reclaim by the index in each ring descriptor and check the contents carry the
+    // mark of the core that lent them
+    let mut back: u32 = 0;
+    let mut good: u32 = 0;
+    critical {
+        for i in 0..16 {
+            if let Some(h) = bufs.reclaim(ring[i].idx) {
+                back += 1;
+                let want = (ring[i].core * 16 + ring[i].seq) as u8;
+                if bufs[h].data[0] == want && bufs[h].data[63] == want {
+                    good += 1;
+                }
+                bufs.free(h);
+            }
+        }
+    }
+    put_str("lent by 3 cores: ");
+    print_int(lent as i64);
+    put_str("reclaimed: ");
+    put_int(back as i64);
+    put_str(", contents intact: ");
+    print_int(good as i64);
+    put_str("double reclaim refused: ");
+    let mut again: u32 = 0;
+    critical {
+        for i in 0..16 {
+            if let Some(h) = bufs.reclaim(ring[i].idx) {
+                again += 1;
+                bufs.free(h);
+            }
+        }
+    }
+    print_str(if again == 0 { "yes" } else { "NO" });
+}

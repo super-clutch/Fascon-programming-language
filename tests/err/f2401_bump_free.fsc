@@ -1,0 +1,9 @@
+// expect: F2401
+// バンプアリーナは 1 つずつ解放しない（呼び出しリージョンの出口でまとめて O(1)） / bump arenas are not freed one by one
+struct Node { v: i64 }
+bump_arena scratch: Node[16];
+fn work() {
+    let id = scratch.alloc(Node { v: 1 }).unwrap();
+    scratch.free(id);
+}
+fn main() { work(); }

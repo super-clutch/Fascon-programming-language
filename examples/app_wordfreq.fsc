@@ -1,0 +1,148 @@
+// app_wordfreq.fsc — Fascon 1.0: 一般アプリの例（単語の出現回数を数える）
+//                    Fascon 1.0: a general application (counting word frequencies)
+//
+//   fascon run app_wordfreq.fsc
+//
+// - 単語の表は arena（世代タグ付きの Id でつなぐハッシュの連鎖）、バケット表は own_alloc(Table) で 0 埋めの own を確保
+//   the word table is an arena (hash chains linked by generation-tagged Ids); the bucket table is a zero-filled own
+//   allocated with own_alloc(Table)
+// - 1 行ぶんの単語の切り出しは bump_arena へ: 行を処理する関数が戻るたびに O(1) で一括解放（free の呼び忘れが起きない）
+//   the words of one line go into a bump_arena: released in O(1) every time the line function returns (no free to forget)
+// - 型注釈なし・`@` なし・宣言の順序は自由 / no type annotations, no `@`, declarations in any order
+
+fn main() {
+    let mut table = own_alloc(Table);          // バケット 64 個はすべて None（0 埋め） / all 64 buckets start as None
+    let text = TEXT;
+    let mut start = 0;
+    let mut lines = 0;
+    for i in 0..text.len() {
+        if text.byte(i) == 10 {
+            count_line(&mut table, text, start, i);
+            start = i + 1;
+            lines += 1;
+        }
+    }
+    count_line(&mut table, text, start, text.len());
+    lines += 1;
+    put_str("lines: ");
+    put_int(lines);
+    put_str(", distinct words: ");
+    put_int(words.len());
+    put_str(", scratch slots in use now: ");
+    put_int(toks.len());
+    print_str("");
+    print_top(text, 5);
+}
+
+static TEXT: Str = "the quick brown fox jumps over the lazy dog\nthe dog sleeps and the fox runs\na fox is quick and a dog is lazy\nfascon counts the words of the fox";
+
+struct Entry { start: u32, len: u32, count: u32, next: Option<Id<words>> }
+arena words: Entry[256];
+
+struct Table { buckets: [Option<Id<words>>; 64] }
+
+struct Tok { start: u32, len: u32 }
+bump_arena toks: Tok[64];
+
+// 1 行を単語に切ってから表へ数える。この関数が toks の呼び出しリージョン（戻るときに 1 回の格納で一括解放）
+// split one line into words, then count them; this function is the call region of toks (one store frees it on return)
+fn count_line(table: &mut Table, text: Str, from: usize, to: usize) {
+    let mut i = from;
+    while i < to {
+        while i < to && !is_letter(text.byte(i)) {
+            i += 1;
+        }
+        let s = i;
+        while i < to && is_letter(text.byte(i)) {
+            i += 1;
+        }
+        if i > s {
+            toks.alloc(Tok { start: s as u32, len: (i - s) as u32 });
+        }
+    }
+    for t in toks {
+        add_word(table, text, toks[t].start, toks[t].len);
+    }
+}
+
+fn is_letter(c: u8) -> bool {
+    (c >= 97 && c <= 122) || (c >= 65 && c <= 90)
+}
+
+fn hash(text: Str, start: u32, len: u32) -> usize {
+    // 算術はすべて検査付き（あふれたら止まる）なので、あふれない形で混ぜる / all arithmetic is checked (an overflow stops
+    // the program), so mix without overflowing
+    let mut h = 7;
+    for k in 0..len {
+        h = (h * 31 + text.byte((start + k) as usize) as u64) % 1000003;
+    }
+    (h % 64) as usize
+}
+
+fn same(text: Str, a: u32, b: u32, len: u32) -> bool {
+    for k in 0..len {
+        if text.byte((a + k) as usize) != text.byte((b + k) as usize) {
+            return false;
+        }
+    }
+    true
+}
+
+fn add_word(table: &mut Table, text: Str, start: u32, len: u32) {
+    let h = hash(text, start, len);
+    let mut cur = table.buckets[h];
+    loop {
+        if let Some(id) = cur {
+            if words[id].len == len && same(text, words[id].start, start, len) {
+                words[id].count += 1;
+                return;
+            }
+            cur = words[id].next;
+        } else {
+            break;
+        }
+    }
+    let head = table.buckets[h];
+    if let Some(id) = words.alloc(Entry { start: start, len: len, count: 1, next: head }) {
+        table.buckets[h] = Some(id);
+    }
+}
+
+fn print_word(text: Str, start: u32, len: u32) {
+    for k in 0..len {
+        put_str(char_str(text.byte((start + k) as usize)));
+    }
+}
+
+// 1 文字を表示する（Fascon の文字列はリテラルだけなので、ASCII の小さな表を引く）
+// print one character (Fascon strings are literals only, so a small ASCII table is used)
+fn char_str(c: u8) -> Str {
+    if c >= 97 && c <= 122 {
+        LOWER[(c - 97) as usize]
+    } else {
+        "?"
+    }
+}
+
+static LOWER: [Str; 26] = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"];
+
+// 回数の多い順に n 個（同じ回数なら先に出た単語）。表示した単語は回数を 0 にして次の選択から外す
+// the n most frequent words (ties: the earlier word first); a printed word gets count 0 so later picks skip it
+fn print_top(text: Str, n: u32) {
+    for _round in 0..n {
+        let mut best = None;
+        for id in words {
+            if words[id].count > 0 && (best.is_none() || words[id].count > words[best.unwrap()].count) {
+                best = Some(id);
+            }
+        }
+        if let Some(b) = best {
+            put_str("  ");
+            print_word(text, words[b].start, words[b].len);
+            put_str(": ");
+            put_int(words[b].count);
+            print_str("");
+            words[b].count = 0;
+        }
+    }
+}

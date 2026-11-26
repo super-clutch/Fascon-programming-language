@@ -1,0 +1,10 @@
+// expect: F0515
+struct Task { pid: u32 }
+task_arena task: Task[4] stack 16384;
+user_mem umem for task: 0x20_0000 at 0x1_0000_0000;
+fn main() {
+    let t = task.start_user(Task { pid: 1 }, 0x1_0000_0000, 0x1_0020_0000).unwrap();
+    // ユーザーメモリの窓は保存できない（if let / match の対象にだけ書ける）
+    let m = umem.of(t);
+    task.enter(t);
+}

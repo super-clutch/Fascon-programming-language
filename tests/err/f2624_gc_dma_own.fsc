@@ -1,0 +1,8 @@
+// expect: F2624
+// gc_arena の要素に dma own T は置けない（転送中に回収されうる） / no dma own T in gc_arena elements (reclaimed mid-transfer)
+struct Req { id: u32, buf: Option<dma own [u8; 512]> }
+gc_arena reqs: Req[8];
+
+fn main() {
+    print_int(reqs.len() as u64);
+}

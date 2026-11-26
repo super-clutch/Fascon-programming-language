@@ -1,0 +1,7 @@
+[kernel] SMP x ring 3 x 4 KiB pages: 4 cores, 2 user tasks per core + 1 hostile task on core 3
+[kernel] all tasks done: exited 8, faults 1
+[kernel] demand paging: 24 pages of 4 KiB touched by every task: ok
+[kernel] TOCTOU: the system call body saw a stable snapshot on 8 of 8
+[kernel] E2BIG for a 64 KiB window: 8, write-back of &mut windows: 8
+[kernel] every core preempted its own ring 3 tasks with its own timer: yes
+FASCON-SMP-USER-OK

@@ -1,0 +1,13 @@
+// expect: F2603
+struct Packet { n: u64 }
+chan work: own Packet[4];
+fn worker() {
+    critical {
+        let p = work.recv_wait();   // 閉じた区間の中で待つ: 相手が区間に入れず、進めなくなる
+        print_int(p.n as i64);
+    }
+}
+fn main() {
+    spawn_on(1, worker);
+    work.send(own Packet { n: 1 });
+}

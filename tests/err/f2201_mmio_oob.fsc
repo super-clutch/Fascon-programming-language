@@ -1,0 +1,7 @@
+// expect: F2201
+// 固定番地リージョンの範囲外の定数添字（コンパイル時に検出） / a constant index outside a fixed-address region
+#[framebuffer]
+mmio @fb: [[u32; 320]; 200] at 0x4800_0000;
+fn main() {
+    @fb[200][10] = 0xffffff;
+}

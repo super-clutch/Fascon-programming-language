@@ -1,0 +1,6 @@
+// expect: F3404
+// bind_mmio はレジスタ構造体（u8〜u64 とその配列）だけ / bind_mmio needs a register struct
+struct NotRegs { name: Str, ctrl: u32 }
+fn main() {
+    let r = bind_mmio(NotRegs, 0x1000_0000);
+}

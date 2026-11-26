@@ -1,0 +1,16 @@
+// expect: F0507
+// own の場所の束縛は own の中身を指す参照（`&mut w.ok` と同じ）なので、own そのものは差し替えられない（元の場所へ代入する）
+// a binding of an own place refers to the contents of the own (as `&mut w.ok` does), so the own itself cannot be
+// replaced through it (assign the original place instead)
+struct Button { label: Str, x: i32 }
+struct Window { ok: own Button }
+
+fn main() {
+    let mut w = Window { ok: own Button { label: "OK", x: 1 } };
+    match w.ok {
+        b => {
+            b = own Button { label: "New", x: 2 };
+        }
+    }
+    print_int(w.ok.x as i64);
+}

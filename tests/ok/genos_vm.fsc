@@ -1,0 +1,66 @@
+// fascon-target: generic-os
+// generic-os のアドレス空間: ページの所有権の移動（map_page / unmap_page）、Copy-on-Write（share_page / cow_copy）、
+// cpu_mask による TLB の撃ち落とし（自分のコアだけならローカル、ほかのコアには IPI）
+// generic-os address spaces: page ownership moves, Copy-on-Write and cpu_mask-driven TLB shootdown
+
+struct Proc { pid: u32 }
+arena procs: Proc[8];
+
+// 書き込みのフォールトの本体（#[trap] fn user_fault(pid, addr, is_write) から呼ぶ形）: 共有ページを新しい own ページへ写し、
+// 所有権ごとアドレス空間へ移して差し替え、そのプロセスを走らせているコアの TLB だけを掃く
+// the body of a write fault (as called from #[trap] fn user_fault(pid, addr, is_write)): copy the shared page into a fresh
+// own page, move it into the address space in place of the shared one, flush the TLBs of the cores running that process only
+fn cow_fault(pid: Id<procs>, addr: u64, is_write: bool) -> bool {
+    let va = addr & 0xffff_ffff_ffff_f000;
+    if !is_write {
+        return false;
+    }
+    match procs.cow_copy(pid, va) {
+        Some(mut fresh) => {
+            fresh[100] = 42;
+            // 所有権ごと差し替え（共有ページは参照が 1 つ減る） / swap in with ownership (the shared page loses a reference)
+            match procs.map_page(pid, va, fresh, true) {
+                Ok(_) => {
+                    procs.tlb_flush(pid, va);
+                    true
+                }
+                Err(_) => false,
+            }
+        }
+        None => false,
+    }
+}
+
+fn main() {
+    let parent = procs.alloc(Proc { pid: 1 }).unwrap();
+    let child = procs.alloc(Proc { pid: 2 }).unwrap();
+    let mut pg = own_alloc([u8; 4096]);
+    for i in 0..4096 {
+        pg[i] = 7;
+    }
+    // ページの所有権は親のアドレス空間へ（pg はもう使えない: F0382） / ownership moves into the parent's address space
+    procs.map_page(parent, 0x4000, pg, true).unwrap();
+    procs.on_cpu(parent, 0);
+    procs.on_cpu(child, 1);
+    // fork: 同じページを読み取り専用で共有（親の TLB はコア 0 = 自分だけなのでローカル）
+    procs.share_page(parent, 0x4000, child).unwrap();
+    print_int(procs.peek(child, 0x4000, 10));
+    // 子の書き込み → CoW（子はコア 1 で走っているので IPI 1 本） / the child's write → CoW (one IPI: the child runs on core 1)
+    if cow_fault(child, 0x4123, true) {
+        print_str("cow done");
+    }
+    print_int(procs.peek(child, 0x4000, 100));
+    print_int(procs.peek(parent, 0x4000, 100));
+    print_int(procs.tlb_local_count());
+    print_int(procs.tlb_ipi_count());
+    // 親の共有ページは最後の参照になったので、unmap で所有権が戻る / the parent's page is the last reference now
+    match procs.unmap_page(parent, 0x4000) {
+        Some(p) => print_int(p[10] as u64),
+        None => print_str("still shared"),
+    }
+    procs.off_cpu(child, 1);
+    print_int(procs.cpu_mask(child));
+    procs.free(child);
+    procs.free(parent);
+    print_int(heap_live_blocks());
+}

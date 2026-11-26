@@ -1,0 +1,15 @@
+// expect: F3106
+// catch_fault の外の値を中で移動すると、途中で抜けたときに「動いたか」が実行時に決まる
+// moving an outer value inside catch_fault makes "was it moved" depend on the run
+struct Buf { data: own [u8; 64] }
+fn consume(b: Buf) -> u32 { b.data[0] as u32 }
+fn main() {
+    let b = Buf { data: own_alloc([u8; 64]) };
+    let r = catch_fault {
+        consume(b)
+    };
+    match r {
+        Ok(v) => print_int(v),
+        Err(e) => print_int(e.code()),
+    }
+}

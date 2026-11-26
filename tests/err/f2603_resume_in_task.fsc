@@ -1,0 +1,10 @@
+// expect: F2603
+struct Task { n: u64 }
+task_arena @task: Task[4] stack 8192;
+fn worker(arg: u64) {
+    critical { let me = @task.current(); @task.resume(me); }
+}
+fn main() {
+    let a = @task.start(Task { n: 0 }, worker, 1).unwrap();
+    @task.enter(a);
+}

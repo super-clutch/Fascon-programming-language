@@ -1,0 +1,16 @@
+// expect: F3203
+// rcu_read の中で reclaim_wait（Sleep 効果）は呼べない / reclaim_wait (Sleep effect) cannot be called inside rcu_read
+struct A { x: f32 }
+gpu_arena @g: A[4];
+fn main() {
+    if let Some(h) = @g.alloc(A { x: 1.0 }) {
+        let f = @g.dispatch(1, 1, 1, h);
+        let mut back: Option<GpuBuf<@g>> = None;
+        rcu_read {
+            back = @g.reclaim_wait(f);
+        }
+        if let Some(b) = back {
+            @g.free(b);
+        }
+    }
+}

@@ -1,0 +1,17 @@
+live blocks at start: 0
+after make_window (packed window + 2 buttons): 1
+Main: OK / Cancel
+1
+with status label: 2
+after replacing cancel: 3
+Main: OK / Close
+Main: OK / Close
+window closing, live blocks before: 3
+after closing (bulk free): 0
+list of 6: 6
+110
+after drop(list): 0
+original (1 packed block) + deep clone (3 blocks): 4
+A: OK / Cancel
+2
+desktop is empty

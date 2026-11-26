@@ -1,0 +1,13 @@
+// expect: F0308
+// 関数ポインタの型は参照の可変性まで一致が必要（`fn(&i32)` は `fn(&mut i32)` ではない）
+// function pointer types must agree down to reference mutability (`fn(&i32)` is not `fn(&mut i32)`)
+fn show(x: &i32) { print_int(*x as i64); }
+fn for_each(a: &mut [i32; 2], f: fn(&mut i32)) {
+    for i in 0..2 {
+        f(&mut a[i]);
+    }
+}
+fn main() {
+    let mut a = [1, 2];
+    for_each(&mut a, show);
+}

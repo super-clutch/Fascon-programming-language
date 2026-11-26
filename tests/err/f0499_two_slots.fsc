@@ -1,0 +1,10 @@
+// expect: F0499
+// 同じアリーナの 2 つのスロットを同時に &mut で渡す（Id が同じかもしれない） / two &mut slots of one arena in one call
+struct Acc { v: i64 }
+arena @acc: Acc[4];
+fn transfer(a: &mut Acc, b: &mut Acc) { a.v -= 1; b.v += 1; }
+fn main() {
+    let x = @acc.alloc(Acc { v: 10 }).unwrap();
+    let y = @acc.alloc(Acc { v: 0 }).unwrap();
+    transfer(&mut @acc[x], &mut @acc[y]);
+}

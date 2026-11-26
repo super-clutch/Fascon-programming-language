@@ -1,0 +1,97 @@
+#[wire(le)] struct Hdr { magic: u32, count: u16, flags: u16, lba: u64 }
+#[wire(be)] struct Net { kind: u16, len: u16, addr: u32, mac: [u8; 6] }
+#[wire(le)] struct DirEnt { name: [u8; 4], lba: u32 }
+
+fn sum(s: &[u8]) -> u64 {
+    let mut t: u64 = 0;
+    let mut i: u64 = 0;
+    while i < s.len() {
+        t += s[i] as u64;
+        i += 1;
+    }
+    t
+}
+
+fn fill(d: &mut [u8], v: u8) {
+    for i in 0..d.len() {
+        d[i] = v;
+    }
+}
+
+fn find(dir: &[u8], name: &[u8]) -> Option<u32> {
+    let mut off: u64 = 0;
+    while off + 8 <= dir.len() {
+        if let Some(e) = dir.view(DirEnt, off) {
+            if let Some(n) = e.name.window(0, name.len()) {
+                if n == name { return Some(e.lba); }
+            }
+        }
+        off += 8;
+    }
+    None
+}
+
+fn main() {
+    let mut buf: [u8; 32] = [0; 32];
+    if let Some(h) = buf.view_mut(Hdr, 0) {
+        h.magic = 0x4653_4331;
+        h.count = 3;
+        h.flags += 5;
+        h.lba = 0x1122_3344_5566_7788;
+    }
+    print_int(buf[0] as i64);
+    print_int(buf[3] as i64);
+    print_int(buf[4] as i64);
+    print_int(buf[6] as i64);
+    print_int(buf[15] as i64);
+    if let Some(n) = buf.view_mut(Net, 17) {
+        n.kind = 0x0806;
+        n.len = 0x0102;
+        n.len += 1;
+        n.addr = 0x0a00_020f;
+        n.mac = [1, 2, 3, 4, 5, 6];
+    }
+    print_int(buf[17] as i64);
+    print_int(buf[18] as i64);
+    print_int(buf[20] as i64);
+    print_int(buf[21] as i64);
+    print_int(buf[24] as i64);
+    if let Some(n) = buf.view(Net, 17) {
+        print_int(n.kind as i64);
+        print_int(n.addr as i64);
+        print_int(n.mac[5] as i64);
+    }
+    match buf.view(Hdr, 20) {
+        Some(h) => print_str("fits"),
+        None => print_str("out of range"),
+    }
+    match buf.read(Hdr, 0) {
+        Some(h) => print_int(h.count as i64),
+        None => print_str("none"),
+    }
+    print_int(sum(&buf) as i64);
+    if let Some(w) = buf.window_mut(28, 4) {
+        fill(w, 7);
+        print_int(sum(w) as i64);
+    }
+    if let Some(w) = buf.window(30, 4) { print_str("fits"); } else { print_str("window out of range"); }
+    print_int(sum("AB") as i64);
+    let mut dir: [u8; 16] = [0; 16];
+    if let Some(e) = dir.view_mut(DirEnt, 8) {
+        e.name = [102, 111, 111, 0];
+        e.lba = 42;
+    }
+    match find(&dir, "foo") {
+        Some(l) => print_int(l as i64),
+        None => print_str("not found"),
+    }
+    match find(&dir, "bar") {
+        Some(l) => print_int(l as i64),
+        None => print_str("not found"),
+    }
+    let mut copy: [u8; 4] = [0; 4];
+    copy.copy_from(&buf);
+    print_int(copy[0] as i64);
+    copy.copy_from("xyzzy");
+    print_int(copy[3] as i64);
+}

@@ -1,0 +1,1005 @@
+{
+ "about": "SHA-256 of the normalized generated C (tools/compare_c.py) per program and mode; ERROR = the error codes",
+ "files": {
+  "examples/app_wordfreq.fsc": {
+   "default": "0db294785cd7318f0ee475fdccb70dd7411de673f2287a58bc0a11309dfad13a",
+   "mirrored": "0db294785cd7318f0ee475fdccb70dd7411de673f2287a58bc0a11309dfad13a",
+   "off": "0db294785cd7318f0ee475fdccb70dd7411de673f2287a58bc0a11309dfad13a"
+  },
+  "examples/bios_dual.fsc": {
+   "default": "1f25bf2469491bc16b5652404f50921bc8ae7bb3a2a72af3c7568278a116b49b",
+   "mirrored": "1f25bf2469491bc16b5652404f50921bc8ae7bb3a2a72af3c7568278a116b49b",
+   "off": "1f25bf2469491bc16b5652404f50921bc8ae7bb3a2a72af3c7568278a116b49b"
+  },
+  "examples/gc_graph.fsc": {
+   "default": "3cadcdd973ab2e23c4680b0568c4d0368fb07259c2f9c2c271be38c2969200d8",
+   "mirrored": "3cadcdd973ab2e23c4680b0568c4d0368fb07259c2f9c2c271be38c2969200d8",
+   "off": "9827fbe63bcf7c43dab44fbb9e2151c80c979295c7b935c7b1993f63d0ddaaec"
+  },
+  "examples/genos_qemu.fsc": {
+   "default": "bc38c6c72116dc4f261009453caa148b73fe7da3330a3020aa1834a5c8d8808c",
+   "mirrored": "bc38c6c72116dc4f261009453caa148b73fe7da3330a3020aa1834a5c8d8808c",
+   "off": "bc38c6c72116dc4f261009453caa148b73fe7da3330a3020aa1834a5c8d8808c"
+  },
+  "examples/genos_smp.fsc": {
+   "default": "7c2ede3bdf22cb75074b05416cc648ae19f9b183402385c22132827524d58ad0",
+   "mirrored": "7c2ede3bdf22cb75074b05416cc648ae19f9b183402385c22132827524d58ad0",
+   "off": "7c2ede3bdf22cb75074b05416cc648ae19f9b183402385c22132827524d58ad0"
+  },
+  "examples/gui_desktop.fsc": {
+   "default": "659413a5dbbd839cb3b7447904f063d90a5f58e0625cec0e7ad78ee91ad47e25",
+   "mirrored": "659413a5dbbd839cb3b7447904f063d90a5f58e0625cec0e7ad78ee91ad47e25",
+   "off": "659413a5dbbd839cb3b7447904f063d90a5f58e0625cec0e7ad78ee91ad47e25"
+  },
+  "examples/gui_dual.fsc": {
+   "default": "28207371e35f1a06dbd8283c3ee1e907628677801f2d1b02f074fe5374baffa1",
+   "mirrored": "28207371e35f1a06dbd8283c3ee1e907628677801f2d1b02f074fe5374baffa1",
+   "off": "28207371e35f1a06dbd8283c3ee1e907628677801f2d1b02f074fe5374baffa1"
+  },
+  "examples/kernel_core.fsc": {
+   "default": "2944987bd8c03e19e05564199f3ad29001963f00310246a2da7fd6d23fba5a23",
+   "mirrored": "2944987bd8c03e19e05564199f3ad29001963f00310246a2da7fd6d23fba5a23",
+   "off": "2944987bd8c03e19e05564199f3ad29001963f00310246a2da7fd6d23fba5a23"
+  },
+  "examples/kernel_net.fsc": {
+   "default": "01ade3321f980aea604450f069b7795ab3b6eb1ceade05e0b8dd6e9605cc0b9c",
+   "mirrored": "01ade3321f980aea604450f069b7795ab3b6eb1ceade05e0b8dd6e9605cc0b9c",
+   "off": "01ade3321f980aea604450f069b7795ab3b6eb1ceade05e0b8dd6e9605cc0b9c"
+  },
+  "examples/kernel_preempt.fsc": {
+   "default": "11a6058a4960385d3a4bb93597a71c19daba1f0e185d4be8a40779048f0faf80",
+   "mirrored": "11a6058a4960385d3a4bb93597a71c19daba1f0e185d4be8a40779048f0faf80",
+   "off": "c3fdb914ede2684e18e134a41e4fdc2cffd4add7b70b9d7f2da207212074e1ec"
+  },
+  "examples/kernel_storage.fsc": {
+   "default": "af3fe6a85576ffdcdbee498f7b9c4222fb772f552ff5f329d584c55b8b1d3bf6",
+   "mirrored": "af3fe6a85576ffdcdbee498f7b9c4222fb772f552ff5f329d584c55b8b1d3bf6",
+   "off": "af3fe6a85576ffdcdbee498f7b9c4222fb772f552ff5f329d584c55b8b1d3bf6"
+  },
+  "examples/kernel_user.fsc": {
+   "default": "f20c40bfca286eec823b82fbacd0f75856ecda11145db7aeccec2ce9f841e68e",
+   "mirrored": "f20c40bfca286eec823b82fbacd0f75856ecda11145db7aeccec2ce9f841e68e",
+   "off": "f20c40bfca286eec823b82fbacd0f75856ecda11145db7aeccec2ce9f841e68e"
+  },
+  "examples/own_callbacks.fsc": {
+   "default": "7b2340168810ac5190f1fecdadbf8620ef2518d10acc4cfbf63bff3473599092",
+   "mirrored": "7b2340168810ac5190f1fecdadbf8620ef2518d10acc4cfbf63bff3473599092",
+   "off": "7b2340168810ac5190f1fecdadbf8620ef2518d10acc4cfbf63bff3473599092"
+  },
+  "examples/rust_style.rs": {
+   "default": "b04322092b79abe6f12e138a19dcf27489d8b3c27083fe52ea43f4a27e1e550e",
+   "mirrored": "b04322092b79abe6f12e138a19dcf27489d8b3c27083fe52ea43f4a27e1e550e",
+   "off": "b04322092b79abe6f12e138a19dcf27489d8b3c27083fe52ea43f4a27e1e550e"
+  },
+  "examples/smp_kernel.fsc": {
+   "default": "05de482f0dc388c177984e460ba3ebc6cc0e2d5c79b2b362a22464df4c08a855",
+   "mirrored": "05de482f0dc388c177984e460ba3ebc6cc0e2d5c79b2b362a22464df4c08a855",
+   "off": "05de482f0dc388c177984e460ba3ebc6cc0e2d5c79b2b362a22464df4c08a855"
+  },
+  "examples/user_init.fsc": {
+   "default": "bf9f33fda2918ad72cda8d6f0a160c90bd39fcd118a36217117e179e892d28b8",
+   "mirrored": "bf9f33fda2918ad72cda8d6f0a160c90bd39fcd118a36217117e179e892d28b8",
+   "off": "bf9f33fda2918ad72cda8d6f0a160c90bd39fcd118a36217117e179e892d28b8"
+  },
+  "examples/vruntime_scan.fsc": {
+   "default": "1483aef76de39d292331be5fea90c0788d9975422e6bf37a82f2411d19aa75b8",
+   "mirrored": "0fc9ef0139b767a91b26fd522a1125d88524728e1e5c4bb21c9fc2f65f04fecc",
+   "off": "25404aa833c90dadfc0b7bc8f3353c2c17e60cc4e72d0000478a287e1fb70457"
+  },
+  "tests/board/hal_hello.fsc": {
+   "default": "ERROR F0425 F3701",
+   "mirrored": "ERROR F0425 F3701",
+   "off": "ERROR F0425 F3701"
+  },
+  "tests/board/hal_hello.fsc@board=qemu-virt-generic": {
+   "default": "b3587b862a7c4a229bbd8bfe8e08eadc98d2e6822706d6aa56189201774a3298",
+   "mirrored": "b3587b862a7c4a229bbd8bfe8e08eadc98d2e6822706d6aa56189201774a3298",
+   "off": "b3587b862a7c4a229bbd8bfe8e08eadc98d2e6822706d6aa56189201774a3298"
+  },
+  "tests/board/hal_hello.fsc@board=qemu-virt-riscv64": {
+   "default": "7069880519dd934efbe4bd9636425e4992e413f8070da84890c10ca61e5512e3",
+   "mirrored": "7069880519dd934efbe4bd9636425e4992e413f8070da84890c10ca61e5512e3",
+   "off": "7069880519dd934efbe4bd9636425e4992e413f8070da84890c10ca61e5512e3"
+  },
+  "tests/board/hal_hello.fsc@board=raspberrypi3b": {
+   "default": "43f0fc769968f2845511a82b4425664df2d256bc76ad76faf6c9189dc209c698",
+   "mirrored": "43f0fc769968f2845511a82b4425664df2d256bc76ad76faf6c9189dc209c698",
+   "off": "43f0fc769968f2845511a82b4425664df2d256bc76ad76faf6c9189dc209c698"
+  },
+  "tests/board/rpi3_hello.fsc": {
+   "default": "ERROR F0425 F3701",
+   "mirrored": "ERROR F0425 F3701",
+   "off": "ERROR F0425 F3701"
+  },
+  "tests/board/rpi3_hello.fsc@board=raspberrypi3b": {
+   "default": "4d4fdc76c062046cf73557641a6305ebe058ea1f4fe2bc5f867b0a0c3d8c3377",
+   "mirrored": "4d4fdc76c062046cf73557641a6305ebe058ea1f4fe2bc5f867b0a0c3d8c3377",
+   "off": "4d4fdc76c062046cf73557641a6305ebe058ea1f4fe2bc5f867b0a0c3d8c3377"
+  },
+  "tests/cols/cols.fsc": {
+   "default": "66fb643c7699572ae0c8a943c0cb7f80e94cb56b9bf5afaa512bbf0e60f4e437",
+   "mirrored": "a01d6bde60b3005acf335a66d450f0f477b17f0ada1938c6d21c4a91c22150ca",
+   "off": "b5903ed8a64e177a97e9de0a0116edb4627bff4c47db4c084bda16bd43a3b80b"
+  },
+  "tests/err/f0001_lifetime.fsc": {
+   "default": "ERROR F0001",
+   "mirrored": "ERROR F0001",
+   "off": "ERROR F0001"
+  },
+  "tests/err/f0308_fn_type_mismatch.fsc": {
+   "default": "ERROR F0308",
+   "mirrored": "ERROR F0308",
+   "off": "ERROR F0308"
+  },
+  "tests/err/f0382_callback_double_move.fsc": {
+   "default": "ERROR F0382",
+   "mirrored": "ERROR F0382",
+   "off": "ERROR F0382"
+  },
+  "tests/err/f0382_chan_send_then_use.fsc": {
+   "default": "ERROR F0382",
+   "mirrored": "ERROR F0382",
+   "off": "ERROR F0382"
+  },
+  "tests/err/f0382_dma_use_after_lend.fsc": {
+   "default": "ERROR F0382",
+   "mirrored": "ERROR F0382",
+   "off": "ERROR F0382"
+  },
+  "tests/err/f0382_own_deref_after_move.fsc": {
+   "default": "ERROR F0382",
+   "mirrored": "ERROR F0382",
+   "off": "ERROR F0382"
+  },
+  "tests/err/f0382_own_field_struct_moved.fsc": {
+   "default": "ERROR F0382",
+   "mirrored": "ERROR F0382",
+   "off": "ERROR F0382"
+  },
+  "tests/err/f0382_own_moved.fsc": {
+   "default": "ERROR F0382",
+   "mirrored": "ERROR F0382",
+   "off": "ERROR F0382"
+  },
+  "tests/err/f0499_two_slots.fsc": {
+   "default": "ERROR F0499",
+   "mirrored": "ERROR F0499",
+   "off": "ERROR F0499"
+  },
+  "tests/err/f0502_place_borrow.fsc": {
+   "default": "ERROR F0502",
+   "mirrored": "ERROR F0502",
+   "off": "ERROR F0502"
+  },
+  "tests/err/f0505_view_then_move.fsc": {
+   "default": "ERROR F0505",
+   "mirrored": "ERROR F0505",
+   "off": "ERROR F0505"
+  },
+  "tests/err/f0507_move_out_of_deref.fsc": {
+   "default": "ERROR F0507",
+   "mirrored": "ERROR F0507",
+   "off": "ERROR F0507"
+  },
+  "tests/err/f0507_own_field.fsc": {
+   "default": "ERROR F0507",
+   "mirrored": "ERROR F0507",
+   "off": "ERROR F0507"
+  },
+  "tests/err/f0507_own_i32_field_move.fsc": {
+   "default": "ERROR F0507",
+   "mirrored": "ERROR F0507",
+   "off": "ERROR F0507"
+  },
+  "tests/err/f0507_replace_own_via_binding.fsc": {
+   "default": "ERROR F0507",
+   "mirrored": "ERROR F0507",
+   "off": "ERROR F0507"
+  },
+  "tests/err/f0515_chan_reference.fsc": {
+   "default": "ERROR F0515",
+   "mirrored": "ERROR F0515",
+   "off": "ERROR F0515"
+  },
+  "tests/err/f0515_field.fsc": {
+   "default": "ERROR F0515",
+   "mirrored": "ERROR F0515",
+   "off": "ERROR F0515"
+  },
+  "tests/err/f0515_fn_returns_ref.fsc": {
+   "default": "ERROR F0515",
+   "mirrored": "ERROR F0515",
+   "off": "ERROR F0515"
+  },
+  "tests/err/f0515_lookup.fsc": {
+   "default": "ERROR F0515",
+   "mirrored": "ERROR F0515",
+   "off": "ERROR F0515"
+  },
+  "tests/err/f0515_user_window_stored.fsc": {
+   "default": "ERROR F0515",
+   "mirrored": "ERROR F0515",
+   "off": "ERROR F0515"
+  },
+  "tests/err/f0515_view_stored.fsc": {
+   "default": "ERROR F0515",
+   "mirrored": "ERROR F0515",
+   "off": "ERROR F0515"
+  },
+  "tests/err/f0520_callback_arena.fsc": {
+   "default": "ERROR F0520",
+   "mirrored": "ERROR F0520",
+   "off": "ERROR F0520"
+  },
+  "tests/err/f0520_callback_caller_place.fsc": {
+   "default": "ERROR F0520",
+   "mirrored": "ERROR F0520",
+   "off": "ERROR F0520"
+  },
+  "tests/err/f0520_callback_option.fsc": {
+   "default": "ERROR F0520",
+   "mirrored": "ERROR F0520",
+   "off": "ERROR F0520"
+  },
+  "tests/err/f0520_callback_own.fsc": {
+   "default": "ERROR F0520",
+   "mirrored": "ERROR F0520",
+   "off": "ERROR F0520"
+  },
+  "tests/err/f0520_callback_return.fsc": {
+   "default": "ERROR F0520",
+   "mirrored": "ERROR F0520",
+   "off": "ERROR F0520"
+  },
+  "tests/err/f0520_callback_via_helper.fsc": {
+   "default": "ERROR F0520",
+   "mirrored": "ERROR F0520",
+   "off": "ERROR F0520"
+  },
+  "tests/err/f0596_get_unwrap_write.fsc": {
+   "default": "ERROR F0596",
+   "mirrored": "ERROR F0596",
+   "off": "ERROR F0596"
+  },
+  "tests/err/f0596_shared_write.fsc": {
+   "default": "ERROR F0596",
+   "mirrored": "ERROR F0596",
+   "off": "ERROR F0596"
+  },
+  "tests/err/f0618_not_a_function.fsc": {
+   "default": "ERROR F0618",
+   "mirrored": "ERROR F0618",
+   "off": "ERROR F0618"
+  },
+  "tests/err/f2030_recursive.fsc": {
+   "default": "ERROR F2030",
+   "mirrored": "ERROR F2030",
+   "off": "ERROR F2030"
+  },
+  "tests/err/f2031_repr_align.fsc": {
+   "default": "ERROR F2031",
+   "mirrored": "ERROR F2031",
+   "off": "ERROR F2031"
+  },
+  "tests/err/f2032_own_overaligned.fsc": {
+   "default": "ERROR F2032",
+   "mirrored": "ERROR F2032",
+   "off": "ERROR F2032"
+  },
+  "tests/err/f2101_color.fsc": {
+   "default": "ERROR F2101",
+   "mirrored": "ERROR F2101",
+   "off": "ERROR F2101"
+  },
+  "tests/err/f2102_bound.fsc": {
+   "default": "ERROR F2102",
+   "mirrored": "ERROR F2102",
+   "off": "ERROR F2102"
+  },
+  "tests/err/f2103_bump_own.fsc": {
+   "default": "ERROR F2103",
+   "mirrored": "ERROR F2103",
+   "off": "ERROR F2103"
+  },
+  "tests/err/f2201_mmio_oob.fsc": {
+   "default": "ERROR F2201",
+   "mirrored": "ERROR F2201",
+   "off": "ERROR F2201"
+  },
+  "tests/err/f2203_overlap.fsc": {
+   "default": "ERROR F2203",
+   "mirrored": "ERROR F2203",
+   "off": "ERROR F2203"
+  },
+  "tests/err/f2204_port_ref.fsc": {
+   "default": "ERROR F2204",
+   "mirrored": "ERROR F2204",
+   "off": "ERROR F2204"
+  },
+  "tests/err/f2205_port_type.fsc": {
+   "default": "ERROR F2205",
+   "mirrored": "ERROR F2205",
+   "off": "ERROR F2205"
+  },
+  "tests/err/f2301_own_own.fsc": {
+   "default": "ERROR F2301",
+   "mirrored": "ERROR F2301",
+   "off": "ERROR F2301"
+  },
+  "tests/err/f2304_own_alloc_cycle.fsc": {
+   "default": "ERROR F2304",
+   "mirrored": "ERROR F2304",
+   "off": "ERROR F2304"
+  },
+  "tests/err/f2401_bump_free.fsc": {
+   "default": "ERROR F2401",
+   "mirrored": "ERROR F2401",
+   "off": "ERROR F2401"
+  },
+  "tests/err/f2402_bump_id_in_arena.fsc": {
+   "default": "ERROR F2402",
+   "mirrored": "ERROR F2402",
+   "off": "ERROR F2402"
+  },
+  "tests/err/f2402_bump_id_in_static.fsc": {
+   "default": "ERROR F2402",
+   "mirrored": "ERROR F2402",
+   "off": "ERROR F2402"
+  },
+  "tests/err/f2502_borrow_across_wait_irq.fsc": {
+   "default": "ERROR F2502",
+   "mirrored": "ERROR F2502",
+   "off": "ERROR F2502"
+  },
+  "tests/err/f2502_borrow_across_yield.fsc": {
+   "default": "ERROR F2502",
+   "mirrored": "ERROR F2502",
+   "off": "ERROR F2502"
+  },
+  "tests/err/f2502_callback_frees.fsc": {
+   "default": "ERROR F2502",
+   "mirrored": "ERROR F2502",
+   "off": "ERROR F2502"
+  },
+  "tests/err/f2502_free_in_lookup.fsc": {
+   "default": "ERROR F2502",
+   "mirrored": "ERROR F2502",
+   "off": "ERROR F2502"
+  },
+  "tests/err/f2502_mut_arg_to_reader.fsc": {
+   "default": "ERROR F2502",
+   "mirrored": "ERROR F2502",
+   "off": "ERROR F2502"
+  },
+  "tests/err/f2502_reduction_in_get_mut.fsc": {
+   "default": "ERROR F2502",
+   "mirrored": "ERROR F2502",
+   "off": "ERROR F2502"
+  },
+  "tests/err/f2502_scan_during_get_mut.fsc": {
+   "default": "ERROR F2502",
+   "mirrored": "ERROR F2502",
+   "off": "ERROR F2502"
+  },
+  "tests/err/f2502_user_window_then_free.fsc": {
+   "default": "ERROR F2502",
+   "mirrored": "ERROR F2502",
+   "off": "ERROR F2502"
+  },
+  "tests/err/f2502_write_by_id_during_get_mut.fsc": {
+   "default": "ERROR F2502",
+   "mirrored": "ERROR F2502",
+   "off": "ERROR F2502"
+  },
+  "tests/err/f2601_irq_shared.fsc": {
+   "default": "ERROR F2601",
+   "mirrored": "ERROR F2601",
+   "off": "ERROR F2601"
+  },
+  "tests/err/f2601_shared_arena_two_cores.fsc": {
+   "default": "ERROR F2601",
+   "mirrored": "ERROR F2601",
+   "off": "ERROR F2601"
+  },
+  "tests/err/f2601_smp_irq_shared.fsc": {
+   "default": "ERROR F2601",
+   "mirrored": "ERROR F2601",
+   "off": "ERROR F2601"
+  },
+  "tests/err/f2601_smp_percpu_task.fsc": {
+   "default": "ERROR F2601",
+   "mirrored": "ERROR F2601",
+   "off": "ERROR F2601"
+  },
+  "tests/err/f2601_tasks_preemptive.fsc": {
+   "default": "ERROR F2601",
+   "mirrored": "ERROR F2601",
+   "off": "ERROR F2601"
+  },
+  "tests/err/f2602_dup_intid.fsc": {
+   "default": "ERROR F2602",
+   "mirrored": "ERROR F2602",
+   "off": "ERROR F2602"
+  },
+  "tests/err/f2603_chan_wait_in_critical.fsc": {
+   "default": "ERROR F2603",
+   "mirrored": "ERROR F2603",
+   "off": "ERROR F2603"
+  },
+  "tests/err/f2603_resume_in_task.fsc": {
+   "default": "ERROR F2603",
+   "mirrored": "ERROR F2603",
+   "off": "ERROR F2603"
+  },
+  "tests/err/f2603_smp_yield_in_critical.fsc": {
+   "default": "ERROR F2603",
+   "mirrored": "ERROR F2603",
+   "off": "ERROR F2603"
+  },
+  "tests/err/f2603_wait_irq_in_irq.fsc": {
+   "default": "ERROR F2603",
+   "mirrored": "ERROR F2603",
+   "off": "ERROR F2603"
+  },
+  "tests/err/f2603_yield_in_irq.fsc": {
+   "default": "ERROR F2603",
+   "mirrored": "ERROR F2603",
+   "off": "ERROR F2603"
+  },
+  "tests/err/f2605_task_stack.fsc": {
+   "default": "ERROR F2605",
+   "mirrored": "ERROR F2605",
+   "off": "ERROR F2605"
+  },
+  "tests/err/f2611_percpu_id_in_packet.fsc": {
+   "default": "ERROR F2611",
+   "mirrored": "ERROR F2611",
+   "off": "ERROR F2611"
+  },
+  "tests/err/f2611_percpu_id_send.fsc": {
+   "default": "ERROR F2611",
+   "mirrored": "ERROR F2611",
+   "off": "ERROR F2611"
+  },
+  "tests/err/f2611_spawn_percpu_id.fsc": {
+   "default": "ERROR F2611",
+   "mirrored": "ERROR F2611",
+   "off": "ERROR F2611"
+  },
+  "tests/err/f2612_par_on_percore_arena.fsc": {
+   "default": "ERROR F2612",
+   "mirrored": "ERROR F2612",
+   "off": "ERROR F2612"
+  },
+  "tests/err/f2612_par_scan_direct_write.fsc": {
+   "default": "ERROR F2612",
+   "mirrored": "ERROR F2612",
+   "off": "ERROR F2612"
+  },
+  "tests/err/f2612_par_scan_write.fsc": {
+   "default": "ERROR F2612",
+   "mirrored": "ERROR F2612",
+   "off": "ERROR F2612"
+  },
+  "tests/err/f2613_mmio_two_cores.fsc": {
+   "default": "ERROR F2613",
+   "mirrored": "ERROR F2613",
+   "off": "ERROR F2613"
+  },
+  "tests/err/f2613_smp_dma_ring.fsc": {
+   "default": "ERROR F2613",
+   "mirrored": "ERROR F2613",
+   "off": "ERROR F2613"
+  },
+  "tests/err/f2615_spawn_wrong_shape.fsc": {
+   "default": "ERROR F2615",
+   "mirrored": "ERROR F2615",
+   "off": "ERROR F2615"
+  },
+  "tests/err/f2616_spi_percpu_arena.fsc": {
+   "default": "ERROR F2616",
+   "mirrored": "ERROR F2616",
+   "off": "ERROR F2616"
+  },
+  "tests/err/f2621_gc_free.fsc": {
+   "default": "ERROR F2621",
+   "mirrored": "ERROR F2621",
+   "off": "ERROR F2621"
+  },
+  "tests/err/f2622_gc_in_atomic.fsc": {
+   "default": "ERROR F2622",
+   "mirrored": "ERROR F2622",
+   "off": "ERROR F2622"
+  },
+  "tests/err/f2622_gc_in_critical.fsc": {
+   "default": "ERROR F2622",
+   "mirrored": "ERROR F2622",
+   "off": "ERROR F2622"
+  },
+  "tests/err/f2622_gc_in_irq.fsc": {
+   "default": "ERROR F2622",
+   "mirrored": "ERROR F2622",
+   "off": "ERROR F2622"
+  },
+  "tests/err/f2622_gc_in_rcu.fsc": {
+   "default": "ERROR F2622",
+   "mirrored": "ERROR F2622",
+   "off": "ERROR F2622"
+  },
+  "tests/err/f2623_gc_off.fsc": {
+   "default": "f1e94d98c50c84c8bcdb63da992ac17b370b4536c48a318ed1bab38c91473266",
+   "mirrored": "f1e94d98c50c84c8bcdb63da992ac17b370b4536c48a318ed1bab38c91473266",
+   "off": "a37b0cd45401e04f42e6dd5347cf16d9500d72cc57f3aa5327785ffa8d7df754"
+  },
+  "tests/err/f2624_gc_dma_own.fsc": {
+   "default": "ERROR F2624",
+   "mirrored": "ERROR F2624",
+   "off": "ERROR F2624"
+  },
+  "tests/err/f2625_gc_shared_root_percpu.fsc": {
+   "default": "ERROR F2625",
+   "mirrored": "ERROR F2625",
+   "off": "ERROR F2625"
+  },
+  "tests/err/f2701_wire_field.fsc": {
+   "default": "ERROR F2701",
+   "mirrored": "ERROR F2701",
+   "off": "ERROR F2701"
+  },
+  "tests/err/f2702_dma_not_pod.fsc": {
+   "default": "ERROR F2702",
+   "mirrored": "ERROR F2702",
+   "off": "ERROR F2702"
+  },
+  "tests/err/f2703_dma_index_by_int.fsc": {
+   "default": "ERROR F2703",
+   "mirrored": "ERROR F2703",
+   "off": "ERROR F2703"
+  },
+  "tests/err/f2801_syscall_called.fsc": {
+   "default": "ERROR F2801",
+   "mirrored": "ERROR F2801",
+   "off": "ERROR F2801"
+  },
+  "tests/err/f2801_syscall_id_param.fsc": {
+   "default": "ERROR F2801",
+   "mirrored": "ERROR F2801",
+   "off": "ERROR F2801"
+  },
+  "tests/err/f2802_syscall_dup_number.fsc": {
+   "default": "ERROR F2802",
+   "mirrored": "ERROR F2802",
+   "off": "ERROR F2802"
+  },
+  "tests/err/f2802_syscall_too_many_regs.fsc": {
+   "default": "ERROR F2802",
+   "mirrored": "ERROR F2802",
+   "off": "ERROR F2802"
+  },
+  "tests/err/f2803_start_user_without_user_mem.fsc": {
+   "default": "ERROR F2803",
+   "mirrored": "ERROR F2803",
+   "off": "ERROR F2803"
+  },
+  "tests/err/f2803_user_critical.fsc": {
+   "default": "ERROR F2803",
+   "mirrored": "ERROR F2803",
+   "off": "ERROR F2803"
+  },
+  "tests/err/f2803_user_mem_address.fsc": {
+   "default": "ERROR F2803",
+   "mirrored": "ERROR F2803",
+   "off": "ERROR F2803"
+  },
+  "tests/err/f2803_user_mem_page.fsc": {
+   "default": "ERROR F2803",
+   "mirrored": "ERROR F2803",
+   "off": "ERROR F2803"
+  },
+  "tests/err/f2803_user_mmio.fsc": {
+   "default": "ERROR F2803",
+   "mirrored": "ERROR F2803",
+   "off": "ERROR F2803"
+  },
+  "tests/err/f2804_embed_missing.fsc": {
+   "default": "ERROR F2804",
+   "mirrored": "ERROR F2804",
+   "off": "ERROR F2804"
+  },
+  "tests/err/f3001_rtos_recursion.fsc": {
+   "default": "ERROR F3001",
+   "mirrored": "ERROR F3001",
+   "off": "ERROR F3001"
+  },
+  "tests/err/f3101_user_direct.fsc": {
+   "default": "ERROR F3101",
+   "mirrored": "ERROR F3101",
+   "off": "ERROR F3101"
+  },
+  "tests/err/f3101_user_double_read.fsc": {
+   "default": "ERROR F3101",
+   "mirrored": "ERROR F3101",
+   "off": "ERROR F3101"
+  },
+  "tests/err/f3102_user_outside_syscall.fsc": {
+   "default": "ERROR F3102",
+   "mirrored": "ERROR F3102",
+   "off": "ERROR F3102"
+  },
+  "tests/err/f3103_old_syscall_user.fsc": {
+   "default": "ERROR F3103",
+   "mirrored": "ERROR F3103",
+   "off": "ERROR F3103"
+  },
+  "tests/err/f3104_syscall_ret.fsc": {
+   "default": "ERROR F3104",
+   "mirrored": "ERROR F3104",
+   "off": "ERROR F3104"
+  },
+  "tests/err/f3105_question_non_result.fsc": {
+   "default": "ERROR F3105",
+   "mirrored": "ERROR F3105",
+   "off": "ERROR F3105"
+  },
+  "tests/err/f3106_catch_move.fsc": {
+   "default": "ERROR F3106",
+   "mirrored": "ERROR F3106",
+   "off": "ERROR F3106"
+  },
+  "tests/err/f3201_atomic_shape.fsc": {
+   "default": "ERROR F3201",
+   "mirrored": "ERROR F3201",
+   "off": "ERROR F3201"
+  },
+  "tests/err/f3202_rcu_free.fsc": {
+   "default": "ERROR F3202",
+   "mirrored": "ERROR F3202",
+   "off": "ERROR F3202"
+  },
+  "tests/err/f3202_rcu_write.fsc": {
+   "default": "ERROR F3202",
+   "mirrored": "ERROR F3202",
+   "off": "ERROR F3202"
+  },
+  "tests/err/f3203_sleep_in_rcu.fsc": {
+   "default": "ERROR F3203",
+   "mirrored": "ERROR F3203",
+   "off": "ERROR F3203"
+  },
+  "tests/err/f3203_sleep_in_trap.fsc": {
+   "default": "ERROR F3203",
+   "mirrored": "ERROR F3203",
+   "off": "ERROR F3203"
+  },
+  "tests/err/f3203_sleep_with_ref.fsc": {
+   "default": "ERROR F3203",
+   "mirrored": "ERROR F3203",
+   "off": "ERROR F3203"
+  },
+  "tests/err/f3204_trap_shape.fsc": {
+   "default": "ERROR F3204",
+   "mirrored": "ERROR F3204",
+   "off": "ERROR F3204"
+  },
+  "tests/err/f3301_secret_copy.fsc": {
+   "default": "ERROR F3301",
+   "mirrored": "ERROR F3301",
+   "off": "ERROR F3301"
+  },
+  "tests/err/f3301_secret_print.fsc": {
+   "default": "ERROR F3301",
+   "mirrored": "ERROR F3301",
+   "off": "ERROR F3301"
+  },
+  "tests/err/f3302_secret_branch.fsc": {
+   "default": "ERROR F3302",
+   "mirrored": "ERROR F3302",
+   "off": "ERROR F3302"
+  },
+  "tests/err/f3303_secret_asm.fsc": {
+   "default": "ERROR F3303",
+   "mirrored": "ERROR F3303",
+   "off": "ERROR F3303"
+  },
+  "tests/err/f3304_ct_eq_types.fsc": {
+   "default": "ERROR F3304",
+   "mirrored": "ERROR F3304",
+   "off": "ERROR F3304"
+  },
+  "tests/err/f3401_dma_use_while_lent.fsc": {
+   "default": "ERROR F3401",
+   "mirrored": "ERROR F3401",
+   "off": "ERROR F3401"
+  },
+  "tests/err/f3402_dma_own_field.fsc": {
+   "default": "ERROR F3402",
+   "mirrored": "ERROR F3402",
+   "off": "ERROR F3402"
+  },
+  "tests/err/f3403_dma_non_pod.fsc": {
+   "default": "ERROR F3403",
+   "mirrored": "ERROR F3403",
+   "off": "ERROR F3403"
+  },
+  "tests/err/f3404_bind_mmio_non_reg.fsc": {
+   "default": "ERROR F3404",
+   "mirrored": "ERROR F3404",
+   "off": "ERROR F3404"
+  },
+  "tests/err/f3501_stable_abi_id.fsc": {
+   "default": "ERROR F3501",
+   "mirrored": "ERROR F3501",
+   "off": "ERROR F3501"
+  },
+  "tests/err/f3502_stable_abi_field.fsc": {
+   "default": "ERROR F3502",
+   "mirrored": "ERROR F3502",
+   "off": "ERROR F3502"
+  },
+  "tests/err/f3503_asm_operand.fsc": {
+   "default": "ERROR F3503",
+   "mirrored": "ERROR F3503",
+   "off": "ERROR F3503"
+  },
+  "tests/err/f3505_on_drop_shape.fsc": {
+   "default": "ERROR F3505",
+   "mirrored": "ERROR F3505",
+   "off": "ERROR F3505"
+  },
+  "tests/err/f3601_extern_c_type.fsc": {
+   "default": "ERROR F3601",
+   "mirrored": "ERROR F3601",
+   "off": "ERROR F3601"
+  },
+  "tests/err/f3701_import_missing.fsc": {
+   "default": "ERROR F3701",
+   "mirrored": "ERROR F3701",
+   "off": "ERROR F3701"
+  },
+  "tests/latch/latch.fsc": {
+   "default": "757db01ddd2d203479f1c0993a1d41000d2b71e5b48213cfc00290ad940ea614",
+   "mirrored": "2d10b148350fe362441c4920164cf071217861ecf6542b983c4a4adb5ebd130a",
+   "off": "858c197f22b18bc5a0d091c199143c3bdc075a868f6813590373aade01c1016a"
+  },
+  "tests/ok/align.fsc": {
+   "default": "f6267ee2bde17e50b3aba25247fb9d7e052c2095bb58f7c086dcbb42f143d01e",
+   "mirrored": "f6267ee2bde17e50b3aba25247fb9d7e052c2095bb58f7c086dcbb42f143d01e",
+   "off": "848d13bc50f71037df55846f13c346d4b9cccbf9f3d14b2ab1c139bf1531461d"
+  },
+  "tests/ok/arith_nostop.fsc": {
+   "default": "d2022c1f878b9162b5b2c3e707fe425d286324dc0edb2dedfc7b663dcd535b84",
+   "mirrored": "d2022c1f878b9162b5b2c3e707fe425d286324dc0edb2dedfc7b663dcd535b84",
+   "off": "d2022c1f878b9162b5b2c3e707fe425d286324dc0edb2dedfc7b663dcd535b84"
+  },
+  "tests/ok/basic.fsc": {
+   "default": "7d4a30b3124527d99215d982d3dccc98d77f3af8b08b0a8b081aaf1b7a17d0a9",
+   "mirrored": "7d4a30b3124527d99215d982d3dccc98d77f3af8b08b0a8b081aaf1b7a17d0a9",
+   "off": "7d4a30b3124527d99215d982d3dccc98d77f3af8b08b0a8b081aaf1b7a17d0a9"
+  },
+  "tests/ok/bump.fsc": {
+   "default": "58f3dd0103a6454e2c191c85e5cf31e93e4d4ff60a9c540b12be197ee14a4141",
+   "mirrored": "58f3dd0103a6454e2c191c85e5cf31e93e4d4ff60a9c540b12be197ee14a4141",
+   "off": "58f3dd0103a6454e2c191c85e5cf31e93e4d4ff60a9c540b12be197ee14a4141"
+  },
+  "tests/ok/callbacks.fsc": {
+   "default": "3a3083322f431fff62e9f12cc8824e397dcedd5d4b4d38f76f62acb600db6deb",
+   "mirrored": "3a3083322f431fff62e9f12cc8824e397dcedd5d4b4d38f76f62acb600db6deb",
+   "off": "3a3083322f431fff62e9f12cc8824e397dcedd5d4b4d38f76f62acb600db6deb"
+  },
+  "tests/ok/critical.fsc": {
+   "default": "975e1b1392f6fb7ff5b0a9678c50cc2eaa936955d3cc4dfd1c2da486633c8ffb",
+   "mirrored": "975e1b1392f6fb7ff5b0a9678c50cc2eaa936955d3cc4dfd1c2da486633c8ffb",
+   "off": "975e1b1392f6fb7ff5b0a9678c50cc2eaa936955d3cc4dfd1c2da486633c8ffb"
+  },
+  "tests/ok/dma_lend.fsc": {
+   "default": "18b2e8825cb5ff706ab50fa149dbebf0bd4d669c4a6da82ba6dd0ebe90a5c458",
+   "mirrored": "18b2e8825cb5ff706ab50fa149dbebf0bd4d669c4a6da82ba6dd0ebe90a5c458",
+   "off": "18b2e8825cb5ff706ab50fa149dbebf0bd4d669c4a6da82ba6dd0ebe90a5c458"
+  },
+  "tests/ok/frame.fsc": {
+   "default": "e2f8bb146d9e1e8eb717a1d6355c24f59fda11d924dee6c5632f7ee31b50b2f0",
+   "mirrored": "e2f8bb146d9e1e8eb717a1d6355c24f59fda11d924dee6c5632f7ee31b50b2f0",
+   "off": "e2f8bb146d9e1e8eb717a1d6355c24f59fda11d924dee6c5632f7ee31b50b2f0"
+  },
+  "tests/ok/gc_auto_promote.fsc": {
+   "default": "38c12991bcbec76fe0c7573e0517ad000855bbbdd513373e37b8e2dda3982eeb",
+   "mirrored": "38c12991bcbec76fe0c7573e0517ad000855bbbdd513373e37b8e2dda3982eeb",
+   "off": "7aaa73ce7d4b92b1caf980e90a1488e2af0314feeecea6be2dd7b0131c48c890"
+  },
+  "tests/ok/gc_basic.fsc": {
+   "default": "40672664df448c6c093fe0aa1efce63f0bd4866ca8abdd4dc3a6ea22d17c55cb",
+   "mirrored": "40672664df448c6c093fe0aa1efce63f0bd4866ca8abdd4dc3a6ea22d17c55cb",
+   "off": "089a298e94eb22f323e0fa09a9f07029a0ae3439fc3c28021eace577e81c774e"
+  },
+  "tests/ok/gc_chan_roots.fsc": {
+   "default": "fedbeb04ea37722c1f7c61dd74ac076fe0bde8d59d36d48ee30c070b6a68dcd1",
+   "mirrored": "fedbeb04ea37722c1f7c61dd74ac076fe0bde8d59d36d48ee30c070b6a68dcd1",
+   "off": "fedbeb04ea37722c1f7c61dd74ac076fe0bde8d59d36d48ee30c070b6a68dcd1"
+  },
+  "tests/ok/gc_own_promote.fsc": {
+   "default": "5059de36d5a086b73fc667359573cfdb70089130e58d107d9c3d88ab3eed0cb1",
+   "mirrored": "5059de36d5a086b73fc667359573cfdb70089130e58d107d9c3d88ab3eed0cb1",
+   "off": "c1fc6542a446b21df4687eef48d79429720723559532443285d3bb2ace2f4dff"
+  },
+  "tests/ok/gc_refresh.fsc": {
+   "default": "18ecd6dc2ca79286177bca7a1f69aab9bad642f03063d188072edfa67153d33d",
+   "mirrored": "18ecd6dc2ca79286177bca7a1f69aab9bad642f03063d188072edfa67153d33d",
+   "off": "2e8465b6edaa197f0b5bd2ea6677cea4bec8f905d2d5822b0f837ea43ab5e374"
+  },
+  "tests/ok/gc_shared.fsc": {
+   "default": "ba9e915912773516db9d65e58815bcc143b6f78da6c9258994d186dd6e0ef2eb",
+   "mirrored": "ba9e915912773516db9d65e58815bcc143b6f78da6c9258994d186dd6e0ef2eb",
+   "off": "ba9e915912773516db9d65e58815bcc143b6f78da6c9258994d186dd6e0ef2eb"
+  },
+  "tests/ok/gc_temp_roots.fsc": {
+   "default": "d76ccee6c0072013ee30548ee37eadc730533b19f69279fdb36b94c1700f2554",
+   "mirrored": "d76ccee6c0072013ee30548ee37eadc730533b19f69279fdb36b94c1700f2554",
+   "off": "81e2d60e4a01801630c6d6f2e407ef6da276de8c01f06b0da84c4853e825d715"
+  },
+  "tests/ok/genos_smp.fsc": {
+   "default": "7c2ede3bdf22cb75074b05416cc648ae19f9b183402385c22132827524d58ad0",
+   "mirrored": "7c2ede3bdf22cb75074b05416cc648ae19f9b183402385c22132827524d58ad0",
+   "off": "7c2ede3bdf22cb75074b05416cc648ae19f9b183402385c22132827524d58ad0"
+  },
+  "tests/ok/genos_vm.fsc": {
+   "default": "26e6be66c00091d3670fd7b9f14be1ef9fecad89fc8e2a64930d9d892723f65c",
+   "mirrored": "26e6be66c00091d3670fd7b9f14be1ef9fecad89fc8e2a64930d9d892723f65c",
+   "off": "26e6be66c00091d3670fd7b9f14be1ef9fecad89fc8e2a64930d9d892723f65c"
+  },
+  "tests/ok/infer.fsc": {
+   "default": "2e9e80c43499793f5db9aeaceb8e63555906a6d6f58996e5234c3586f5ff5d3b",
+   "mirrored": "2e9e80c43499793f5db9aeaceb8e63555906a6d6f58996e5234c3586f5ff5d3b",
+   "off": "2e9e80c43499793f5db9aeaceb8e63555906a6d6f58996e5234c3586f5ff5d3b"
+  },
+  "tests/ok/kernel_preempt.fsc": {
+   "default": "11a6058a4960385d3a4bb93597a71c19daba1f0e185d4be8a40779048f0faf80",
+   "mirrored": "11a6058a4960385d3a4bb93597a71c19daba1f0e185d4be8a40779048f0faf80",
+   "off": "c3fdb914ede2684e18e134a41e4fdc2cffd4add7b70b9d7f2da207212074e1ec"
+  },
+  "tests/ok/lib_fs.fsc": {
+   "default": "703aaf5955b82b0a7cd7fe500f8980885735e2d913833336ada6523f346a5f08",
+   "mirrored": "703aaf5955b82b0a7cd7fe500f8980885735e2d913833336ada6523f346a5f08",
+   "off": "703aaf5955b82b0a7cd7fe500f8980885735e2d913833336ada6523f346a5f08"
+  },
+  "tests/ok/lib_hal.fsc": {
+   "default": "f2b3f6bf660d0beb89fcdc7cca8e5601ec713d43828d0cff5ccd54f56e54e7fd",
+   "mirrored": "f2b3f6bf660d0beb89fcdc7cca8e5601ec713d43828d0cff5ccd54f56e54e7fd",
+   "off": "f2b3f6bf660d0beb89fcdc7cca8e5601ec713d43828d0cff5ccd54f56e54e7fd"
+  },
+  "tests/ok/lib_misc.fsc": {
+   "default": "8ce654a24b069b5ad549bce75ee09cf39e772425ffd85081f5e47aa4711ea8e7",
+   "mirrored": "8ce654a24b069b5ad549bce75ee09cf39e772425ffd85081f5e47aa4711ea8e7",
+   "off": "8ce654a24b069b5ad549bce75ee09cf39e772425ffd85081f5e47aa4711ea8e7"
+  },
+  "tests/ok/lib_net.fsc": {
+   "default": "dfdd1504a6a3c134fdb9c016a2dfc74b68352dd4f38e8c374d72ea65cd11dc06",
+   "mirrored": "dfdd1504a6a3c134fdb9c016a2dfc74b68352dd4f38e8c374d72ea65cd11dc06",
+   "off": "dfdd1504a6a3c134fdb9c016a2dfc74b68352dd4f38e8c374d72ea65cd11dc06"
+  },
+  "tests/ok/lib_sync.fsc": {
+   "default": "6e8f627e3e26f5d69b025851e4a60cd9e2504351b317eafd5fd58781e5ff2938",
+   "mirrored": "6e8f627e3e26f5d69b025851e4a60cd9e2504351b317eafd5fd58781e5ff2938",
+   "off": "6e8f627e3e26f5d69b025851e4a60cd9e2504351b317eafd5fd58781e5ff2938"
+  },
+  "tests/ok/lib_time_sched.fsc": {
+   "default": "9975323a02c08be4cb6c15e942e19e0b44240b30f9c168ddebe80e644cc47583",
+   "mirrored": "9975323a02c08be4cb6c15e942e19e0b44240b30f9c168ddebe80e644cc47583",
+   "off": "9975323a02c08be4cb6c15e942e19e0b44240b30f9c168ddebe80e644cc47583"
+  },
+  "tests/ok/match_place.fsc": {
+   "default": "c791de0e6ccd66ca7ed0e772e4e8d2e14e0bfef7c200cba839d18c4512913cdc",
+   "mirrored": "c791de0e6ccd66ca7ed0e772e4e8d2e14e0bfef7c200cba839d18c4512913cdc",
+   "off": "c791de0e6ccd66ca7ed0e772e4e8d2e14e0bfef7c200cba839d18c4512913cdc"
+  },
+  "tests/ok/noat_order.fsc": {
+   "default": "24dec2f38de9f8feeb3660219ff65629efcf07c65527c56713e59226ef03e0d8",
+   "mirrored": "24dec2f38de9f8feeb3660219ff65629efcf07c65527c56713e59226ef03e0d8",
+   "off": "24dec2f38de9f8feeb3660219ff65629efcf07c65527c56713e59226ef03e0d8"
+  },
+  "tests/ok/own.fsc": {
+   "default": "d4e90e09658884ab53840c4b7a10943730a78a38a56e4024773220729f5643bb",
+   "mirrored": "d4e90e09658884ab53840c4b7a10943730a78a38a56e4024773220729f5643bb",
+   "off": "d4e90e09658884ab53840c4b7a10943730a78a38a56e4024773220729f5643bb"
+  },
+  "tests/ok/own_alloc.fsc": {
+   "default": "808f87c47627ee3ad35c5d128f69a53ea7e53e68fe3082256e464f5543f21f59",
+   "mirrored": "808f87c47627ee3ad35c5d128f69a53ea7e53e68fe3082256e464f5543f21f59",
+   "off": "808f87c47627ee3ad35c5d128f69a53ea7e53e68fe3082256e464f5543f21f59"
+  },
+  "tests/ok/own_fields.fsc": {
+   "default": "e18014f06e49c1e0a9c85587fa0d218b679c71e60bdee3dedc793023c018725b",
+   "mirrored": "e18014f06e49c1e0a9c85587fa0d218b679c71e60bdee3dedc793023c018725b",
+   "off": "e18014f06e49c1e0a9c85587fa0d218b679c71e60bdee3dedc793023c018725b"
+  },
+  "tests/ok/ports.fsc": {
+   "default": "0e399d7b138af958d2f511407a46dec722f52b276971e65bb89935d6cde67570",
+   "mirrored": "0e399d7b138af958d2f511407a46dec722f52b276971e65bb89935d6cde67570",
+   "off": "0e399d7b138af958d2f511407a46dec722f52b276971e65bb89935d6cde67570"
+  },
+  "tests/ok/reframe_bytes.fsc": {
+   "default": "02a9709bd11824f494757c82e018ec462eb3c02a76666e30679c0410985f0fe3",
+   "mirrored": "02a9709bd11824f494757c82e018ec462eb3c02a76666e30679c0410985f0fe3",
+   "off": "02a9709bd11824f494757c82e018ec462eb3c02a76666e30679c0410985f0fe3"
+  },
+  "tests/ok/reframe_rust.fsc": {
+   "default": "679c49da22509090dfef8109f4b14241c6be7ec3948b7ec87e20f6f100dded11",
+   "mirrored": "679c49da22509090dfef8109f4b14241c6be7ec3948b7ec87e20f6f100dded11",
+   "off": "679c49da22509090dfef8109f4b14241c6be7ec3948b7ec87e20f6f100dded11"
+  },
+  "tests/ok/smp_basic.fsc": {
+   "default": "783601717ebbfb15175f27120e31b68cf37d575c1598a5ff09e51f119f64e85c",
+   "mirrored": "b216796b7a0c49b69366c0fb7ff7db16e9e1793e1a058fefb5ef112acf7142ce",
+   "off": "77a6416e091bab8e9e7070939df0ab3e7877d95975deac01d1ada9db0351ea5e"
+  },
+  "tests/ok/smp_dma_ring.fsc": {
+   "default": "3850e4f4637bcf14a54c4f33ee168e15913de937ecfcf03ea81de21ded59fd78",
+   "mirrored": "3850e4f4637bcf14a54c4f33ee168e15913de937ecfcf03ea81de21ded59fd78",
+   "off": "3850e4f4637bcf14a54c4f33ee168e15913de937ecfcf03ea81de21ded59fd78"
+  },
+  "tests/ok/smp_irq_tasks.fsc": {
+   "default": "b803683c28421fe5dddaae6026428b09d2bf9744c1877af7817de7d3d01714aa",
+   "mirrored": "b803683c28421fe5dddaae6026428b09d2bf9744c1877af7817de7d3d01714aa",
+   "off": "b803683c28421fe5dddaae6026428b09d2bf9744c1877af7817de7d3d01714aa"
+  },
+  "tests/ok/smp_preempt_user.fsc": {
+   "default": "cf5780285c9ba3036ece19cda9c8811d2092a408eaf9c2f227c97a33d54e0722",
+   "mirrored": "cf5780285c9ba3036ece19cda9c8811d2092a408eaf9c2f227c97a33d54e0722",
+   "off": "cf5780285c9ba3036ece19cda9c8811d2092a408eaf9c2f227c97a33d54e0722"
+  },
+  "tests/ok/smp_preempt_user_init.fsc": {
+   "default": "49b0825cf3082023cb5416e95acb518b154676711a577340fbb9568b375214e4",
+   "mirrored": "49b0825cf3082023cb5416e95acb518b154676711a577340fbb9568b375214e4",
+   "off": "49b0825cf3082023cb5416e95acb518b154676711a577340fbb9568b375214e4"
+  },
+  "tests/ok/tsoa_fallback.fsc": {
+   "default": "dc3f074a0b20289e6c81d5102b596748db5da496d3b448ba249139f46095dd65",
+   "mirrored": "96864d9b78b219a75718e004e6bdc62766ae37108cc27ae017854f7b23227c99",
+   "off": "275539853b4a7f4c7e338fac32ea820ea46e223d1c41af5268f8d1e2ad8b6f4c"
+  },
+  "tests/ok/tsoa_life.fsc": {
+   "default": "40210943e1751c6f0e20920bf2014c1c79857d66340940921ea41a0a1daf7479",
+   "mirrored": "3860ef7c95f8ffedf36fbe48890ee9be79e633dd5b04657604082909eca8b31a",
+   "off": "81b99916fa25eab5c815ef96ce5361aa2e67646ae57c46b215db1f97c12915bf"
+  },
+  "tests/ok/tsoa_nt.fsc": {
+   "default": "53a965d2e3fbbb397a9f50f9c34070902faee48be18db0fba8ffe06fe26f25dc",
+   "mirrored": "cecf9a9f74aa7b714dd86fa496c80c556f021ea3c98e87c14df015c971052f55",
+   "off": "259536235d1bf0eec18199f3432c274e229bc6ee309e945c1e8e08ed94fe0e24"
+  },
+  "tests/ok/universal_lang.fsc": {
+   "default": "0d92aa31c879bd3447b8133bd497e89a9001b5942af2e74ee6f5d1cbf635c67a",
+   "mirrored": "99bd80665c40e7b6cf812892371814966a91f9e2f22c94f384d47cb97feb2e4f",
+   "off": "ab600532fc9217fe1704a5dcf8dfb374bdf3f117367705c036939ec2d2b30933"
+  },
+  "tests/ok/wire_views.fsc": {
+   "default": "1168a0015ffd3236eac6f1a336f71086111968e45a7b5d9ed85c5412d121b966",
+   "mirrored": "1168a0015ffd3236eac6f1a336f71086111968e45a7b5d9ed85c5412d121b966",
+   "off": "1168a0015ffd3236eac6f1a336f71086111968e45a7b5d9ed85c5412d121b966"
+  },
+  "tests/qemu/genos_guard.fsc": {
+   "default": "d4cfb64f0dd43d4919d27a36a7d539194a40d8e91d85e533397c13e0f86d4d54",
+   "mirrored": "d4cfb64f0dd43d4919d27a36a7d539194a40d8e91d85e533397c13e0f86d4d54",
+   "off": "d4cfb64f0dd43d4919d27a36a7d539194a40d8e91d85e533397c13e0f86d4d54"
+  },
+  "tests/qemu/smp_panic_broadcast.fsc": {
+   "default": "1f032f62461a9ac4bb93f50988da4079b6597f60541d7f011778450ac58ba532",
+   "mirrored": "1f032f62461a9ac4bb93f50988da4079b6597f60541d7f011778450ac58ba532",
+   "off": "1f032f62461a9ac4bb93f50988da4079b6597f60541d7f011778450ac58ba532"
+  },
+  "tests/qemu/smp_panic_console.fsc": {
+   "default": "9c1faac0d174d60be440ac93a963de1fb5ab74f733d36a29942938f62288ed14",
+   "mirrored": "9c1faac0d174d60be440ac93a963de1fb5ab74f733d36a29942938f62288ed14",
+   "off": "9c1faac0d174d60be440ac93a963de1fb5ab74f733d36a29942938f62288ed14"
+  },
+  "tests/qemu/smp_preempt_user_x86.fsc": {
+   "default": "a26ef64ca2e40548165eef3c7f2b140f88dc7bcf5315e0e491d1f1394cceff85",
+   "mirrored": "a26ef64ca2e40548165eef3c7f2b140f88dc7bcf5315e0e491d1f1394cceff85",
+   "off": "a26ef64ca2e40548165eef3c7f2b140f88dc7bcf5315e0e491d1f1394cceff85"
+  }
+ },
+ "modes": {
+  "default": "(default)",
+  "mirrored": "--columns mirrored",
+  "off": "--columns off"
+ }
+}

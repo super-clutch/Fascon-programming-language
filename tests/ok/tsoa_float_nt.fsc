@@ -1,0 +1,51 @@
+// 浮動小数点の完全列化の列への一括上書き: 8 MiB 以上の列は非時間的ストア（F20_NT_STORE_F32 / _F64）と出口の F20_SFENCE。
+// 条件付き一括更新も、全部 1 の語は非時間的ストア
+// a bulk overwrite of float True-SoA columns: columns of 8 MiB or more use non-temporal stores (F20_NT_STORE_F32 / _F64)
+// and an F20_SFENCE at the exit; so do the all-one words of a masked RMW
+
+struct Cell {
+    v: f64,
+    w: f32,
+    tag: u32,
+}
+
+arena grid: Cell[2097152];
+
+fn main() {
+    let mut i = 0u32;
+    while i < 2097152u32 {
+        if grid.alloc(Cell { v: 1.0, w: 2.0, tag: i }).is_none() {
+            panic("full");
+        }
+        i += 1u32;
+    }
+    // 一括上書き（値は列を読まない） / bulk overwrites (the value never reads the column)
+    for id in grid {
+        grid[id].v = 0.5;
+    }
+    for id in grid {
+        grid[id].w = 0.25;
+    }
+    // 条件付き一括更新: 前半の 100 万スロットは全部 1 の語（非時間的ストア）、後半は 0 の語（列に触れない）
+    // masked RMW: the first million slots are all-one words (non-temporal stores), the rest zero words (never touched)
+    #[fast_math]
+    for id in grid {
+        if grid[id].tag < 1048576u32 {
+            grid[id].v += 1.0;
+        }
+    }
+    let mut sv = 0.0;
+    let mut sw: f32 = 0.0;
+    #[fast_math]
+    for id in grid {
+        sv += grid[id].v;
+    }
+    #[fast_math]
+    for id in grid {
+        sw += grid[id].w;
+    }
+    put(sv);
+    put(" ");
+    put(sw);
+    put("\n");
+}

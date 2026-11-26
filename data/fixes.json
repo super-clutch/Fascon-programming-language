@@ -1,0 +1,161 @@
+[
+ {
+  "code": "F2601",
+  "kind": "wrap_statement",
+  "prefix": "critical { ",
+  "suffix": " }",
+  "title": {
+   "ja": "`critical { .. }` で囲む（閉じた区間にする）",
+   "en": "Wrap in `critical { .. }` (make it a closed section)"
+  }
+ },
+ {
+  "code": "F2613",
+  "kind": "wrap_statement",
+  "prefix": "critical { ",
+  "suffix": " }",
+  "title": {
+   "ja": "`critical { .. }` で囲む（装置へのアクセスを閉じた区間に）",
+   "en": "Wrap in `critical { .. }` (a closed section for the device access)"
+  }
+ },
+ {
+  "code": "F3302",
+  "kind": "replace_in_span",
+  "pattern": "{a} == {b}",
+  "replace": "ct_eq(&{a}, &{b})",
+  "title": {
+   "ja": "定数時間の `ct_eq(&a, &b)` に置き換える",
+   "en": "Replace with the constant-time `ct_eq(&a, &b)`"
+  }
+ },
+ {
+  "code": "F3302",
+  "kind": "replace_in_span",
+  "pattern": "{a} != {b}",
+  "replace": "!ct_eq(&{a}, &{b})",
+  "title": {
+   "ja": "定数時間の `!ct_eq(&a, &b)` に置き換える",
+   "en": "Replace with the constant-time `!ct_eq(&a, &b)`"
+  }
+ },
+ {
+  "code": "F3301",
+  "kind": "prefix_line_token",
+  "token": "let ",
+  "insert": "#[secret] ",
+  "title": {
+   "ja": "写し先も `#[secret] let` にする",
+   "en": "Make the destination a `#[secret] let` too"
+  }
+ },
+ {
+  "code": "F3402",
+  "kind": "replace_in_line",
+  "pattern": "dma own {t},",
+  "replace": "Option<dma own {t}>,",
+  "title": {
+   "ja": "`Option<dma own T>` にする（`.take()` で外す）",
+   "en": "Make it `Option<dma own T>` (detach with `.take()`)"
+  }
+ },
+ {
+  "code": "F3010",
+  "kind": "replace_in_line",
+  "pattern": "{x}: u32",
+  "replace": "{x}: IdRaw",
+  "title": {
+   "ja": "生の Id を `IdRaw` 型で受ける（rtos でも generic-os でも同じソース）",
+   "en": "Take the raw Id as `IdRaw` (the same source on rtos and generic-os)"
+  }
+ },
+ {
+  "code": "F3105",
+  "kind": "replace_in_span",
+  "pattern": "{e}?",
+  "replace": "{e}.unwrap()",
+  "title": {
+   "ja": "`?` をやめて `.unwrap()` にする（Result を返さない関数）",
+   "en": "Use `.unwrap()` instead of `?` (the function returns no Result)"
+  }
+ },
+ {
+  "code": "F2621",
+  "kind": "replace_in_span",
+  "pattern": "{a}.free({b})",
+  "replace": "/* fascon-gc reclaims {b} once it is unreachable */ gc_collect({a})",
+  "title": {
+   "ja": "手動の free をやめ、gc_collect に任せる",
+   "en": "Drop the manual free and let gc_collect reclaim it"
+  }
+ },
+ {
+  "code": "F2705",
+  "kind": "replace_in_line",
+  "pattern": "gpu_arena {x}:",
+  "replace": "arena {x}:",
+  "title": {
+   "ja": "装置へ出さず、ふつうの `arena` にする（CPU の表）",
+   "en": "Keep the table on the CPU: make it an ordinary `arena`"
+  }
+ },
+ {
+  "code": "F2706",
+  "kind": "replace_in_span",
+  "pattern": "GpuBuf<{x}>",
+  "replace": "Id<{x}>",
+  "title": {
+   "ja": "ふつうの表のハンドルは `Id<..>` にする",
+   "en": "Use `Id<..>` for the handle of an ordinary table"
+  }
+ },
+ {
+  "code": "F2707",
+  "kind": "replace_in_line",
+  "pattern": "gpu_arena {x}:",
+  "replace": "arena {x}:",
+  "title": {
+   "ja": "CPU だけで使う表なら、ふつうの `arena` にする",
+   "en": "If only the CPU uses the table, make it an ordinary `arena`"
+  }
+ },
+ {
+  "code": "F3901",
+  "kind": "insert_before_enclosing_fn",
+  "insert": "#[allow(hpc_io)]",
+  "title": {
+   "ja": "わざとなら、この関数に `#[allow(hpc_io)]` を付ける",
+   "en": "If intended, mark this function `#[allow(hpc_io)]`"
+  }
+ },
+ {
+  "code": "F3902",
+  "kind": "replace_in_note",
+  "pattern": "spawn_on({c}, {f}, {a})",
+  "replace": "{f}({a})",
+  "title": {
+   "ja": "この仕事を管理コア（コア 0）で直接呼ぶ",
+   "en": "Run this work on the management core (core 0) with a direct call"
+  }
+ },
+ {
+  "code": "F3903",
+  "kind": "replace_in_span",
+  "pattern": "spawn_on({c}, {rest})",
+  "replace": "spawn_on(1, {rest})",
+  "title": {
+   "ja": "計算ノードにある最初の計算コア（コア 1）で起動する",
+   "en": "Start it on the first compute core of the node (core 1)"
+  }
+ },
+ {
+  "code": "F3903",
+  "kind": "replace_in_span",
+  "pattern": "#[numa_node({n})]",
+  "replace": "#[numa_node(0)]",
+  "title": {
+   "ja": "NUMA ノード 0 に固定する",
+   "en": "Bind it to NUMA node 0"
+  }
+ }
+]

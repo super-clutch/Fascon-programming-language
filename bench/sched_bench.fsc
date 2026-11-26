@@ -1,0 +1,190 @@
+// sched_bench.fsc — 走査ベンチマークの Fascon 側。計測は bench/harness.c（C）が行う
+//                   the Fascon side of the traversal benchmark; bench/harness.c (C) does the timing
+//
+//   fascon build bench/sched_bench.fsc --out-dir bench/build
+//   cc -O2 -std=c11 -Ibench/build bench/harness.c -o bench/build/harness && bench/build/harness
+//
+// task_struct 風の Task を 60000 個アリーナに置き、(1) Id でつないだ連結リストをたどる
+// (2) アリーナの表を先頭から順に走査する、の 2 通りで vruntime を合計する。
+// 60000 task_struct-like Tasks live in an arena; vruntime is summed by (1) following a list linked by Ids
+// and (2) scanning the arena table from the start.
+
+struct Task {
+    pid: u32,
+    prio: u32,
+    vruntime: u64,
+    parent: Option<Id<@task>>,
+    next: Option<Id<@task>>,
+    files: u32,
+    state: u32,
+}
+
+arena @task: Task[60000];
+
+static N: usize = 60000;
+
+// k 番目に作ったタスクはスロット k。連結順は (k × stride) mod N の置換（stride = 1 なら作った順）
+// the k-th task created is slot k; the link order is the permutation (k × stride) mod N (stride = 1: creation order)
+fn build(stride: usize) -> Option<Id<@task>> {
+    let mut ids: [Option<Id<@task>>; 60000] = [None; 60000];
+    for k in 0..N {
+        // state は擬似乱数（約 1/4 が RUNNING）: 条件の分岐を予測しにくくする / state is pseudo-random (about 1/4 RUNNING), so a branch on it is hard to predict
+        ids[k] = @task.alloc(Task { pid: k as u32, prio: (k % 40) as u32, vruntime: (k as u64) * 3, parent: None, next: None, files: 0, state: (((k * 2654435761) >> 13) % 4) as u32 });
+    }
+    let mut head: Option<Id<@task>> = None;
+    for k in 0..N {
+        let pos = ((N - 1 - k) * stride) % N;
+        if let Some(id) = ids[pos] {
+            if let Some(t) = @task.get_mut(id) {
+                t.next = head;
+            }
+            head = Some(id);
+        }
+    }
+    head
+}
+
+// (1) Id の連結をたどる: 1 歩ごとに世代検査 1 回 / (1) follow the Id links: one generation check per step
+fn walk_chain(head: Option<Id<@task>>) -> u64 {
+    let mut s: u64 = 0;
+    let mut cur = head;
+    loop {
+        match cur {
+            Some(id) => {
+                if let Some(t) = @task.get(id) {
+                    s = s + t.vruntime + (t.prio as u64);
+                    cur = t.next;
+                } else {
+                    cur = None;
+                }
+            }
+            None => {
+                break;
+            }
+        }
+    }
+    s
+}
+
+// (1b) 同じ連結を @task[id] でたどる: 世代の比較はラッチへ流すだけ（分岐なし。古い Id なら関数の終わりで止まる）
+// (1b) the same links via @task[id]: the generation compare only feeds the latch (no branch; a stale Id stops at the end)
+fn walk_chain_idx(head: Option<Id<@task>>) -> u64 {
+    let mut s: u64 = 0;
+    let mut cur = head;
+    loop {
+        match cur {
+            Some(id) => {
+                s = s + @task[id].vruntime + (@task[id].prio as u64);
+                cur = @task[id].next;
+            }
+            None => {
+                break;
+            }
+        }
+    }
+    s
+}
+
+// (2) 表を順に走査: `for id in @task` の中では生存が証明済みなので世代検査は消え、総和の特殊化で直線の走査になる
+// (2) scan the table in order: liveness is proven inside `for id in @task`, so the check disappears and the sum
+//     specialization turns the loop into a straight scan
+fn walk_scan() -> u64 {
+    let mut s: u64 = 0;
+    for id in @task {
+        if let Some(t) = @task.get(id) {
+            s = s + t.vruntime + (t.prio as u64);
+        }
+    }
+    s
+}
+
+static RUNNING: u32 = 1;
+
+// (3) 実行可能なタスクの数: 条件付きの個数（生存ビット AND 条件のマスク） / runnable tasks: a filtered count (live bit AND filter mask)
+fn nr_running() -> u64 {
+    let mut n: u64 = 0;
+    for id in @task {
+        if @task[id].state == RUNNING {
+            n += 1;
+        }
+    }
+    n
+}
+
+// (4) CFS の pick_next: 実行可能で vruntime が最小（CSEL / CMOV、同じ値なら最初の Id）
+// (4) CFS pick_next: the runnable task with the least vruntime (CSEL / CMOV; the first Id on a tie)
+fn pick_next() -> Option<Id<@task>> {
+    let mut best: u64 = 0xFFFF_FFFF_FFFF_FFFF;
+    let mut pick: Option<Id<@task>> = None;
+    for id in @task {
+        if @task[id].state == RUNNING && @task[id].vruntime < best {
+            best = @task[id].vruntime;
+            pick = Some(id);
+        }
+    }
+    pick
+}
+
+// (5) 実行可能なタスクの vruntime の和: 条件付き総和（マスク） / the vruntime of runnable tasks: a filtered sum (mask)
+fn load_running() -> u64 {
+    let mut s: u64 = 0;
+    for id in @task {
+        if @task[id].state == RUNNING {
+            s += @task[id].vruntime;
+        }
+    }
+    s
+}
+
+// (6) 一般のループ（書き込み）: 生存ビットマップ + ctz で回る / a general loop (writes): driven by the live bitmap + ctz
+fn tick_running() {
+    for id in @task {
+        if @task[id].state == RUNNING {
+            @task[id].files = @task[id].files + 1;
+        }
+    }
+}
+
+// (7) 一般のループ（列が読むフィールドへの書き込み）: vruntime は集計の列 2 本と鍵の列 1 本が読むので、書き込みのたびに
+//     その 3 本の写しを作り直す（列の書き込みのコスト。--columns off と比べる）
+// (7) a general loop writing a field the columns read: vruntime feeds two aggregate columns and one key column, so
+//     every write rebuilds those three mirrors (the write cost of columns; compare with --columns off)
+fn charge_running() {
+    for id in @task {
+        if @task[id].state == RUNNING {
+            @task[id].vruntime += 1;
+        }
+    }
+}
+
+// まばらな表: 64 スロットの塊を 10 個に 9 個の割合で解放（生存ビットマップの語がまるごと 0 になる）
+// a sparse table: free 9 out of every 10 blocks of 64 slots (whole bitmap words become zero)
+fn thin() {
+    for id in @task {
+        if (@task[id].pid / 64) % 10 != 0 {
+            @task.free(id);
+        }
+    }
+}
+
+fn clear() {
+    for id in @task {
+        @task.free(id);
+    }
+}
+
+fn main() {
+    let head = build(7919);
+    print_int(walk_chain(head) as i64);
+    print_int(walk_chain_idx(head) as i64);
+    print_int(walk_scan() as i64);
+    print_int(nr_running() as i64);
+    print_int(load_running() as i64);
+    tick_running();
+    if let Some(p) = pick_next() {
+        print_int(@task[p].vruntime as i64);
+    }
+    thin();
+    print_int(walk_scan() as i64);
+    clear();
+}

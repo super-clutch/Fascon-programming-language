@@ -1,0 +1,11 @@
+// expect: F2031
+// #[repr(align(N))] の N は 1〜4096 の 2 の累乗 / N must be a power of two from 1 to 4096
+#[repr(align(48))]
+struct RunQueue { head: u32, len: u32 }
+
+arena @rq: RunQueue[4];
+
+fn main() {
+    let q = @rq.alloc(RunQueue { head: 0, len: 0 }).unwrap();
+    print_int(@rq[q].len as i64);
+}

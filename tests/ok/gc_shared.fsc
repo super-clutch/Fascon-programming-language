@@ -1,0 +1,67 @@
+// fascon-target: generic-os
+// 共有の gc_arena を 2 つのコアが同時に使う: 満杯になったコアが gc_collect し、もう一方のコアはループの頭の安全点で
+// 一瞬止まる（触れていないコア・関数は止まらない）。Id は 64 ビット（世代リフレッシュは不要で省かれる）
+// two cores use a shared gc_arena at once: the core that fills it calls gc_collect and the other core parks briefly at
+// a loop-head safepoint (cores and functions that do not touch it never stop). Ids are 64-bit (no refresh needed)
+struct Node { v: u64, next: Option<Id<nodes>> }
+struct Report { core: u32, len: u64, sum: u64 }
+
+shared gc_arena nodes: Node[2048];
+chan done: own Report[4];
+
+fn worker(seed: u64) {
+    let me = cpu_id();
+    let mut head: Option<Id<nodes>> = None;
+    let mut i: u64 = 0;
+    while i < 3000 {
+        match nodes.alloc(Node { v: seed + i, next: head }) {
+            Some(id) => {
+                if i % 3 == 0 {
+                    head = Some(id);
+                }
+                i += 1;
+            }
+            None => {
+                gc_collect(nodes);
+            }
+        }
+    }
+    let mut len: u64 = 0;
+    let mut sum: u64 = 0;
+    let mut cur = head;
+    loop {
+        match cur {
+            Some(id) => {
+                len += 1;
+                let mut nx: Option<Id<nodes>> = None;
+                rcu_read {
+                    if let Some(n) = nodes.get(id) {
+                        sum += n.v - seed;
+                        nx = n.next;
+                    }
+                }
+                cur = nx;
+            }
+            None => break,
+        }
+    }
+    done.send(own Report { core: me, len: len, sum: sum });
+}
+
+fn main() {
+    spawn_on(1, worker, 0);
+    spawn_on(2, worker, 1000000);
+    for k in 0..2 {
+        let r = done.recv_wait();
+        put_str("len ");
+        print_int(r.len);
+        put_str("sum ");
+        print_int(r.sum);
+    }
+    gc_collect(nodes);
+    let mut n: u64 = 0;
+    critical {
+        n = nodes.len() as u64;
+    }
+    print_int(n);
+}

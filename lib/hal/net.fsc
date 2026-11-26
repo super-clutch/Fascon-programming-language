@@ -1,0 +1,15 @@
+// hal::net — 標準 HAL: ネットワーク装置（イーサネットのフレーム単位）/ standard HAL: a network device (Ethernet frames)
+//
+//   mac()             MAC アドレス（下位 48 ビット）/ the MAC address (low 48 bits)
+//   mtu()             最大のフレーム長 / the largest frame
+//   send(f, len)      フレームを送る（送れなければ false）/ send a frame (false if it cannot)
+//   recv(f)           受け取ったフレームの長さ（無ければ 0。待たない）/ length of a received frame (0 if none; never waits)
+//   link_up()         リンクがつながっているか / whether the link is up
+struct NetDevice { mac: fn() -> u64, mtu: fn() -> u32, send: fn(&[u8; 1514], u32) -> bool, recv: fn(&mut [u8; 1514]) -> u32, link_up: fn() -> bool }
+
+fn net_send_checked(n: &NetDevice, f: &[u8; 1514], len: u32) -> bool {
+    if len < 14 || len > (n.mtu)() + 14 || !(n.link_up)() {
+        return false;
+    }
+    (n.send)(f, len)
+}

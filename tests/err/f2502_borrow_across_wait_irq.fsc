@@ -1,0 +1,16 @@
+// expect: F2502
+struct Item { v: u64 }
+arena @items: Item[4];
+irq tick at 27 {
+    for id in @items { @items.free(id); }
+}
+fn main() {
+    let it = @items.alloc(Item { v: 1 }).unwrap();
+    irq_open();
+    critical {
+        if let Some(p) = @items.get_mut(it) {
+            wait_irq();
+            p.v = 2;
+        }
+    }
+}

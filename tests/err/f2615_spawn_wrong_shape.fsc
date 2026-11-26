@@ -1,0 +1,7 @@
+// expect: F2615
+fn worker(a: u64, b: u64) {
+    print_int((a + b) as i64);
+}
+fn main() {
+    spawn_on(1, worker, 1);
+}

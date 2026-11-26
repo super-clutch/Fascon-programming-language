@@ -1,0 +1,14 @@
+// expect: F2502
+// &mut @a[id] を、同じアリーナを読む関数に渡す → 1.0 は禁止する
+// passing &mut @a[id] to a function that reads the arena → rejected by 1.0
+// 列の写しが借用中に古くても誰にも見えないことの根拠（docs/PERF-1.0.ja.md「列」） / why a stale column mirror during a borrow is unobservable (docs/PERF-1.0.md, "Columns")
+struct Task { pid: u32, state: u32, vruntime: u64 }
+arena @task: Task[64];
+fn total() -> u64 { let mut s: u64 = 0; for id in @task { s += @task[id].vruntime; } s }
+
+fn bump(t: &mut Task) { t.vruntime += 1; print_int(total() as i64); }
+fn main() {
+    let a = @task.alloc(Task { pid: 1, state: 1, vruntime: 5 }).unwrap();
+    bump(&mut @task[a]);
+    print_int(total() as i64);
+}

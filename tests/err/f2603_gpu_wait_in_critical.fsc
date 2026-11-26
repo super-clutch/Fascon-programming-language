@@ -1,0 +1,14 @@
+// expect: F2603
+// critical の中で装置の完了を待てない / no waiting for the device inside critical
+struct A { x: f32 }
+gpu_arena @g: A[4];
+fn main() {
+    if let Some(h) = @g.alloc(A { x: 1.0 }) {
+        let f = @g.dispatch(1, 1, 1, h);
+        critical {
+            if let Some(b) = @g.reclaim_wait(f) {
+                @g.free(b);
+            }
+        }
+    }
+}

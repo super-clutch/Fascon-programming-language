@@ -1,0 +1,7 @@
+// expect: F2803
+syscall write at 1 (fd: u32, buf: &[u8]) -> i64;
+fn main() {
+    critical {
+        write(1, "x");
+    }
+}

@@ -1,0 +1,10 @@
+// expect: F2613
+// 同じ装置を 2 つのコアが保護なしで触る
+mmio uart: [u32; 4] at 0x0900_0000;
+fn worker() {
+    uart[0] = 66;
+}
+fn main() {
+    spawn_on(1, worker);
+    uart[0] = 65;
+}

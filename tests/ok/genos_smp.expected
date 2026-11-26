@@ -1,0 +1,5 @@
+allocs 1500
+frees 1500
+reads 1500
+sum 375750
+FASCON-GENOS-SMP-OK

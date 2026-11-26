@@ -1,0 +1,28 @@
+// expect: F2601
+// マルチコア: タスクの表はコアごとの実体でも、同じコアのタイマー割り込み（PPI 27）がそのタスクを割り込む。タスクの中の書き込みは critical で
+// multi-core: even though the task table is per core, the timer interrupt of the same core (PPI 27) interrupts the task; writes
+// inside the task need critical
+struct Task { pid: u32, n: u64 }
+task_arena task: Task[4] stack 16384;
+irq tick at 27 {
+    timer_arm(1000);
+    let cur = task.current();
+    if let Some(t) = task.get_mut(cur) { t.n += 1; }
+    for id in task { task.resume(id); }
+}
+fn work(a: u64) {
+    loop {
+        let me = task.current();
+        task[me].pid = a as u32;
+        cpu_relax();
+    }
+}
+fn core_main(c: u64) {
+    let t = task.start(Task { pid: 0, n: 0 }, work, c).unwrap();
+    timer_arm(1000);
+    task.enter(t);
+}
+fn main() {
+    spawn_on(1, core_main, 1);
+    core_main(0);
+}

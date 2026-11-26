@@ -1,0 +1,46 @@
+// net::wire — 回線上のヘッダ（ワイヤ構造体: 詰め物なし・バイト順固定の POD）とインターネットチェックサム
+// net::wire — on-the-wire headers (wire structs: no padding, fixed byte order, POD) and the Internet checksum
+//
+// 受信したバイト列から `.read(Ipv4, 14)` のように読む。外から来た値なので、generic-os ではそこから計算した添字に
+// Spectre v1 のマスク（CSDB）が自動で入る
+// read them from received bytes as `.read(Ipv4, 14)`; the values come from outside, so on generic-os the indices computed
+// from them get the Spectre v1 mask (CSDB) automatically
+
+const ETH_IPV4: u16 = 0x0800;
+const PROTO_ICMP: u8 = 1;
+const PROTO_TCP: u8 = 6;
+const PROTO_UDP: u8 = 17;
+
+#[wire(be)] struct Eth { dst: [u8; 6], src: [u8; 6], kind: u16 }
+#[wire(be)] struct Ipv4 { vihl: u8, tos: u8, len: u16, id: u16, frag: u16, ttl: u8, proto: u8, csum: u16, src: u32, dst: u32 }
+#[wire(be)] struct Udp { sport: u16, dport: u16, len: u16, csum: u16 }
+#[wire(be)] struct Tcp { sport: u16, dport: u16, seq: u32, ack: u32, off: u8, flags: u8, win: u16, csum: u16, urg: u16 }
+
+const TCP_FIN: u8 = 1;
+const TCP_SYN: u8 = 2;
+const TCP_RST: u8 = 4;
+const TCP_PSH: u8 = 8;
+const TCP_ACK: u8 = 16;
+
+// 16 ビットの 1 の補数の和（RFC 1071）。窓 b[off .. off + n] / the 16-bit one's-complement sum (RFC 1071) over b[off .. off + n]
+fn checksum(b: &[u8], off: u64, n: u64) -> u16 {
+    let mut s: u64 = 0;
+    let mut i: u64 = 0;
+    while i + 1 < n {
+        s += ((b[off + i] as u64) << 8) | (b[off + i + 1] as u64);
+        i += 2;
+    }
+    if i < n {
+        s += (b[off + i] as u64) << 8;
+    }
+    while s > 0xffff {
+        s = (s & 0xffff) + (s >> 16);
+    }
+    (0xffff - s) as u16
+}
+
+// IPv4 ヘッダの長さ（バイト）。外から来た IHL を 20〜60 に収める / the IPv4 header length, clamping the outside IHL to 20-60
+fn ihl_bytes(vihl: u8) -> u64 {
+    let n = ((vihl & 0x0f) as u64) * 4;
+    min(max(n, 20), 60)
+}

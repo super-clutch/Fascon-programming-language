@@ -1,0 +1,3235 @@
+[
+ {
+  "name": "F0001",
+  "category": "Error codes",
+  "summary": "Syntax error (including Rust syntax that Fascon 1.0 does not have)",
+  "detail": "A lexical or syntax error (an unterminated string or comment, a malformed integer literal, an unexpected character, chained comparisons such as `a < b < c`, ...). Rust syntax that Fascon 1.0 does not have is reported with this code too: lifetime annotations and char literals (Fascon has no apostrophe token), floating point, generics, `static mut`, and the reserved words `impl`, `enum`, `trait`, `where`, `pub`, `use`, `mod`, `unsafe`, `dyn`, `ref`, `move`, `self`, `extern`, `crate` and `super` (fixed forms such as `extern \"C\"` declarations excepted). F0001 of 0.1.0 follows the same idea.",
+  "constraints": "Lifetimes are inferred, so lifetime annotations are never written (references are second-class: arguments and temporary lookups only).",
+  "remedy": "Just delete lifetime annotations (`fascon explain` shows the source without them and `fascon fix` applies that after verifying it). Write characters as integer codes (`65` and so on), fractions as fixed-point integers, methods as free functions and enums as integer constants or Option. Rust-style code can be converted in one go with automatic reframing (`--reframing=rust`).",
+  "aliases": [
+   "構文エラー",
+   "syntax",
+   "syntax error",
+   "ライフタイム",
+   "lifetime",
+   "予約語",
+   "reserved word"
+  ]
+ },
+ {
+  "name": "F0004",
+  "category": "Error codes",
+  "summary": "Non-exhaustive match",
+  "detail": "A match does not handle every case (a missing integer value, `Some` / `None`, `Ok` / `Err` or `true` / `false`). A value that matches no arm would leave nothing to do.",
+  "constraints": "",
+  "remedy": "Add the missing arms, or put a `_ => ..` arm last.",
+  "aliases": [
+   "網羅",
+   "exhaustive",
+   "non-exhaustive",
+   "網羅性"
+  ]
+ },
+ {
+  "name": "F0015",
+  "category": "Error codes",
+  "summary": "A static initializer is not a compile-time constant",
+  "detail": "The initializer of a static must be a compile-time constant (literals, structs, arrays and expressions over integer statics). Calls and variables are not allowed (the exception is `embed(\"file\")`: F2804).",
+  "constraints": "Statics live in the Kernel region and are immutable.",
+  "remedy": "Write the value as a constant. Compute values known only at run time in main and keep them in an arena.",
+  "aliases": [
+   "定数",
+   "constant",
+   "初期値",
+   "static の初期値",
+   "static initializer"
+  ]
+ },
+ {
+  "name": "F0061",
+  "category": "Error codes",
+  "summary": "Wrong number of arguments",
+  "detail": "The number of arguments given to a function, builtin, method or `Some` differs from its declaration. `spawn_on` takes 2 or 3 (core, function[, argument]) and `Some` takes 1. Builtins that take a type or arena name, such as `promote_to_gc`, count that name as an argument. In 0.1.0 this was part of F0308.",
+  "constraints": "",
+  "remedy": "Check the declaration (for a builtin, `fascon dict NAME`) and pass that many arguments.",
+  "aliases": [
+   "引数",
+   "argument count",
+   "arity"
+  ]
+ },
+ {
+  "name": "F0062",
+  "category": "Error codes",
+  "summary": "A field is given twice in a struct literal",
+  "detail": "A struct literal such as `S { x: 1, x: 2 }` gives the same field twice, so it is unclear which value is meant.",
+  "constraints": "",
+  "remedy": "Delete one of the two.",
+  "aliases": [
+   "フィールド",
+   "field",
+   "struct literal"
+  ]
+ },
+ {
+  "name": "F0063",
+  "category": "Error codes",
+  "summary": "Missing fields in a struct literal",
+  "detail": "A struct literal `S { .. }` leaves out some declared fields. Fascon has no default values and never creates uninitialized memory.",
+  "constraints": "",
+  "remedy": "Give every field a value (`None` for Option fields, `0` for integers).",
+  "aliases": [
+   "フィールド",
+   "field",
+   "missing field",
+   "struct literal"
+  ]
+ },
+ {
+  "name": "F0069",
+  "category": "Error codes",
+  "summary": "A return without a value",
+  "detail": "`return;` was written in a function that has a result type.",
+  "constraints": "",
+  "remedy": "Write `return value;`.",
+  "aliases": [
+   "戻り値",
+   "return の値"
+  ]
+ },
+ {
+  "name": "F0070",
+  "category": "Error codes",
+  "summary": "Assignment to something that is not a place",
+  "detail": "The left side of an assignment is not a variable, a field or an index (`a[i]`, `a[id]`) but some other expression, such as a call result or a calculation.",
+  "constraints": "",
+  "remedy": "Assign to a variable, a field or an index.",
+  "aliases": [
+   "assignment",
+   "place",
+   "代入先"
+  ]
+ },
+ {
+  "name": "F0107",
+  "category": "Error codes",
+  "summary": "Wrong type arguments",
+  "detail": "`Result<T, E>` takes two types, `Option<T>` one type, and `Id<@name>` and `Dma<@name>` one arena name. Other types take no arguments (an alias `type Name<@a: T>` takes as many as it declares).",
+  "constraints": "There are no generics, so only these builtin types and aliases take arguments.",
+  "remedy": "Write the type arguments in the forms above.",
+  "aliases": [
+   "型引数",
+   "type argument"
+  ]
+ },
+ {
+  "name": "F0124",
+  "category": "Error codes",
+  "summary": "A struct declares a field twice",
+  "detail": "A `struct` declaration has two fields with the same name.",
+  "constraints": "",
+  "remedy": "Rename one of them.",
+  "aliases": [
+   "フィールド",
+   "field",
+   "フィールドの重複"
+  ]
+ },
+ {
+  "name": "F0268",
+  "category": "Error codes",
+  "summary": "break / continue outside a loop",
+  "detail": "`break` and `continue` can only be written inside `loop`, `while` or `for`.",
+  "constraints": "",
+  "remedy": "Move it into a loop, or use `return` to leave the function.",
+  "aliases": [
+   "break",
+   "continue",
+   "ループ"
+  ]
+ },
+ {
+  "name": "F0277",
+  "category": "Error codes",
+  "summary": "The value in `[value; N]` cannot be copied",
+  "detail": "The value of an array repeat expression `[value; N]` must be copyable (integers, bool, Id, Str, ...) or `None`. A value that contains own cannot be duplicated N times.",
+  "constraints": "",
+  "remedy": "Create it with `[None; N]` and fill the elements one by one, or write each element.",
+  "aliases": [
+   "repeat",
+   "繰り返し式",
+   "array repeat"
+  ]
+ },
+ {
+  "name": "F0308",
+  "category": "Error codes",
+  "summary": "Type mismatch",
+  "detail": "The expected type and the actual type differ. This also covers integer literals and patterns out of the range of their type, a function that must return a value but does not, `main` or a builtin used as a value, indices, shift amounts or ranges that are not integers, function pointer types that differ in reference mutability (`fn(&i32)` is not `fn(&mut i32)`), and a `&` added to a by-value argument or missing from a reference argument. In 0.1.0 exhaustiveness and argument counts were part of this code; in 1.0 they are F0004 and F0061.",
+  "constraints": "Integers are never converted implicitly (use `as`).",
+  "remedy": "Make the types agree: convert with `as`, add a type annotation, match the `&` / `&mut` of arguments to the declaration, or end the function with a value.",
+  "aliases": [
+   "type mismatch",
+   "型エラー",
+   "mismatched types"
+  ]
+ },
+ {
+  "name": "F0317",
+  "category": "Error codes",
+  "summary": "An if without else used as a value",
+  "detail": "A value was taken from an `if` without `else`, as in `let x = if c { 1 };`. There is no value when the condition is false.",
+  "constraints": "",
+  "remedy": "Add an `else` and produce a value of the same type in both branches.",
+  "aliases": [
+   "if 式",
+   "if expression"
+  ]
+ },
+ {
+  "name": "F0368",
+  "category": "Error codes",
+  "summary": "A compound assignment on an unsuitable type",
+  "detail": "A compound assignment such as `+=`, `-=` or `<<=` was used on a type without that operation (bool, Str, a struct, an Option, an Id, ...).",
+  "constraints": "",
+  "remedy": "Use it on integer variables and fields. For other types, build the value you mean and assign it with `=`.",
+  "aliases": [
+   "複合代入",
+   "compound assignment",
+   "+="
+  ]
+ },
+ {
+  "name": "F0369",
+  "category": "Error codes",
+  "summary": "An operator that the type does not support",
+  "detail": "A binary operator was used on a type that does not support it: comparing values that cannot be compared (structs, Options, own, ...), shifting something that is not an integer, adding bools, and so on.",
+  "constraints": "",
+  "remedy": "Compare fields, examine Options with `match` / `if let`, or convert to integers with `as`.",
+  "aliases": [
+   "演算子",
+   "operator",
+   "比較",
+   "comparison"
+  ]
+ },
+ {
+  "name": "F0381",
+  "category": "Error codes",
+  "summary": "Use of a possibly-uninitialized variable",
+  "detail": "A variable declared without a value (`let x;`) is used although some path leaves it unassigned (for example, only one branch of an if assigns it).",
+  "constraints": "Fascon never lets a program read uninitialized memory.",
+  "remedy": "Give it a value when declaring it, or assign it in every branch.",
+  "aliases": [
+   "初期化",
+   "uninitialized"
+  ]
+ },
+ {
+  "name": "F0382",
+  "category": "Error codes",
+  "summary": "Use after move",
+  "detail": "`own T` (and values containing own) are move-only: passing by value, assignment, a `spawn_on` argument and a channel `send` move the ownership. The variable was used again after the move (further down in program order). Moving in only some arms of a match and using the value after the match is still F0382 (union rule). A move inside a loop is F0382 when the next iteration uses it.",
+  "constraints": "There are no implicit copies. A moved variable cannot be used until it is assigned again.",
+  "remedy": "Move it after its last use, pass a reference (`&x`), or clone it explicitly with `.clone()`. `fascon explain` shows the timeline from the move to the use.",
+  "aliases": [
+   "use after move",
+   "移動後使用",
+   "moved",
+   "move"
+  ]
+ },
+ {
+  "name": "F0384",
+  "category": "Error codes",
+  "summary": "Assignment to an immutable place",
+  "detail": "An assignment to a `let` variable without `mut` (a part of it or the contents of its own included), a second assignment to an immutable variable that already has a value, or an assignment to a static (statics live in the Kernel region and are immutable).",
+  "constraints": "There is no `static mut` (shared mutable state is an arena or an MMIO region).",
+  "remedy": "Declare it with `let mut`. Keep shared state in an arena.",
+  "aliases": [
+   "immutable",
+   "代入",
+   "不変"
+  ]
+ },
+ {
+  "name": "F0391",
+  "category": "Error codes",
+  "summary": "A cyclic definition",
+  "detail": "The initializer of a static depends on itself (possibly through other statics), or a type alias `type` contains itself.",
+  "constraints": "",
+  "remedy": "Break the cycle: write one side as a constant, or spell the alias out as a real type.",
+  "aliases": [
+   "循環",
+   "cycle",
+   "cyclic"
+  ]
+ },
+ {
+  "name": "F0412",
+  "category": "Error codes",
+  "summary": "Unknown type",
+  "detail": "The name of a type (a struct, an alias or a builtin type) cannot be found. Usually a typo.",
+  "constraints": "The builtin integer types are `u8`, `u16`, `u32`, `u64`, `usize`, `i8`, `i16`, `i32`, `i64` and `isize`; there are also `bool`, `Str`, `Option`, `Result` and `Id`.",
+  "remedy": "Check the spelling, or declare `struct Name { .. }`.",
+  "aliases": [
+   "unknown type",
+   "型が見つからない"
+  ]
+ },
+ {
+  "name": "F0415",
+  "category": "Error codes",
+  "summary": "A parameter is declared twice",
+  "detail": "A function has two parameters with the same name.",
+  "constraints": "",
+  "remedy": "Rename one of them.",
+  "aliases": [
+   "引数",
+   "parameter"
+  ]
+ },
+ {
+  "name": "F0422",
+  "category": "Error codes",
+  "summary": "Unknown struct",
+  "detail": "The name in a struct literal `Name { .. }` is not a declared struct.",
+  "constraints": "",
+  "remedy": "Check the spelling, or declare `struct Name { .. }`.",
+  "aliases": [
+   "構造体が見つからない",
+   "unknown struct"
+  ]
+ },
+ {
+  "name": "F0423",
+  "category": "Error codes",
+  "summary": "A type name used as a value",
+  "detail": "Only the name of a struct type was written where a value belongs (`let b = Button;`).",
+  "constraints": "",
+  "remedy": "Write a struct literal: `Button { label: \"OK\", x: 1 }`.",
+  "aliases": [
+   "型を値に",
+   "type used as value"
+  ]
+ },
+ {
+  "name": "F0425",
+  "category": "Error codes",
+  "summary": "Unresolved name",
+  "detail": "The name of a variable, function, static or region cannot be seen from that place (a typo, a variable of another block, an undeclared function, ...). Type names are F0412 and struct literal names are F0422.",
+  "constraints": "A variable is visible only inside the block that declares it. Functions, statics and regions can be used regardless of the order of declarations.",
+  "remedy": "Check the spelling and the scope. Look builtins up by name (for example `fascon dict timer_arm`).",
+  "aliases": [
+   "unresolved",
+   "未定義",
+   "名前",
+   "not found"
+  ]
+ },
+ {
+  "name": "F0428",
+  "category": "Error codes",
+  "summary": "A name is defined twice",
+  "detail": "A function, static, type or region (arena, mmio, port_io, ...) with the same name is defined twice. Regions are used by their bare name, so a region cannot share its name with a function, static or type either.",
+  "constraints": "",
+  "remedy": "Rename one of them.",
+  "aliases": [
+   "重複",
+   "duplicate",
+   "redefinition"
+  ]
+ },
+ {
+  "name": "F0435",
+  "category": "Error codes",
+  "summary": "A non-negative integer known at compile time is required",
+  "detail": "Arena and channel capacities, MMIO addresses, port numbers and the size and virtual address of user memory must be non-negative integers known at compile time (variables and call results are not allowed).",
+  "constraints": "",
+  "remedy": "Write a literal, or a constant expression over integer statics.",
+  "aliases": [
+   "定数",
+   "constant",
+   "capacity",
+   "番地",
+   "address",
+   "コンパイル時定数",
+   "compile-time constant"
+  ]
+ },
+ {
+  "name": "F0499",
+  "category": "Error codes",
+  "summary": "The same place is mutably borrowed twice in one call",
+  "detail": "The arguments of one call borrow the same place (or part of it) twice with `&mut`. Two slots of one arena (`&mut a[x], &mut a[y]`) count too, because the Ids may be equal. References are second-class, so a borrow exists only during the call and conflicts are decided statically within that call.",
+  "constraints": "At any point there is at most one mutable borrow of a place.",
+  "remedy": "Split the call, or pass different fields (`&mut a.x, &mut a.y` is fine). For two arena slots, read the values out and write them back.",
+  "aliases": [
+   "double borrow",
+   "可変借用",
+   "&mut",
+   "二重借用"
+  ]
+ },
+ {
+  "name": "F0502",
+  "category": "Error codes",
+  "summary": "An access that conflicts with a borrow",
+  "detail": "A place was read, written or borrowed while it is borrowed. Borrows come from `&mut` arguments of a call (for that call) and from bindings, lookups and views such as `if let Some(n) = list.head` (until the end of that block). For example, replacing the own that n points at with `list.head = None;` inside the same block is F0502. For arena slots the code is F2502.",
+  "constraints": "A mutably borrowed place cannot be read, and a borrowed place cannot be written.",
+  "remedy": "Copy the value into a temporary before the call (`let tmp = a.x; f(&mut a, tmp);`). Write the place after the block of the binding ends.",
+  "aliases": [
+   "borrow conflict",
+   "借用衝突"
+  ]
+ },
+ {
+  "name": "F0505",
+  "category": "Error codes",
+  "summary": "Move while borrowed",
+  "detail": "Ownership of a value that is being borrowed was moved: either a borrow and a move overlap in the arguments of one call, or the original value is moved (`let moved = b;`) inside a block where a view (`view` / `view_mut`) or a lookup binding is still alive.",
+  "constraints": "",
+  "remedy": "Move it after the borrow ends (after the block), split the call, or `.clone()` one side.",
+  "aliases": [
+   "move while borrowed",
+   "借用中の移動"
+  ]
+ },
+ {
+  "name": "F0507",
+  "category": "Error codes",
+  "summary": "Move out of a field, referent, static or own contents",
+  "detail": "Ownership was taken out of a struct field, a referent (`*r`) or a static (partial moves are forbidden). This includes replacing an own through a binding of the own place (`match w.ok { b => .. }`, `if let Some(b) = w.status`): like `&mut w.ok`, the binding refers to the contents of the own. It also includes taking a non-copyable value (a struct, a Str, ...) out of the contents of a non-struct own (`*b`) and moving an own field out (`let b = ctx.buffer;`), since either would leave the own empty.",
+  "constraints": "There are no implicit copies.",
+  "remedy": "Clone explicitly with `.clone()`. To replace an own, assign the original place (`w.ok = own Button { .. }`). Read the contents of an own as a copy with `*b` (`let v = *ctx.buffer;`), or move the whole own (without `*`).",
+  "aliases": [
+   "move out",
+   "部分移動",
+   "partial move"
+  ]
+ },
+ {
+  "name": "F0515",
+  "category": "Error codes",
+  "summary": "Second-class reference violation",
+  "detail": "A reference `&T` / `&mut T` (windows `&[u8]` and the results of lookups such as `get` and `view` included) was put somewhere other than a function parameter: a let binding, a struct field, a result, the contents of an Option, Result or own, an arena or channel element, a static, another core, or a reference to a reference. `&x` can only be created as a call argument, and a lookup result can only be the scrutinee of `if let` / `match` or a place followed by `.unwrap()`.",
+  "constraints": "A reference exists only as a function argument and its lifetime is confined to that call (which is why no lifetime annotations are needed).",
+  "remedy": "Own the value (keep it in a struct field or behind an Id), or pass it directly as `f(&x)`. Use lookups inside `if let Some(v) = a.get(id) { .. }`.",
+  "aliases": [
+   "second-class violation",
+   "参照の保存"
+  ]
+ },
+ {
+  "name": "F0596",
+  "category": "Error codes",
+  "summary": "Writing or mutably borrowing a read-only place",
+  "detail": "A read-only place was written or borrowed with `&mut`: the target of a shared reference `&T`, a read-only lookup such as `.get(id).unwrap()`, a variable without `mut`, a static, or read-only bytes. Passing a shared reference to a `&mut T` parameter, passing a `&mut` parameter without `&mut`, and `.take()` on a read-only place are included.",
+  "constraints": "",
+  "remedy": "Declare it with `let mut`, make the parameter `&mut T`, or write through `.get_mut(id)` (or `a[id]`).",
+  "aliases": [
+   "borrow as mutable",
+   "read-only",
+   "読み出し専用"
+  ]
+ },
+ {
+  "name": "F0599",
+  "category": "Error codes",
+  "summary": "No such method",
+  "detail": "A method that the kind of value does not have was called. Fascon has no user-defined methods (`impl`); only the methods of builtin kinds exist: arenas, channels (`send(value)` / `recv()` / `recv_wait()`; channels cannot be indexed), `dma` regions (`phys` / `len`), user memory (only `of(task_id)`), ports (`read` / `write` / `read_at` / `write_at`), MMIO regions and so on. A method of process tables used on another arena is included. The message lists, in parentheses, the methods that value has. 0.1.0 had far fewer builtin methods, so the meaning is wider now.",
+  "constraints": "There are no impl blocks.",
+  "remedy": "Write a free function `fn f(x: &T)` and call it as `f(&x)`. For builtin kinds, use one of the methods listed in the message.",
+  "aliases": [
+   "no method",
+   "メソッド",
+   "method",
+   "impl"
+  ]
+ },
+ {
+  "name": "F0600",
+  "category": "Error codes",
+  "summary": "A unary operator that the type does not support",
+  "detail": "Unary `-` on an unsigned integer (`u8` to `u64`, `usize`), or `-` / `!` on something that is neither an integer nor a bool.",
+  "constraints": "",
+  "remedy": "Convert to a signed type first (`-(x as i64)`). Examine Options and the like with `match` / `if let`.",
+  "aliases": [
+   "単項",
+   "unary",
+   "negation",
+   "符号なし"
+  ]
+ },
+ {
+  "name": "F0601",
+  "category": "Error codes",
+  "summary": "`fn main()` is missing or has the wrong shape",
+  "detail": "Execution starts at `fn main()`. main is missing, or it has parameters or a result.",
+  "constraints": "",
+  "remedy": "Write `fn main() { .. }` with no parameters and no result.",
+  "aliases": [
+   "main",
+   "入口",
+   "entry point"
+  ]
+ },
+ {
+  "name": "F0605",
+  "category": "Error codes",
+  "summary": "A cast that `as` cannot do",
+  "detail": "`as` only converts numbers (integer to integer, bool to integer, ...). Structs, Options, Str, references and own cannot be cast. Use `*` to read the contents of an own.",
+  "constraints": "",
+  "remedy": "Use `as` for numeric conversions only. Read own contents with `*b`.",
+  "aliases": [
+   "as",
+   "cast",
+   "変換"
+  ]
+ },
+ {
+  "name": "F0608",
+  "category": "Error codes",
+  "summary": "Not indexable, or a constant index out of bounds",
+  "detail": "Indexing `x[i]` was used on something that cannot be indexed (read a Str with `s.byte(i)`, read and write a non-array port by its name, the number of dimensions differs), or an index known at compile time is beyond the length of the array (F2201 for fixed-address regions).",
+  "constraints": "Indices known only at run time are bounds-checked; the check is dropped when the range is proven.",
+  "remedy": "Use `s.byte(i)` for Str, port names for ports, and keep constant indices inside the length.",
+  "aliases": [
+   "添字",
+   "out of bounds",
+   "範囲外"
+  ]
+ },
+ {
+  "name": "F0609",
+  "category": "Error codes",
+  "summary": "No such field",
+  "detail": "`.name` was read on a type without fields (an integer, an Option, ...) or on a struct that has no such field.",
+  "constraints": "",
+  "remedy": "Match the spelling to the declaration. Take the value out of an Option with `if let Some(v) = ..` first.",
+  "aliases": [
+   "フィールド",
+   "field",
+   "no field"
+  ]
+ },
+ {
+  "name": "F0728",
+  "category": "Error codes",
+  "summary": "Await outside async",
+  "detail": "`.await` was used outside an async fn.",
+  "constraints": "",
+  "remedy": "From synchronous code, use `block_on(f(..))`.",
+  "aliases": [
+   "await outside async"
+  ]
+ },
+ {
+  "name": "F0808",
+  "category": "Error codes",
+  "summary": "Region containment failure",
+  "detail": "No region can be statically proven to contain the value's lifetime. Examples: holding a reference argument (the caller's Thread/Call region) across .await, capturing a reference argument in spawn, moving a caller's value (an argument) to another thread as is, replacing a whole referenced object.",
+  "constraints": "There is never an implicit global promotion (hiding the value in a static area); the build is rejected instead.",
+  "remedy": "Quick Fix: make the data an owned value that moves into the task / thread, rewriting the allocation so that it is promoted to a Process (or Kernel) class region (`&T` → `T`, and `.clone()` at the call site).",
+  "aliases": [
+   "containment",
+   "包含",
+   "lifetime"
+  ]
+ },
+ {
+  "name": "F0810",
+  "category": "Error codes",
+  "summary": "Unbounded loop allocation",
+  "detail": "In a loop whose iteration count is not statically bounded (loop / while / for over a non-constant range), an allocation is promoted to a loop-carried variable, the caller or a shared region, so the outer region grows on every iteration. Even if the requirement sets of the backward fixpoint analysis converge, the region increment Grow(n+1)−Grow(n) > 0 remains, so no fixpoint exists. The typical case is `head = Node { next: Some(head) }`.",
+  "constraints": "`for i in 0..N` over a constant range is bounded and allowed (promoted outward). An allocation right before leaving (just before return/break) happens once and is allowed.",
+  "remedy": "Quick Fix: find where the loop forms a recursive link, lift the allocation site out of the loop (into the Call region) and turn the loop body into an in-place update. If it only escapes when leaving, use `return x.clone()`.",
+  "aliases": [
+   "unbounded",
+   "無限ループ",
+   "loop allocation"
+  ]
+ },
+ {
+  "name": "F0811",
+  "category": "Error codes",
+  "summary": "volatile_bypass violation",
+  "detail": "Inside `volatile_bypass { .. }` there is an own allocation, a function call or an arena operation, or `mmio_read` / `mmio_write` and the like are used outside it.",
+  "constraints": "volatile_bypass is a section for raw address accesses only, so nothing that affects region analysis may be placed in it.",
+  "remedy": "Allocate and call outside, and keep only integers and `mmio_*` inside. A type-safe `mmio name: [u32; N] at address;` needs no volatile_bypass and is bounds-checked.",
+  "aliases": [
+   "bypass"
+  ]
+ },
+ {
+  "name": "F0900",
+  "category": "Error codes",
+  "summary": "Isr region capacity exceeded",
+  "detail": "The static upper bound (Σ count × size) of the allocations reachable from an interrupt handler exceeds the Isr capacity (1 KB by default), or there is no bound (allocation inside recursion or an unbounded loop). Exceeding the capacity at run time is an immediate panic (fascon_plat_kernel_panic(0x0900)).",
+  "constraints": "The Isr region is pre-allocated statically for each CPU and cannot move to another CPU.",
+  "remedy": "Reduce the allocations in the ISR or increase `--isr-capacity`. Place the Isr pool in TCM/SRAM with a linker script (gen-ld).",
+  "aliases": [
+   "isr capacity",
+   "容量"
+  ]
+ },
+ {
+  "name": "F0901",
+  "category": "Error codes",
+  "summary": "Forbidden operation in an interrupt handler",
+  "detail": "spawn / send / recv / block_on / await / channel creation was used in an #[isr] function (or a function called from it).",
+  "constraints": "Operations that may block and thread operations are forbidden in interrupt context.",
+  "remedy": "Move the work to normal context.",
+  "aliases": [
+   "isr forbidden"
+  ]
+ },
+ {
+  "name": "Second-class reference",
+  "category": "Second-class references",
+  "summary": "A reference can exist only as a function argument",
+  "detail": "`&T` / `&mut T` can only be written as the type of a function parameter. The caller creates it directly as an argument in the form `f(&x)` / `f(&mut x)`. This confines the lifetime of every reference to the duration of that call, so no lifetime annotation ('a) is ever needed.",
+  "constraints": "Do not bind it with let, store it in a struct, return it, put it into an Option/channel, capture it in spawn (F0808) or hold it across .await (F0808). Passing a reference argument on to another function as is (reborrowing) is allowed.",
+  "remedy": "Keep values that must live long as owned values. To share, .clone() them or send them through a channel together with ownership.",
+  "aliases": [
+   "second-class reference",
+   "参照",
+   "&",
+   "&mut",
+   "借用",
+   "第二級参照"
+  ]
+ },
+ {
+  "name": "Borrow rules",
+  "category": "Second-class references",
+  "summary": "Mutable / immutable borrow rules within one call (F0499 / F0502 / F0505)",
+  "detail": "With second-class references a borrow exists only inside a call expression, so conflicts can be decided statically among the arguments of the same call. Non-overlapping fields can be borrowed at the same time (`f(&mut p.x, &p.y)` is allowed).",
+  "constraints": "Only one &mut to the same place; &mut cannot coexist with & / a read / a move.",
+  "remedy": "",
+  "aliases": [
+   "borrow rules",
+   "借用規則"
+  ]
+ },
+ {
+  "name": "Kernel",
+  "category": "Regions",
+  "summary": "System-persistent, accessible from all CPUs, immutable",
+  "detail": "Static structs and channels live here. In the generated code they are placed in the .fascon_kernel section (cache-line aligned) and become immutable after initialization with fascon_kernel_seal(). Values sent to a Kernel channel are allocated in a Promoted(Kernel) transfer region.",
+  "constraints": "Exceeding the limit is a system panic. static mut is forbidden.",
+  "remedy": "",
+  "aliases": [
+   "RegionClass::Kernel",
+   "カーネル"
+  ]
+ },
+ {
+  "name": "Process",
+  "category": "Regions",
+  "summary": "Unit of space isolation, shared by several threads (Process/Task category)",
+  "detail": "Values that cross a thread boundary (spawn capture / send) are allocated as Promoted(Process) in a Process-class transfer region (xfer) that can be handed over together with ownership. The receiver adopts it into its own region and reclaims it in bulk when the receiver frees it. Channel bodies live in the process-shared region.",
+  "constraints": "Allocations are aligned to the cache line (alignas(64)). Allocations in the shared region are synchronized with a mutex (spin lock).",
+  "remedy": "",
+  "aliases": [
+   "RegionClass::Process",
+   "プロセス",
+   "xfer",
+   "転送リージョン"
+  ]
+ },
+ {
+  "name": "Task",
+  "category": "Regions",
+  "summary": "Values that live across await points (Process/Task category)",
+  "detail": "Values required across .await in the backward analysis are marked RegionClass::Task and allocated in the Task region created by block_on. They are reclaimed in bulk when the task ends.",
+  "constraints": "Holding a reference argument across await is F0808. In v0.1.0, await is lowered to synchronous execution (run-to-completion).",
+  "remedy": "",
+  "aliases": [
+   "RegionClass::Task",
+   "タスク",
+   "async"
+  ]
+ },
+ {
+  "name": "Thread",
+  "category": "Regions",
+  "summary": "Unit of thread execution, exclusive to one thread (no synchronization needed)",
+  "detail": "Holds the values of a spawn body and the captures it received (adopted transfer regions). Freed in bulk when the thread ends.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "RegionClass::Thread",
+   "スレッド"
+  ]
+ },
+ {
+  "name": "Call",
+  "category": "Regions",
+  "summary": "One region per call (O(1) bump allocation, bulk free)",
+  "detail": "A region for each function call. fascon_region_cleanup is inserted at the end of the function and before every early return. The return value is allocated directly in the caller's region (the hidden first parameter __parent_reg), a static promotion to Parent. Temporaries inside loops are placed in an iteration region that is bulk-freed every iteration.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "RegionClass::Call",
+   "コール",
+   "Legacy",
+   "反復リージョン",
+   "Parent",
+   "__parent_reg"
+  ]
+ },
+ {
+  "name": "Isr",
+  "category": "Regions",
+  "summary": "Dedicated to interrupt handlers, pre-allocated statically per CPU",
+  "detail": "Allocations inside #[isr] functions are O(1) bumps from a CPU-local Isr pool; when the interrupt returns, the bump position is restored, freeing everything at once (nesting supported, no atomic instructions). The Isr pool can be pinned to TCM / scratchpad SRAM / a cache-locked area with a linker script.",
+  "constraints": "It cannot move to another CPU. Exceeding the capacity (1 KB by default) is an immediate panic, F0900.",
+  "remedy": "",
+  "aliases": [
+   "RegionClass::Isr",
+   "割り込み",
+   "interrupt"
+  ]
+ },
+ {
+  "name": "Requirement set",
+  "category": "Analysis rules",
+  "summary": "requirements: the set of variables / paths required after a given point",
+  "detail": "MasSemaAnalyzer scans the code from back to front and computes the requirement set at each point. A use adds, let and assignment to a whole variable (strong update) remove, and a move adds as a use.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "requirements",
+   "Req",
+   "生存解析",
+   "要求集合"
+  ]
+ },
+ {
+  "name": "Backward fixpoint analysis",
+  "category": "Analysis rules",
+  "summary": "Pass 1 (mas-sema-analysis)",
+  "detail": "Runs the backward data-flow analysis to a fixpoint around loops. Requirement sets grow monotonically and are finite, so it always converges. In loops it separates per-iteration temporaries from values that live across iterations and promotes the latter to the outer region. A region increment that does not converge is F0810.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "Pass 1",
+   "fixpoint",
+   "不動点",
+   "mas-sema-analysis",
+   "逆方向不動点解析"
+  ]
+ },
+ {
+  "name": "Union rule",
+  "category": "Analysis rules",
+  "summary": "The requirement set before a match / if = the union of the arms' requirement sets",
+  "detail": "Saves the requirements right before entering the match as the base, restarts each arm from the base and scans it backward, then combines the arms' results as a union that replaces the requirement set before the whole match.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "union",
+   "match",
+   "和集合ルール"
+  ]
+ },
+ {
+  "name": "Strong update",
+  "category": "Analysis rules",
+  "summary": "let / assignment to a whole variable removes the name from the requirement set",
+  "detail": "A rebound variable is a different value, so after a move, rebinding with `let x = ...` makes later uses no longer F0382.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "strong update",
+   "let",
+   "強い更新"
+  ]
+ },
+ {
+  "name": "Promotion",
+  "category": "Analysis rules",
+  "summary": "Static promotion",
+  "detail": "Promotes the region of an allocation site upward to match its lifetime: return value → Parent, crossing threads → Promoted(Process/Kernel), across await → Task, across loop iterations → outer. When it cannot be analyzed, there is no implicit global promotion: it is F0808.",
+  "constraints": "",
+  "remedy": "`fascon regions <file>` shows the region chosen for each allocation.",
+  "aliases": [
+   "promotion",
+   "昇格",
+   "AllocTarget",
+   "プロモーション"
+  ]
+ },
+ {
+  "name": "Pass 2",
+  "category": "Analysis rules",
+  "summary": "mas-sema-apply: region assignment (destructive transform)",
+  "detail": "Groups allocation sites and variables into region equivalence classes with union-find and decides the destination of each class (Call / iteration / Parent / Process / Kernel / Task / Thread / Isr). Function summaries handle the flow from arguments to return values across calls.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "mas-sema-apply",
+   "破壊的変換"
+  ]
+ },
+ {
+  "name": "Affine ownership",
+  "category": "Analysis rules",
+  "summary": "A struct / Option<struct> can be moved at most once",
+  "detail": "Integers, bool, Chan handles and shared references are Copy. Structs are owned values that cannot be used after a move. Copies are made explicitly with .clone().",
+  "constraints": "Implicit copies are forbidden.",
+  "remedy": "",
+  "aliases": [
+   "affine",
+   "所有権",
+   "move",
+   "アフィン所有権"
+  ]
+ },
+ {
+  "name": "fn",
+  "category": "Keywords",
+  "summary": "Function definition (hidden parameters __parent_reg / __ctx are inserted automatically)",
+  "detail": "In C it becomes `T f(FasconRegion* __parent_reg, FasconCtx* __ctx, ...)`. Lifetimes, regions and allocator arguments are never written.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "function",
+   "関数"
+  ]
+ },
+ {
+  "name": "let",
+  "category": "Keywords",
+  "summary": "Variable binding (strong update)",
+  "detail": "`let mut` makes it mutable. References cannot be bound (F0515).",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "束縛"
+  ]
+ },
+ {
+  "name": "match",
+  "category": "Keywords",
+  "summary": "Branching (analyzed with the union rule)",
+  "detail": "Integer, bool, Option (Some(x) / None) and `_` patterns. It must be exhaustive. The x in Some(x) is an alias of the scrutinee: moving x also moves the original value.",
+  "constraints": "match guards are not supported.",
+  "remedy": "",
+  "aliases": [
+   "分岐"
+  ]
+ },
+ {
+  "name": "loop",
+  "category": "Keywords",
+  "summary": "Infinite loop (iteration count is not bounded)",
+  "detail": "If an allocation inside the loop is promoted outward, it is F0810.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "while"
+  ]
+ },
+ {
+  "name": "for",
+  "category": "Keywords",
+  "summary": "Range loop `for i in a..b`",
+  "detail": "If a and b are integer literals, it is treated as a bounded loop and promotion outward is allowed (no F0810).",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "range"
+  ]
+ },
+ {
+  "name": "return",
+  "category": "Keywords",
+  "summary": "Early return (fascon_region_cleanup is always inserted right before it)",
+  "detail": "The return value is already allocated in __parent_reg, so it survives when the Call region is freed.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": []
+ },
+ {
+  "name": "struct",
+  "category": "Keywords",
+  "summary": "Struct (an owned value allocated in a region)",
+  "detail": "Types allocated in Process/Kernel/Task/transfer regions get _Alignas(FASCON_CACHE_LINE) on their first member, and their sizeof becomes a multiple of the cache-line size.",
+  "constraints": "A self-referencing field must be Option<Self>. Reference fields are not allowed.",
+  "remedy": "",
+  "aliases": [
+   "構造体"
+  ]
+ },
+ {
+  "name": "static",
+  "category": "Keywords",
+  "summary": "Immutable data in the Kernel region",
+  "detail": "Integers, bool, struct literals and chan(N) can be used as initializers. `const` means the same.",
+  "constraints": "static mut is forbidden. Use .clone() to move out of a static.",
+  "remedy": "",
+  "aliases": [
+   "const"
+  ]
+ },
+ {
+  "name": "async",
+  "category": "Keywords",
+  "summary": "Asynchronous function (Task region)",
+  "detail": "In C it has a third parameter __task_reg. Call it with `.await` / `block_on`. In v0.1.0, await runs synchronously.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "await",
+   ".await"
+  ]
+ },
+ {
+  "name": "spawn",
+  "category": "Keywords",
+  "summary": "Thread creation `spawn { ... }` (move capture)",
+  "detail": "Outer variables used by the body move together with their ownership and are adopted into the new thread's Thread region through a Promoted(Process) transfer region. Integers and Chan are copied.",
+  "constraints": "Capturing a reference argument is F0808. Reusing a value after the move is F0382.",
+  "remedy": "",
+  "aliases": [
+   "thread",
+   "スレッド"
+  ]
+ },
+ {
+  "name": "volatile_bypass",
+  "category": "Keywords",
+  "summary": "Direct physical-address access block (completely isolated from and exempt from region analysis)",
+  "detail": "Reads and writes MMIO such as an APIC or UART with mmio_read*/mmio_write*. In C it is wrapped in FASCON_BYPASS_ENTER/EXIT (barriers), and every access is volatile with an I/O barrier (AArch64: dmb oshst/oshld, RISC-V: fence w,o / i,r).",
+  "constraints": "Allocations, moves, user function calls and channel operations are forbidden inside it (F0811).",
+  "remedy": "",
+  "aliases": [
+   "bypass",
+   "MMIO",
+   "unsafe"
+  ]
+ },
+ {
+  "name": "#[isr]",
+  "category": "Keywords",
+  "summary": "Interrupt handler attribute",
+  "detail": "In C it becomes `void fascon_isr_<name>(void)` and is called from the BSP's interrupt vector. Allocations inside it use the Isr region.",
+  "constraints": "No parameters, return value or async. spawn/send/recv/await are not allowed (F0901).",
+  "remedy": "",
+  "aliases": [
+   "isr",
+   "interrupt"
+  ]
+ },
+ {
+  "name": "Some / None",
+  "category": "Keywords",
+  "summary": "Values of Option",
+  "detail": "Option<struct> is a nullable pointer in C; Option<integer> is an {is_some, value} struct.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "Option",
+   "Some",
+   "None"
+  ]
+ },
+ {
+  "name": "chan",
+  "category": "Kernel extensions (1.0)",
+  "summary": "A channel that passes values between cores (the SMP extension of Fascon 1.0)",
+  "detail": "`chan work: own Packet[8];` is a lock-free ring buffer (the capacity is a power of two). `work.send(value)` moves the value in (waiting while the channel is full; the sent variable can no longer be used: F0382), `work.recv()` gives an `Option` (None when empty) and `work.recv_wait()` waits until a value arrives. It also works in programs that do not use `spawn_on` (on one core). For channels that can carry Ids of a shared gc_arena, elements not yet received are GC roots. `chan` is not a reserved word, and it is unrelated to the 0.1-only `chan::` syntax.",
+  "constraints": "F2615: the capacity is not a power of two (2 to 65536), or the element is neither `own T` nor a value that needs no drop. F0515: references and function pointers cannot be elements (they cannot cross cores). F2603: on multi-core, `send` / `recv_wait` (operations that wait) cannot be used inside `critical`. F2803: not available in user programs.",
+  "remedy": "",
+  "aliases": [
+   "チャネル",
+   "channel",
+   "send",
+   "recv",
+   "recv_wait"
+  ]
+ },
+ {
+  "name": "send",
+  "category": "Built-in functions",
+  "summary": "`ch.send(v)` sends together with ownership",
+  "detail": "A struct is sent together with its transfer region (v cannot be used after sending).",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "送信"
+  ]
+ },
+ {
+  "name": "recv",
+  "category": "Built-in functions",
+  "summary": "`ch.recv()` receives (blocking)",
+  "detail": "The received transfer region is adopted into the region of the receiving variable.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "受信"
+  ]
+ },
+ {
+  "name": "clone",
+  "category": "Built-in functions",
+  "summary": "`.clone()` explicit deep copy",
+  "detail": "The destination region is inferred from how the copy is used (Process if it is sent to a thread).",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "複製"
+  ]
+ },
+ {
+  "name": "block_on",
+  "category": "Built-in functions",
+  "summary": "`block_on(f(..))` runs an async fn from synchronous code",
+  "detail": "Creates a Task region and reclaims it in bulk when the task ends.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": []
+ },
+ {
+  "name": "print_int / print_str",
+  "category": "Built-in functions",
+  "summary": "Print an integer / a string literal",
+  "detail": "Through fascon_plat_print (BSP). Does not depend on libc.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "print_int",
+   "print_str",
+   "出力"
+  ]
+ },
+ {
+  "name": "panic",
+  "category": "Built-in functions",
+  "summary": "`panic(\"..\")` safe stop",
+  "detail": "Calls fascon_plat_kernel_panic(FASCON_PANIC_USER).",
+  "constraints": "",
+  "remedy": "",
+  "aliases": []
+ },
+ {
+  "name": "mmio_read / mmio_write",
+  "category": "Built-in functions",
+  "summary": "`mmio_read32(addr)` / `mmio_write32(addr, v)` (8/16/32/64)",
+  "detail": "volatile access plus an architecture-specific I/O barrier.",
+  "constraints": "Usable only inside volatile_bypass (F0811).",
+  "remedy": "",
+  "aliases": [
+   "mmio_read32",
+   "mmio_write32",
+   "mmio_read8",
+   "mmio_write8",
+   "mmio_read64",
+   "mmio_write64"
+  ]
+ },
+ {
+  "name": "fence / compiler_fence",
+  "category": "Built-in functions",
+  "summary": "Full hardware fence / compiler barrier",
+  "detail": "fence(): mfence / dmb ish / fence rw,rw. compiler_fence(): asm volatile(\"\" ::: \"memory\").",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "fence",
+   "compiler_fence"
+  ]
+ },
+ {
+  "name": "cpu_id / cpu_relax",
+  "category": "Built-in functions",
+  "summary": "Current CPU number / spin-wait hint (pause / yield)",
+  "detail": "",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "cpu_id",
+   "cpu_relax"
+  ]
+ },
+ {
+  "name": "Integer types",
+  "category": "Types",
+  "summary": "i8 i16 i32 i64 isize u8 u16 u32 u64 usize",
+  "detail": "Arithmetic is checked (overflow, division by zero and out-of-range shifts panic safely). No C undefined behavior is generated. The type of an integer literal is inferred from its use (i32 by default).",
+  "constraints": "Floating point is not supported in v0.1.0.",
+  "remedy": "",
+  "aliases": [
+   "i64",
+   "u32",
+   "usize",
+   "int",
+   "整数型"
+  ]
+ },
+ {
+  "name": "Option<T>",
+  "category": "Types",
+  "summary": "A type that may or may not hold a value",
+  "detail": "",
+  "constraints": "Nested Options are not supported.",
+  "remedy": "",
+  "aliases": [
+   "Option"
+  ]
+ },
+ {
+  "name": "Chan<T>",
+  "category": "Types",
+  "summary": "Channel handle (Copy)",
+  "detail": "",
+  "constraints": "References cannot be sent.",
+  "remedy": "",
+  "aliases": [
+   "Chan"
+  ]
+ },
+ {
+  "name": "Cache-line alignment",
+  "category": "Hardware co-design",
+  "summary": "Removing false sharing with alignas(64) / padding",
+  "detail": "When different CPUs frequently write different variables on the same 64 B line, the line keeps being invalidated and transferred and saturates the bus even without locks. codegen.rs puts _Alignas(FASCON_CACHE_LINE) on the first member of structs used in Process / Kernel / Task / transfer regions and pads sizeof to a multiple of the line size. The runtime also gives each per-CPU structure, CAS list head and lock its own line.",
+  "constraints": "Use `--cache-line 128` to account for Apple M-series or Intel adjacent-line prefetching. Cortex-M7/R5 use 32 B.",
+  "remedy": "",
+  "aliases": [
+   "false sharing",
+   "偽共有",
+   "alignas",
+   "cache line",
+   "キャッシュラインアライメント"
+  ]
+ },
+ {
+  "name": "Memory barriers",
+  "category": "Hardware co-design",
+  "summary": "Preventing reordering at compile time and at run time",
+  "detail": "The generated code puts FASCON_BOUNDARY_FENCE (asm volatile(\"\" : : \"r\"(reg) : \"memory\")) before and after fascon_region_cleanup, so GCC can neither remove the cleanup nor reorder accesses to the region. Hand-offs between CPUs (channels, the CAS free list, transfer regions) guarantee visibility with acquire/release. `--barrier paranoid` also inserts a full hardware fence (mfence / dmb ish / fence rw,rw / __sync_synchronize) at every boundary.",
+  "constraints": "volatile alone does not order accesses between CPUs (the runtime uses atomic instructions with explicit ordering).",
+  "remedy": "",
+  "aliases": [
+   "barrier",
+   "フェンス",
+   "mfence",
+   "dmb",
+   "__sync_synchronize",
+   "volatile",
+   "メモリバリア"
+  ]
+ },
+ {
+  "name": "CAS singly linked list",
+  "category": "Hardware co-design",
+  "summary": "Path for returning chunks from other CPUs (lock-free)",
+  "detail": "When a chunk belongs to another CPU, it is pushed onto the head of that CPU's remote-free list with CAS (Release). The owning CPU takes the whole list with swap(NULL, Acquire), so the ABA problem cannot occur. The list head has its own cache line, so there is no split lock (a bus lock caused by a LOCK instruction spanning lines).",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "lock-free",
+   "CAS",
+   "remote free",
+   "CAS 単方向リスト"
+  ]
+ },
+ {
+  "name": "Deferred reclamation",
+  "category": "Hardware co-design",
+  "summary": "Frees from an ISR are reclaimed when normal context resumes",
+  "detail": "Frees from an ISR are queued in CPU-local SPSC rings, one per nesting depth. Synchronizing with interrupts on the same CPU needs only compiler barriers, so the interrupt path never uses LOCK-prefixed instructions or hardware fences (interrupt latency does not get worse). Reclamation happens at safe points in normal context (fascon_rt_poll / region_cleanup).",
+  "constraints": "A full ring is FASCON_PANIC_DEFER_FULL.",
+  "remedy": "",
+  "aliases": [
+   "deferred reclamation",
+   "SPSC",
+   "ISR 返却",
+   "遅延回収"
+  ]
+ },
+ {
+  "name": "Isr pool placement",
+  "category": "Hardware co-design",
+  "summary": "Pinning the Isr region to TCM / scratchpad / cache-locked addresses",
+  "detail": "`fascon gen-ld --board <name>` generates a linker script for each board and places the .fascon_isr section in very fast per-CPU SRAM (Cortex-M7 DTCM, Cortex-R5 BTCM [core-local alias], SiFive U74 L2 LIM, etc.). On x86_64 / QEMU without TCM it goes into normal RAM and is pre-faulted and warmed up at boot (staying resident in L1 cannot be guaranteed by the hardware).",
+  "constraints": "x86 has no L1 cache lock. Many ARMv8-A cores do not support L1 lockdown either.",
+  "remedy": "",
+  "aliases": [
+   "TCM",
+   "scratchpad",
+   "SRAM",
+   "cache locking",
+   "リンカスクリプト",
+   ".ld",
+   "Isr プール配置"
+  ]
+ },
+ {
+  "name": "Page pinning",
+  "category": "Hardware co-design",
+  "summary": "Pinning every memory pool to physical memory at boot (identity map)",
+  "detail": "The boot code of mas-runtime identity-maps (virtual = physical) all the pools of the five region classes and maps them in advance with large pages that have the present bit set (AArch64: 1 GiB/2 MiB blocks, x86_64: 2 MiB pages). There is no demand paging, so page faults cannot happen. A TLB miss is resolved by the hardware page walk and is not an exception (large pages also minimize TLB misses). Every pool is also written at boot (pre-faulting).",
+  "constraints": "On AArch64 with the MMU off, every data access is treated as Device-nGnRnE, so exclusive loads/stores (CAS) and caches do not work correctly; the runtime therefore rejects the MMU-off configuration. RISC-V works safely with satp=Bare (MMU off). x86_64 long mode requires paging, so the identity map is used.",
+  "remedy": "",
+  "aliases": [
+   "page pinning",
+   "identity mapping",
+   "恒等マップ",
+   "MMU",
+   "TLB",
+   "アイデンティティマッピング",
+   "ページ固定"
+  ]
+ },
+ {
+  "name": "ROM boot",
+  "category": "Hardware co-design",
+  "summary": "Keeping initialized data in flash and copying it to RAM right after reset (LMA / VMA)",
+  "detail": "On microcontrollers that boot from flash (stm32h743-cm7 / qemu-mps2-an500), the linker script from `fascon gen-ld` places the initial values of .fascon_kernel (statics) and .data in flash (LMA) and their run-time addresses in RAM (VMA). CPU0 calls fascon_board_init_sections() from <board>_board.h in its first C function to copy flash to RAM and zero .bss. The Cortex-M vector table is placed at the start of flash (initial SP, reset handler); Cortex-R5 has no VBAR, so it is placed at 0x0 in ATCM (both are checked with ASSERT at link time). PHDRS splits the segments into R+X (code) and R+W (data), and no RWX segment is created.",
+  "constraints": "Do not use .data / .bss / statics until the copy is complete (and keep interrupts disabled).",
+  "remedy": "",
+  "aliases": [
+   "ROM boot",
+   "LMA",
+   "VMA",
+   "フラッシュ",
+   "fascon_board_init_sections",
+   "ベクタ表",
+   "vector table",
+   "PHDRS",
+   "ROM 起動"
+  ]
+ },
+ {
+  "name": "fascon_plat_kernel_panic",
+  "category": "Hardware co-design",
+  "summary": "Safe-stop hook (complete memory exhaustion, etc.)",
+  "detail": "Always called on complete memory exhaustion (0x0001), Isr capacity overflow (0x0900), integer overflow (0x000B) and so on, and never returns. Implemented by the BSP.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "panic",
+   "パニック",
+   "OOM"
+  ]
+ },
+ {
+  "name": "O(1) bump allocation",
+  "category": "Hardware co-design",
+  "summary": "Lock-free, CPU-local fast path",
+  "detail": "An allocation only advances the bump pointer (inlined). The next cache line is prefetched with write intent. Chunks come from a CPU-local pre-allocated pool; when it is empty, it is refilled from the list returned by other CPUs, then from the global reserve (spin lock), and exhaustion is a panic.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "bump",
+   "バンプ",
+   "allocator",
+   "O(1) バンプ割り当て"
+  ]
+ },
+ {
+  "name": "fascon build",
+  "category": "CLI",
+  "summary": "Generate C code (build/<name>.fascon.c)",
+  "detail": "The source file is never overwritten, even when the input is a .c file. fascon_rt.h is written next to it.",
+  "constraints": "",
+  "remedy": "`fascon build main.rs --cache-line 64 --barrier strict`",
+  "aliases": [
+   "build"
+  ]
+ },
+ {
+  "name": "fascon explain",
+  "category": "CLI",
+  "summary": "Root-cause timeline, fixed code and mathematical explanation",
+  "detail": "",
+  "constraints": "",
+  "remedy": "`fascon explain main.rs --line 15`",
+  "aliases": [
+   "explain"
+  ]
+ },
+ {
+  "name": "fascon gen-ld",
+  "category": "CLI",
+  "summary": "Generate a linker script for a board",
+  "detail": "Writes the linker script (.ld) and <board>_board.h (constants, fascon_board_init_sections()) and prints the C compiler flags required for that board (e.g. -mno-red-zone on x86_64, -mno-outline-atomics on AArch64).",
+  "constraints": "",
+  "remedy": "`fascon gen-ld --list` / `fascon gen-ld --board stm32h743-cm7`",
+  "aliases": [
+   "gen-ld",
+   "linker script"
+  ]
+ },
+ {
+  "name": "fascon lsp",
+  "category": "CLI",
+  "summary": "Language server (usable from editors other than VS Code)",
+  "detail": "Start `fascon lsp` from the LSP client of Neovim / Emacs / Sublime Text / Helix / JetBrains.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "lsp",
+   "language server"
+  ]
+ },
+ {
+  "name": "arena",
+  "category": "Arenas & generations (1.0)",
+  "summary": "a type-safe static region `arena name: T[N];` (the `@` is optional)",
+  "detail": "Places a table of capacity N (1 to 16,777,216) in the Kernel region (.bss). Elements are inline values (in 16-byte-aligned slots) and each slot has a 32-bit generation tag. The compiler picks the index width K = ceil(log2(N)); the remaining 32-K bits are the generation (16 | 16 for a capacity of 65,536). The table holds 2^K slots + 1 sentinel. A slot is reused up to 2^(32-K)-1 times and then retires (generations never wrap), so an arena serves roughly 2.1 to 4.3 billion allocations over its life. The building block for OS tables (processes, files ...) that link to each other through Ids instead of pointers.",
+  "constraints": "Elements cannot be references or bare arrays (put arrays in a struct field); own T fields are allowed (freed with the slot). A power-of-two capacity leaves no padding slots.",
+  "remedy": "Split even larger tables into several arenas (the index has at most 24 bits).",
+  "aliases": [
+   "@process",
+   "アリーナ",
+   "multi-arena",
+   "マルチアリーナ",
+   "静的リージョン"
+  ]
+ },
+ {
+  "aliases": [
+   "Id",
+   "ハンドル",
+   "handle",
+   "cross-index",
+   "クロス・インデックス型",
+   "着色",
+   "coloring"
+  ],
+  "category": "Arenas & generations (1.0)",
+  "constraints": "An Id cannot be made from an integer (validate external values).",
+  "detail": "`Id<@file>` and `Id<@process>` are different types (mixing them is F2101). Ids are copyable values, so they can be stored anywhere and express cyclic graphs (parent/child/sibling/back links) without references. `Option<Id<@a>>` uses 0 as None and stays 4 bytes.",
+  "name": "Id<@a>",
+  "remedy": "Inspect it with `.index()` / `.generation()` / `.raw()`.",
+  "summary": "a handle coloured by its arena (32 bits: generation 32-K + index K, with K set by the capacity)"
+ },
+ {
+  "name": "世代タグ",
+  "category": "Arenas & generations (1.0)",
+  "summary": "the reuse counter that prevents the ABA problem",
+  "detail": "Freeing a slot increments its generation; an old Id no longer matches, so even if the slot was reused it yields None (or a safe stop for @a[id]). The check is one index-range compare plus one generation compare.",
+  "constraints": "A slot has 65535 generations; an exhausted slot is retired and never handed out again (ABA is excluded structurally, not probabilistically).",
+  "remedy": "Give long-running kernels some spare capacity (FIFO reuse spreads wear over all slots).",
+  "aliases": [
+   "generation tag",
+   "generation",
+   "ABA",
+   "世代",
+   "再利用"
+  ]
+ },
+ {
+  "aliases": [
+   "get",
+   "get_mut",
+   "lookup",
+   "ルックアップ",
+   "if let"
+  ],
+  "category": "Arenas & generations (1.0)",
+  "constraints": "While the reference is live, functions that touch (free) slots of the same arena cannot be called: F2502; effects are computed transitively through callees.",
+  "detail": "`if let Some(p) = @process.get_mut(pid) { p.state = 1; }`. p is a second-class reference that cannot leave the block; a stale Id takes the None arm.",
+  "name": "@a.get / @a.get_mut",
+  "remedy": "Copy what you need into locals, leave the block, then do the operation.",
+  "summary": "a temporary lookup (a reference that exists only inside if let / match)"
+ },
+ {
+  "aliases": [
+   "index",
+   "スロット",
+   "slot",
+   "生存証明",
+   "liveness proof"
+  ],
+  "category": "Arenas & generations (1.0)",
+  "constraints": "Passing two &mut of the same arena to one call is F0499 (the Ids may be equal).",
+  "detail": "Used to read/write fields and to pass `&mut @a[id]`. Where liveness is statically proven (right after alloc, inside a successful lookup, after an earlier check) the generation check is omitted (see the counts with `fascon regions`).",
+  "name": "@a[id]",
+  "remedy": "Copy one side into a local, or split the call.",
+  "summary": "a checked slot access (a stale Id stops safely)"
+ },
+ {
+  "aliases": [
+   "alloc",
+   "free",
+   "remove",
+   "validate",
+   "contains",
+   "for id in"
+  ],
+  "category": "Arenas & generations (1.0)",
+  "constraints": "Reuse is FIFO (in freeing order).",
+  "detail": "alloc(v) → Option<Id> (None when full). free(id) → bool (also frees own fields; generation +1). remove(id) → Option<T> (moves the value out). validate(raw: u32) → Option<Id> (turns a value from outside, e.g. a syscall, back into an Id safely). `for id in @a { }` visits live slots only (the body may free).",
+  "name": "@a.alloc / free / remove / validate",
+  "remedy": "",
+  "summary": "allocate, free, take out, and validate external values"
+ },
+ {
+  "name": "own T",
+  "category": "Ownership trees (1.0)",
+  "summary": "a move-only owning reference (exactly one owner in the world)",
+  "detail": "`own Window { .. }` creates one own region. It cannot be copied or shared, only moved. Scope end, overwrite, `drop(x)` or an arena free releases it together with all descendants. It can be lent to functions as `&w`. The contents need not be a struct: `struct MyContext { buffer: own i32, size: i32 }` / `own [u8; 4096]` / `own Str` / `own Option<own Node>`. The contents of a non-struct own are read and written with `*` (`*ctx.buffer += 1;`). A struct with own fields is move-only too: every move, scope end and overwrite frees the owns inside along with it (double frees cannot happen, statically: F0382 / F0507).",
+  "constraints": "The contents of an own are a value type (a struct, an integer, bool, Str, an Id, an array or an Option); references, `()`, `own own T` and function pointers are rejected (F0515 / F2301). A child cannot be moved out of an own field (F0507), nor a non-copyable value out of `*b` (F0507).",
+  "remedy": "Use `Option<own T>` and `.take()` for detachable children. Replace the whole own with `ctx.buffer = own 7;`; write only its contents with `*ctx.buffer = 7;`.",
+  "aliases": [
+   "own",
+   "所有参照",
+   "Box",
+   "Move-only",
+   "ムーブ",
+   "own i32",
+   "own フィールド",
+   "own field",
+   "*"
+  ]
+ },
+ {
+  "name": "所有リージョン",
+  "category": "Ownership trees (1.0)",
+  "summary": "the box an own value lives in; children of the construction are packed into it",
+  "detail": "`own Window { ok: own Button {..}, cancel: own Button {..} }` packs the window and its two buttons into one block with a single allocation (contiguous in cache). Closing it frees everything with a single free. Children replaced later get their own boxes and are freed immediately on replacement.",
+  "constraints": "The contents of Option<own T> are never packed (they are detachable). One box is at most 64 KiB.",
+  "remedy": "`fascon regions` shows how many children were packed.",
+  "aliases": [
+   "own region",
+   "packing",
+   "詰め込み",
+   "Bulk Free",
+   "一括解放",
+   "packed"
+  ]
+ },
+ {
+  "name": ".take() / drop()",
+  "category": "Ownership trees (1.0)",
+  "summary": "move out of an Option / free right now",
+  "detail": "`desk.win.take()` returns the contents and leaves None. `drop(x)` frees the own region of x on the spot.",
+  "constraints": "take needs a writable place (a mut variable, a &mut parameter, a slot).",
+  "remedy": "",
+  "aliases": [
+   "take",
+   "drop"
+  ]
+ },
+ {
+  "name": "mmio",
+  "category": "Fixed-address regions (1.0)",
+  "summary": "a fixed-address region `mmio @name: [T; N] at address;`",
+  "detail": "Declares a physical address range as a typed array (1-D or 2-D). Indices proven in range are unchecked, constant out-of-range indices are compile-time errors (F2201), others are checked at run time. Devices default to volatile + I/O barriers (the ordering of Linux readl / writel).",
+  "constraints": "Elements are u8 to u64. Two overlapping regions are F2203. References (&@fb[..]) cannot be created.",
+  "remedy": "No raw pointers or unsafe are needed; volatile_bypass remains for compatibility.",
+  "aliases": [
+   "MMIO",
+   "固定番地",
+   "VRAM",
+   "fixed address",
+   "Memory-Mapped I/O"
+  ]
+ },
+ {
+  "name": "#[framebuffer]",
+  "category": "Fixed-address regions (1.0)",
+  "summary": "a framebuffer treated as normal memory",
+  "detail": "No volatile is applied, so full-screen loops are vectorized by GCC / Clang (e.g. NEON; the same machine code as raw pointers). The BSP reads the generated MMIO table, configures the ramfb of QEMU and maps the pages non-cacheable.",
+  "constraints": "Pixels are 32 bits (XRGB8888).",
+  "remedy": "`@fb.fill_rect(x, y, w, h, c)` and `@fb.put(x, y, c)` clip everything off-screen.",
+  "aliases": [
+   "framebuffer",
+   "フレームバッファ",
+   "fill_rect",
+   "put",
+   "ramfb"
+  ]
+ },
+ {
+  "name": "Str",
+  "category": "Types",
+  "summary": "string literals (immutable strings in the Kernel region)",
+  "detail": "Can be stored anywhere (it lives forever). `.len()`, `.byte(i)`, `==`.",
+  "constraints": "Strings cannot be built at run time.",
+  "remedy": "",
+  "aliases": [
+   "str",
+   "文字列"
+  ]
+ },
+ {
+  "name": "[T; N]",
+  "category": "Types",
+  "summary": "fixed-size arrays (inline values)",
+  "detail": "`[None; 16]`, `[1, 2, 3]`. Indexing is checked, and omitted where the range is proven (e.g. inside `for i in 0..N`).",
+  "constraints": "Not passable or returnable by value (F2040): pass `&[T; N]`.",
+  "remedy": "",
+  "aliases": [
+   "array",
+   "配列"
+  ]
+ },
+ {
+  "name": "type 別名<@a: T>",
+  "category": "Types",
+  "summary": "type aliases with arena parameters and kind bounds",
+  "detail": "`type FileId<@a: File> = Id<@a>;` → `FileId<@file>`. The bound `@a: File` only admits arenas whose element type is File (violations are F2102).",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "type",
+   "alias",
+   "kind bound",
+   "種別境界",
+   "FileId",
+   "ProcessId"
+  ]
+ },
+ {
+  "name": "if let",
+  "category": "Keywords",
+  "summary": "a match that tries a single pattern",
+  "detail": "Used on a place (a variable or field) the binding is a reference (a borrow); used on a value (a call result, take()) it receives ownership.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "iflet"
+  ]
+ },
+ {
+  "name": "生存ビットマップ",
+  "category": "Arenas & generations (1.0)",
+  "summary": "a liveness table with one bit per slot (64 slots = one uint64_t)",
+  "detail": "alloc sets the bit and free / remove clears it. A general `for id in @a` reads one word and finds the next live slot with ctz (x86-64: TZCNT / AArch64: RBIT + CLZ), so there is no per-slot branch and no read of a live mark. Filtered counts and min / max exclude dead slots with a mask made of the live bit of each slot ANDed with the filter. A word that is all zero skips 64 slots without reading them.",
+  "constraints": "8 KiB for 65,536 slots; the array starts on its own 128-byte boundary, apart from the other arrays (SoA).",
+  "remedy": "`fascon regions` shows how many loops run on the bitmap and how many reductions are masked.",
+  "aliases": [
+   "live bitmap",
+   "bitmap",
+   "ビットマップ",
+   "ctz",
+   "tzcnt",
+   "rbit",
+   "clz"
+  ]
+ },
+ {
+  "name": "列",
+  "category": "Arenas & generations (1.0)",
+  "summary": "dense mirrors inside the table holding exactly the values a `for id in @a` reduction reads (aggregate, bit and key columns)",
+  "detail": "The compiler looks at every `for id in @a` reduction in the program and gives each one columns in the table (no annotation in the source). Sums and filtered sums → aggregate column agg[i] = filter ? value : 0 (8 B per slot for u64 values, 4 B for 32 bits or fewer). Filtered counts → bit column (bit i = live && filter; the count is one popcount per 64 slots). Min / max picks → key column key[i] = live && filter ? enc(value) : NONE (the scan is a signed minimum). Scans read the columns, never the slots, so even a 32-byte task costs 1 bit to 8 bytes of traffic. Columns mirror the slots: alloc, free / remove, writes by Id that reach a field a column reads, the end of a get_mut borrow, and calls given &mut @a[id] rebuild exactly the columns the write can reach. During a borrow F2502 rejects every read of the arena, so a stale mirror is never observed.",
+  "constraints": "Each column adds 4 to 8 B × 2^K to the table (a bit column 2^K bits); `fascon regions` lists them with the total. Reductions whose filter reads a local (a parameter, say) and 64-bit `<=` / `>=` picks get no column and keep the 1.0.0 scan. A write costs one store per column it reaches (writes to fields no column reads cost nothing extra).",
+  "remedy": "`--columns off` (VS Code: setting fascon.columns; environment FASCON_COLUMNS=off) gives back the 1.0.0 tables and scans.",
+  "aliases": [
+   "columns",
+   "column",
+   "--columns",
+   "集計の列",
+   "ビット列",
+   "鍵の列",
+   "aggregate column",
+   "key column",
+   "mirror",
+   "写し",
+   "SoA"
+  ]
+ },
+ {
+  "name": "#[repr(align(N))]",
+  "category": "Types",
+  "summary": "raises the alignment of a struct to at least N bytes (N a power of two from 1 to 4096)",
+  "detail": "As an arena element, every slot gets an N-byte boundary: N = 64 puts one slot per line and N = 128 also separates it from the adjacent line, so slots written by different cores never share a line. The table itself (bookkeeping, live bitmap, generations, links, slots) is split on 128-byte boundaries even without it.",
+  "constraints": "A type aligned to more than 16 bytes cannot live in an own region (16-byte aligned; F2032). On small slots it makes the table larger and scans read more bytes.",
+  "remedy": "Use it only on tables that each core writes; keep scan-heavy tables at 16 bytes.",
+  "aliases": [
+   "repr",
+   "align",
+   "alignas",
+   "整列",
+   "false sharing",
+   "偽共有",
+   "cache line",
+   "キャッシュライン"
+  ]
+ },
+ {
+  "name": "フレームリージョン",
+  "category": "Ownership trees (1.0)",
+  "summary": "where an own that is never moved lives, with the same motion as a stack",
+  "detail": "A `let x = own T { .. }` that escape analysis shows is never moved is taken from a pre-reserved frame by bumping its top pointer (one compare and one add, inlined) instead of the heap free lists, and popped back to its mark where the scope of x ends (break, continue and return included). Inside a loop it is popped every iteration, so it does not grow. The MMU and page tables are never touched.",
+  "constraints": "An own that is returned, stored in a struct or arena, passed by value or dropped stays on the heap. When the frame is full, allocation falls back to the heap (same result). The BSP frame is 1 MiB; PC runs default to 64 KiB.",
+  "remedy": "The \"frame region\" lines of `fascon regions` show which lets were placed in the frame.",
+  "aliases": [
+   "frame",
+   "frame region",
+   "フレーム",
+   "escape analysis",
+   "エスケープ解析",
+   "bump",
+   "stack region"
+  ]
+ },
+ {
+  "name": "own_alloc(T)",
+  "category": "Ownership trees (1.0)",
+  "summary": "dynamic allocation taking a type name (no generics): a zero-filled own T",
+  "detail": "`let data = own_alloc(Block);` returns a zero-filled `own Block`. Its own children (non-Option own fields, also inside arrays and inline structs) are created zero-filled and packed into the same own region (one allocation, one free); Option<own T> fields start as None. A let that is never moved takes it from the frame region. It is freed automatically at the end of its scope.",
+  "constraints": "The argument is a value type an own can hold (a struct, an integer, bool, Str, an Id, an array or an Option; `own_alloc(i32)` / `own_alloc([u8; 4096])` work too; anything else is F2301); types whose own children never end are rejected (F2304: make the way back Option<own T>); no alignment above 16 bytes (F2032).",
+  "remedy": "",
+  "aliases": [
+   "own_alloc",
+   "own_alloc!",
+   "Box::new",
+   "動的確保",
+   "dynamic allocation",
+   "zeroed"
+  ]
+ },
+ {
+  "name": "コミット点",
+  "category": "Arenas & generations (1.0)",
+  "summary": "where the latch (deferred faults) is checked and the program stops safely",
+  "detail": "Placed right before calls, output, MMIO and exit, and before return. Loops with a fixed trip count (`for i in a..b`, `for id in @a`) carry none inside and check once at the exit (one jump fewer in the body, and a shape that can be vectorized). In loops without a fixed trip count (while, loop) the latch is folded into the exit condition and shares the branch of the exit.",
+  "constraints": "After a stale read, a fixed-trip loop runs to its last iteration before stopping (anything with an external effect stops first).",
+  "remedy": "Where it stopped is the source position written in the `F20_COMMIT`.",
+  "aliases": [
+   "commit point",
+   "latch",
+   "ラッチ",
+   "F20_COMMIT",
+   "cbnz"
+  ]
+ },
+ {
+  "name": "F2101",
+  "category": "Error codes",
+  "summary": "arena colour mismatch",
+  "detail": "An Id of one arena was used to index or fill a field of another arena.",
+  "constraints": "Id<@a> and Id<@b> (a ≠ b) are different types.",
+  "remedy": "Use an Id obtained from the right arena; validate external values.",
+  "aliases": [
+   "色",
+   "colour",
+   "color"
+  ]
+ },
+ {
+  "name": "F2102",
+  "category": "Error codes",
+  "summary": "kind bound violated",
+  "detail": "An arena that does not store File was given to `FileId<@a: File>`.",
+  "constraints": "",
+  "remedy": "Pass an arena that matches the bound.",
+  "aliases": []
+ },
+ {
+  "name": "F2103",
+  "category": "Error codes",
+  "summary": "invalid arena declaration (capacity 1..16,777,216, value elements other than bare arrays; bump_arena elements cannot hold own)",
+  "detail": "An arena declaration has the wrong shape: a capacity outside 1 to 16,777,216 (the index of an Id has at most 24 bits), an element that is not a value type (`own T`, an array or a function pointer cannot be the element directly), or a bump_arena element that contains own (the bulk release of a call region does not run own releases).",
+  "constraints": "",
+  "remedy": "Keep the capacity inside the range. Put own, arrays and function pointers inside struct fields and make that struct the element. Keep values that hold own in an `arena`, not a bump_arena.",
+  "aliases": []
+ },
+ {
+  "name": "F2104",
+  "category": "Error codes",
+  "summary": "an arena or region name that is declared nowhere (declaration order is free: declaring it later is fine)",
+  "detail": "An arena name used in `@name`, `Id<@name>`, `for task` and the like cannot be found, or the name of an MMIO region or a port was given to `Id` (an `Id` only refers to arenas). Declarations may come in any order, so declaring it later is fine.",
+  "constraints": "",
+  "remedy": "Match the spelling to the declaration, or declare `arena name: Type[N];`.",
+  "aliases": []
+ },
+ {
+  "name": "F2201",
+  "category": "Error codes",
+  "summary": "fixed-address region index out of bounds (compile time)",
+  "detail": "A fixed-address region (mmio, #[framebuffer], ...) is accessed with an index known at compile time that lies outside it. Writing past it would damage other devices or memory, so the compiler stops it (F0608 for ordinary arrays).",
+  "constraints": "",
+  "remedy": "Fix the index, or use the clipping put / fill_rect.",
+  "aliases": []
+ },
+ {
+  "name": "F2202",
+  "category": "Error codes",
+  "summary": "invalid MMIO declaration (type, alignment, address)",
+  "detail": "The form `mmio name: [u32; N] at address;` is wrong: the type is not an array of integers (one or two dimensions, u8 to u64 elements), the address is not aligned to the element size, the range does not fit the address space, or the address is 0.",
+  "constraints": "",
+  "remedy": "Follow the addresses and register widths of the data sheet and write `[u32; N]` or `[[u32; W]; H]`.",
+  "aliases": []
+ },
+ {
+  "name": "F2203",
+  "category": "Error codes",
+  "summary": "overlapping MMIO regions",
+  "detail": "Two MMIO regions (or two ports) have overlapping address ranges. If the same physical memory or register could be written under two names, the checks would mean nothing.",
+  "constraints": "",
+  "remedy": "Separate the ranges, or merge them into one region and tell the parts apart by index.",
+  "aliases": []
+ },
+ {
+  "name": "F2204",
+  "category": "Error codes",
+  "summary": "a region used as a value or a reference",
+  "detail": "`@a` itself is not a value, nor is a row `@fb[y]`.",
+  "constraints": "",
+  "remedy": "Use `@a[id]`, `@a.alloc(..)`, `@fb[y][x]`.",
+  "aliases": []
+ },
+ {
+  "name": "F2301",
+  "category": "Error codes",
+  "summary": "own applied to a type an own cannot hold (`()`, `own own T`, a function pointer)",
+  "detail": "The contents of an own are a value type (a struct, an integer, bool, Str, an Id, an array or an Option). `own own T` needs only one level, and a function pointer holds no data, so keep it as a plain value. Putting a reference into an own is F0515 (F0520 inside a callback).",
+  "constraints": "",
+  "remedy": "Use `own T`, or a plain value.",
+  "aliases": []
+ },
+ {
+  "name": "F2302",
+  "category": "Error codes",
+  "summary": "a static holding a type that contains own",
+  "detail": "A static holds a type that contains own. Statics live in the Kernel region and are immutable, so the own could never be released.",
+  "constraints": "",
+  "remedy": "Keep values that hold own in an arena, and keep integers or Ids in statics.",
+  "aliases": []
+ },
+ {
+  "name": "F2502",
+  "category": "Error codes",
+  "summary": "arena effect conflict (touching an arena while a reference into it is live)",
+  "detail": "While a lookup or &mut @a[id] reference was live, a function that reads/writes/frees slots of that arena (including through callees) was called, or the arena was touched directly. A call through a function pointer (a callback) is checked against the union of the effects of every function that can be passed there, and the conflicting one is named (e.g. a function that frees tasks passed as f in `for id in tasks { f(&mut tasks[id]); }`).",
+  "constraints": "Effects are computed as a least fixpoint over the call graph (function-pointer candidates included).",
+  "remedy": "Copy values into locals and call outside the block.",
+  "aliases": [
+   "効果",
+   "effect"
+  ]
+ },
+ {
+  "name": "F2900",
+  "category": "Error codes",
+  "summary": "a 0.1-only feature (spawn / chan / async / #[isr]) in a file using 1.0 syntax",
+  "detail": "This release has two engines: files with 1.0 syntax (arena / own / mmio) go to the 1.0 engine, others to the 0.1 core.",
+  "constraints": "",
+  "remedy": "Put the threaded / interrupt parts in a separate file (0.1 core).",
+  "aliases": []
+ },
+ {
+  "name": "F2030",
+  "category": "Error codes",
+  "summary": "an infinitely sized struct (contains itself by value)",
+  "detail": "In 1.0 structs are inline values.",
+  "constraints": "",
+  "remedy": "Recurse through `Option<own T>`.",
+  "aliases": []
+ },
+ {
+  "name": "F2031",
+  "category": "Error codes",
+  "summary": "a malformed `#[repr(align(N))]` or an invalid N",
+  "detail": "The only supported repr is `#[repr(align(N))]` with N a power of two from 1 to 4096; other attributes on a struct are ignored (warning).",
+  "constraints": "",
+  "remedy": "Write it like `#[repr(align(64))]` or `#[repr(align(128))]`.",
+  "aliases": []
+ },
+ {
+  "name": "F2032",
+  "category": "Error codes",
+  "summary": "a type aligned to more than 16 bytes was put in an own region",
+  "detail": "Own regions (and frame regions) are 16-byte aligned, so a `#[repr(align(64))]` struct, or a type that contains one by value, would lose its alignment there.",
+  "constraints": "",
+  "remedy": "Use it as an arena element or as a plain value (a local or a struct field).",
+  "aliases": []
+ },
+ {
+  "name": "F2040",
+  "category": "Error codes",
+  "summary": "arrays passed or returned by value",
+  "detail": "An array is passed by value, returned, or has length 0. This avoids hidden copies of large arrays.",
+  "constraints": "",
+  "remedy": "Pass `&[T; N]`, or return the array inside a struct.",
+  "aliases": []
+ },
+ {
+  "name": "fn(T) -> R",
+  "category": "Types",
+  "summary": "a function pointer (callback) type; using the name of a function as a value makes one",
+  "detail": "Write `fn for_each(a: &mut [i32; 4], f: fn(&mut i32)) { for i in 0..4 { f(&mut a[i]); } }` and pass the name of a function, as in `for_each(&mut a, inc)`. Its parameters are parameter positions, so reference types `&T` / `&mut T` are allowed (still second-class: alive for the call only). It can live in struct fields (`on_click: fn(&mut Button)`), locals, static tables (`static OPS: [fn(i32) -> i32; 2] = [inc, dbl];`) and `Option<fn(..)>`. A function pointer in a field is called as `(h.on_click)(&mut b)`. In C it is a function pointer type made with typedef (`fsc_fnN`); it holds no data (it is copyable).",
+  "constraints": "The return type cannot be a reference (F0515); arrays cannot be passed or returned by value (F2040); types must agree in every parameter type, reference mutability and the return type (F0308). Callbacks that receive references must be stack_only (F0520). The effect of a call is the union over every function that can be passed (F2502). `main` and builtins cannot be values.",
+  "remedy": "To give a callback state, pass the state along as a `&mut` parameter (there are no closures).",
+  "aliases": [
+   "fn",
+   "関数ポインタ",
+   "function pointer",
+   "callback",
+   "コールバック",
+   "高階関数",
+   "higher-order function",
+   "for_each"
+  ]
+ },
+ {
+  "name": "stack_only",
+  "category": "Types",
+  "summary": "the property that a callback consumes the references it receives inside its own stack frame (guaranteed by F0520)",
+  "detail": "Using a function with reference parameters as a value (making it a callback) requires it to be stack_only: it may read and write through the references and pass them on as reference arguments, but must not put them into an arena, a static, MMIO, the places of the caller (behind another reference), an own region or a by-value parameter, nor return them. References made from references (`&mut x.f`, bindings of places), values wrapping a reference (`Some(x)`, structs, arrays) and locals bound to one are followed, and so are paths through callees, by per-function summaries (a least fixpoint over the call graph).",
+  "constraints": "Thanks to second-class references (F0515), a program that type-checks is stack_only already; F0520 points out code that departs from it, in the context of the callback and with a root-cause timeline (folding F0515 / F0308 at the same places).",
+  "remedy": "To keep the data, copy the contents (`*x` / `x.clone()`) or hold the target by `Id` or `own`.",
+  "aliases": [
+   "pure",
+   "stack only",
+   "エスケープ解析",
+   "escape analysis",
+   "F0520"
+  ]
+ },
+ {
+  "name": "F0520",
+  "category": "Error codes",
+  "summary": "reference escape constraint violated: a callback let a reference it received escape",
+  "detail": "A callback assigned or stored a second-class reference that a higher-order function lent it for one call (`f(&mut a[i])`) into something that outlives the call (an arena, a static, MMIO, the places of the caller, an own, a by-value parameter), or returned it. The timeline reads: which higher-order function it was passed to → which reference parameter → wrapping / binding / passing to another function → where it escapes.",
+  "constraints": "Callback = a function with reference parameters that is used as a value.",
+  "remedy": "Copy the contents (`*x` / `x.clone()`) or hold the target by `Id` / `own`. `fascon explain <file> --code F0520` shows the path and the fix.",
+  "aliases": [
+   "escape",
+   "エスケープ",
+   "callback escape",
+   "stack_only"
+  ]
+ },
+ {
+  "name": "F0560",
+  "category": "Error codes",
+  "summary": "A struct literal names a field the struct does not have",
+  "detail": "A struct literal `S { .. }` gives a field that the declaration does not have.",
+  "constraints": "",
+  "remedy": "Match the field names to the declaration.",
+  "aliases": [
+   "フィールド",
+   "field",
+   "struct literal"
+  ]
+ },
+ {
+  "name": "F0618",
+  "category": "Error codes",
+  "summary": "called something that is not a function",
+  "detail": "The x of `x(1)` is neither a function nor a function pointer `fn(..)`.",
+  "constraints": "",
+  "remedy": "Call a function pointer stored in a field with parentheses: `(h.cb)(..)`.",
+  "aliases": []
+ },
+ {
+  "name": "fascon qemu",
+  "category": "CLI",
+  "summary": "build and run on QEMU (BIOS-less AArch64, or x86_64 / AArch64 through the Fascon virtual BIOS; GUI capable)",
+  "detail": "`fascon qemu app.fsc` → generate C, write the BSP, link with clang / gcc, start QEMU (AArch64, -kernel). `--target x86_64` / `--target aarch64` boots through the Fascon virtual BIOS (-bios). Programs that use `spawn_on` boot with `-smp 4` (`--smp N` for 1 to 4). `--headless --screenshot out.png` saves the screen.",
+  "constraints": "Needs clang + ld.lld (or aarch64 / x86_64 gcc) and qemu-system-aarch64 (qemu-system-x86_64 for `--target x86_64`).",
+  "remedy": "",
+  "aliases": [
+   "qemu",
+   "bare-metal",
+   "ベアメタル"
+  ]
+ },
+ {
+  "name": "fascon run",
+  "category": "CLI",
+  "summary": "build and run on the PC (the framebuffer is saved as PNG)",
+  "detail": "Maps the fixed-address regions at the same addresses inside the process. A GUI is written to `<name>.png` at exit. The generated C is compiled for the CPU of this PC (x86-64: -march=native, AArch64: -mcpu=native, so column scans use AVX2 / AVX-512 / NEON widths; a compiler that rejects the flag gets a second try without it). `--cpu baseline` sticks to the baseline instructions of the architecture.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "run",
+   "host",
+   "--cpu",
+   "-march=native"
+  ]
+ },
+ {
+  "name": "critical",
+  "category": "Kernel extensions (1.0)",
+  "summary": "A closed section (a block or function that is not interrupted)",
+  "detail": "Inside `critical { .. }` and `critical fn` neither interrupts nor task switches happen. On multi-core it (1) masks the interrupts of this core and (2) takes the spinlock, and releases them in reverse order on exit (`fascon_plat_critical_enter` / `exit`; DAIF.I on AArch64, RFLAGS.IF on x86_64). The compiler finds which regions are shared from the effects, so nothing is written on the regions.",
+  "constraints": "The end of a closed section is a commit point. `@task.yield_to` may be called inside (the interrupt state lives in the saved frame). On multi-core, waiting inside (channel send / recv_wait, task waits) is F2603, and gc_arena allocation and collection are F2622.",
+  "remedy": "The Quick Fix of F2601 wraps the statements in `critical { .. }`.",
+  "aliases": [
+   "critical",
+   "クリティカルセクション",
+   "閉じた区間",
+   "割り込み禁止",
+   "critical fn"
+  ]
+ },
+ {
+  "name": "task_arena",
+  "category": "Kernel extensions (1.0)",
+  "summary": "The task table arena",
+  "detail": "`task_arena @task: Task[64] stack 16384;` is an arena whose slots also carry a kernel stack and a saved context (hidden columns). `@task.start(value, entry, arg)`, `current()`, `yield_to(id)`, `resume(id)` (irq only), `enter(id)`, `exit()`. The policy (choosing the next task) is written in Fascon.",
+  "constraints": "The entry is a `fn(u64)`. The current task cannot be freed (F2605). In a program that uses `spawn_on` there is one task table per core (slot i is a different task on each core).",
+  "remedy": "",
+  "aliases": [
+   "task_arena",
+   "タスク",
+   "コンテキストスイッチ",
+   "context switch",
+   "start",
+   "yield_to",
+   "resume",
+   "enter",
+   "current"
+  ]
+ },
+ {
+  "name": "#[wire(le)] / #[wire(be)]",
+  "category": "Kernel extensions (1.0)",
+  "summary": "Wire structs (alignment 1, no padding, fixed byte order, plain old data)",
+  "detail": "Fields are integers, arrays of integers and wire structs only. Every bit pattern is a valid value, so they can be laid over disk sectors, packets, memory shared with a device and user memory.",
+  "constraints": "A layout that would need padding is F2701 (reorder the fields or write a reserved field).",
+  "remedy": "",
+  "aliases": [
+   "wire",
+   "ワイヤ構造体",
+   "POD",
+   "エンディアン",
+   "endian",
+   "packed"
+  ]
+ },
+ {
+  "name": ".view(T, off) / .window(off, len)",
+  "category": "Kernel extensions (1.0)",
+  "summary": "Views and windows over bytes (second-class references)",
+  "detail": "`x.view(T, off)` is a reference to a wire struct over bytes; `x.window(off, len)` is a reference with a length, `&[u8]`. Both give None when out of range and never stop. `x.read(T, off)` copies. Being references they cannot be stored (F0515).",
+  "constraints": "Only as the scrutinee of `if let` / `match`. `&a[lo..hi]` panics when out of range, so use it for trusted values only.",
+  "remedy": "",
+  "aliases": [
+   "view",
+   "view_mut",
+   "window",
+   "window_mut",
+   "read",
+   "&[u8]",
+   "スライス",
+   "窓",
+   "ビュー",
+   "ゼロコピー",
+   "zero copy"
+  ]
+ },
+ {
+  "name": "dma / dma_arena / Dma<@b>",
+  "category": "Kernel extensions (1.0)",
+  "summary": "Memory shared with devices, and lending expressed as a move",
+  "detail": "`dma @r: [T; N];` is a ring both sides touch (always volatile). `dma_arena @b: T[N];` is a table of buffers and `Dma<@b>` its move-only handle. `@b.lend(h)` consumes h (later use is F0382); `@b.reclaim(index)` returns a handle only if the index is in range and lent.",
+  "constraints": "Elements are plain old data (F2702). Handles cannot live in a bump_arena or a static (F2703).",
+  "remedy": "Take the address as an integer with `h.phys()` / `@r.phys()` and write it into the descriptor.",
+  "aliases": [
+   "dma",
+   "dma_arena",
+   "Dma",
+   "lend",
+   "reclaim",
+   "phys",
+   "virtio",
+   "DMA"
+  ]
+ },
+ {
+  "name": "syscall / user_mem / trap",
+  "category": "Kernel extensions (1.0)",
+  "summary": "The boundary with user space (EL0 on AArch64, ring 3 on x86_64)",
+  "detail": "`user_mem umem for task: 0x8_0000 at 0x1_0000_0000;` is per-task user memory (size and address are multiples of 4 KiB; every task sees the same virtual address). Every task has its own page table (address space), and pages are mapped 4 KiB at a time when first touched (demand paging). `task.start_user(value, entry, stack)` creates a user task and `if let Some(m) = umem.of(id) { .. }` lets the kernel write its image. `syscall write at 1 (fd: u32, buf: &[u8]) -> i64 { .. }` is an entry from user space: windows and references to wire structs reach the body only after the entry has checked that they lie inside the user memory of the calling task (otherwise the body is not entered and the result is -14; a `&mut` window overlapping another window is -14 too). On multi-core the entry copies each window once into a shadow buffer, so another core changing the memory meanwhile cannot change what the body sees (`&mut` windows are written back on exit). A bodiless `syscall .. -> i64;` is the user-side declaration and becomes an svc (`int $0x80` on x86_64). `trap user_fault(esr: u64, far: u64, pc: u64) { .. }` runs on user exceptions; when it returns only that task ends (x86_64 exceptions are translated into the classes of the AArch64 ESR; far is CR2 and pc is RIP).",
+  "constraints": "Ids, own, Dma, Str, bool and function pointers cannot be parameters (F2801). Numbers are 0 to 255 and distinct (F2802).",
+  "remedy": "Take an Id as a u32 and pass it through `@a.validate(raw)`.",
+  "aliases": [
+   "syscall",
+   "システムコール",
+   "SVC",
+   "EL0",
+   "user_mem",
+   "trap",
+   "ユーザー空間",
+   "start_user",
+   "embed"
+  ]
+ },
+ {
+  "name": "F2601",
+  "category": "Kernel extensions (1.0)",
+  "summary": "Unprotected access to a shared region",
+  "detail": "In an open section (interrupts enabled) the code touches a region that another execution root (an irq handler or another task) writes, frees or allocates in.On multi-core, an irq body only masks the interrupts of its own core while other cores keep running, so shared instances (shared arena and the like) need critical (the lock); the effects of every root on other cores (task, syscall, irq) are part of the environment effect E_env (per-core arenas excluded).",
+  "constraints": "",
+  "remedy": "Wrap the statements in `critical { .. }` (Quick Fix) or make the function a `critical fn`.",
+  "aliases": [
+   "保護なし",
+   "unprotected",
+   "critical",
+   "共有リージョン"
+  ]
+ },
+ {
+  "name": "F2603",
+  "category": "Kernel extensions (1.0)",
+  "summary": "A task switch in interrupt context, or resume outside an interrupt",
+  "detail": "A function reachable from an irq handler calls something that may switch (`yield_to`, `exit`), or `@task.resume` is called outside an irq.On multi-core, blocking operations inside critical (channel send / recv_wait, task switches and waits) are rejected with this code too (sleeping while holding the lock would stop the other cores).",
+  "constraints": "",
+  "remedy": "Use `resume` inside an irq and `yield_to` inside a task.",
+  "aliases": [
+   "irq",
+   "yield_to",
+   "resume",
+   "切り替え"
+  ]
+ },
+ {
+  "name": "F2701 / F2702 / F2703",
+  "category": "Kernel extensions (1.0)",
+  "summary": "Wire struct layout / non-POD DMA element / where a Dma handle may live",
+  "detail": "F2701: a wire struct would need padding or has a field that is not an integer, an array of integers or a wire struct. F2702: an element of `dma` / `dma_arena` contains bool, Option, an Id, own, Str or a function pointer. F2703: a `Dma<@b>` is stored in a bump_arena, a static or another table.",
+  "constraints": "",
+  "remedy": "F2701: add `#[wire(le)]` or `#[wire(be)]` and use only integers, integer arrays and wire structs as fields. F2702: keep DMA elements to integers and integer arrays (wire structs), and keep Ids and own in ordinary arenas. F2703: use the handles returned by `alloc` and `reclaim`, keep them in locals or in an ordinary arena or array (do not iterate the dma_arena itself), and validate an index returned by the device with `reclaim(raw)`.",
+  "aliases": [
+   "wire",
+   "POD",
+   "dma",
+   "Dma"
+  ]
+ },
+ {
+  "name": "F2704",
+  "category": "Kernel extensions (1.0, design stage)",
+  "summary": "An untrusted value reaches an operation that can stop the kernel",
+  "detail": "An integer that came from a device, user memory, the wire or a system call argument is used directly in checked arithmetic, a stopping index or `unwrap`; the kernel could be stopped from outside. Design stage: not accepted by the bundled 1.0 compiler yet (docs/SPEC-1.0-KERNEL.ja.md, Japanese).",
+  "constraints": "",
+  "remedy": "Pass it through `checked_add`, `wrapping_add`, `min` or `window` (none of which stop).",
+  "aliases": [
+   "汚染",
+   "taint",
+   "untrusted",
+   "信頼できない値"
+  ]
+ },
+ {
+  "name": "F2801 / F2802 / F2803",
+  "category": "Kernel extensions (1.0)",
+  "summary": "The shape of a system call / numbers and registers / where things cannot be used",
+  "detail": "F2801: a system call parameter that is not an integer, `&[u8]` / `&mut [u8]` or a reference to a wire struct (take an Id as `u32` and pass it through `validate`), a result that is not `i64`, a wrong `trap` shape, or a syscall / trap called from inside the kernel. F2802: a number outside 0..=255 or used twice, or parameters taking more than 8 registers (a window takes 2). F2803: a kernel item in a user program (EL0), a `user_mem` size or address that is not a multiple of 4 KiB, lies inside the identity map (0 to 0x8000_0000), reaches 0x80_0000_0000 or crosses a 1 GiB slot (on the x86_64 virtual BIOS the BSP also requires 4 GiB or more at boot), `start_user` on a task_arena without `user_mem`, or an unreadable ABI source.",
+  "constraints": "",
+  "remedy": "F2801: take an Id as `u32` and `validate` it in the body, pass bytes as windows `&[u8]` / `&mut [u8]`, and return `i64`. F2802: use a free number from 0 to 255 and keep the parameters within 8 registers (a window takes 2). F2803: put kernel items in the kernel file; make the size and address of `user_mem` multiples of 4 KiB, outside the identity map, below 0x80_0000_0000 and inside one 1 GiB slot.",
+  "aliases": [
+   "syscall",
+   "user_mem",
+   "ABI"
+  ]
+ },
+ {
+  "name": "F2804",
+  "category": "Error codes",
+  "summary": "An embed error",
+  "detail": "The file of `static NAME: [u8; N] = embed(\"file name\");` cannot be read or is larger than N bytes, or `embed` is used in another form. A relative path is taken from the folder of the source file.",
+  "constraints": "",
+  "remedy": "Check where the file is, and make N at least the file size (the size the message suggests is fine).",
+  "aliases": [
+   "バイナリ",
+   "binary",
+   "embed のエラー",
+   "embed error"
+  ]
+ },
+ {
+  "name": "F2602 / F2605",
+  "category": "Kernel extensions (1.0)",
+  "summary": "The shape of an interrupt handler / of a task_arena",
+  "detail": "F2602: an INTID outside 16..=1019, two handlers for one INTID, or an interrupt handler called as a function. F2605: a task_arena stack that is not a multiple of 16 from 4096 to 1048576, a capacity above 256, two task_arenas, or a task entry that is not a `fn(u64)`.",
+  "constraints": "",
+  "remedy": "F2602: use distinct INTIDs from 16 to 1019 and let interrupts run the handlers instead of calling them (put shared work in another function and call that from both). F2605: make the stack a multiple of 16 from 4096 to 1048576 and the capacity at most 256, keep a single task_arena, and make the entry a `fn(u64)`.",
+  "aliases": [
+   "irq",
+   "task_arena",
+   "INTID",
+   "stack"
+  ]
+ },
+ {
+  "name": "timer_arm / irq_open / wait_irq",
+  "category": "Kernel extensions (1.0)",
+  "summary": "Builtins for the timer and for enabling interrupts",
+  "detail": "`timer_freq()` (Hz), `timer_now()` (the counter), `timer_arm(ticks)` (a timer interrupt after `ticks`), `irq_open()` (enable interrupts; in main everything before it is the boot context) and `wait_irq()` (wait for an interrupt without losing one that arrives between the check and the wait). The clock is shared by all cores and the timer is per core. On AArch64 this is the virtual timer (INTID 27); on the x86_64 virtual BIOS the clock is the HPET and the timer is the LAPIC timer (the same irq 27). On a PC it is a virtual clock, and `cpu_relax()`, `wait_irq()` and the end of a closed section are the points where interrupts arrive.",
+  "constraints": "A user function of the same name takes precedence.",
+  "remedy": "",
+  "aliases": [
+   "timer_freq",
+   "timer_now",
+   "timer_arm",
+   "irq_open",
+   "wait_irq",
+   "タイマー",
+   "Generic Timer"
+  ]
+ },
+ {
+  "name": "put_bytes / embed",
+  "category": "Kernel extensions (1.0)",
+  "summary": "Write a window to the console / embed a file in a static",
+  "detail": "`put_bytes(buf)` writes the bytes of a window (`&[u8]`, `&[u8; N]` or a string) as they are. `static IMG: [u8; N] = embed(\"file.bin\");` embeds the bytes of a file (zero-padded; relative paths start at the folder of the source file). Used to put a user program image into the kernel.",
+  "constraints": "F2804: the file cannot be read, does not fit in the array, or the form is not `static NAME: [u8; N] = embed(\"..\")`.",
+  "remedy": "Build the image with `fascon build app.fsc --out app.bin`.",
+  "aliases": [
+   "put_bytes",
+   "embed",
+   "埋め込み",
+   "user_init.bin"
+  ]
+ },
+ {
+  "name": "// fascon-abi: kernel.fsc",
+  "category": "Kernel extensions (1.0)",
+  "summary": "This file is a user program (EL0)",
+  "detail": "The comment `// fascon-abi: kernel.fsc` near the top of a file imports the `syscall` declarations and wire structs of that kernel source (the same as `fascon build --user app.fsc --abi kernel.fsc`). `fascon build app.fsc --out app.bin` makes a flat image linked at the address of the `user_mem` of the kernel. Printing goes to fd 1 of the `write(fd: u32, buf: &[u8])` of the ABI; the end of main and panics (exit code 70) go to `exit(code)`.",
+  "constraints": "F2803: a user program cannot use mmio, port_io, irq, critical, dma, task_arena, user_mem, trap, a syscall with a body, shared arena, chan or spawn_on.",
+  "remedy": "",
+  "aliases": [
+   "fascon-abi",
+   "--user",
+   "--abi",
+   "ユーザープログラム",
+   "user program",
+   "EL0"
+  ]
+ },
+ {
+  "name": "shared arena",
+  "category": "Kernel extensions (1.0)",
+  "summary": "An arena with one instance for every core (the SMP extension of Fascon 1.0)",
+  "detail": "`shared arena procs: Proc[64];`. In a program that uses `spawn_on` a plain `arena` has one instance per core and is accessed by the single-core code (no locks). A shared arena is touched only inside `critical { }` (a writer) or `for id in procs.par()` (a reader); outside it is F2601. Its Ids may cross cores.",
+  "constraints": "F2611: the elements of a shared arena cannot hold Ids of per-core arenas.",
+  "remedy": "Specification: docs/SPEC-1.0-SMP.ja.md (Japanese)",
+  "aliases": [
+   "shared",
+   "共有アリーナ",
+   "SMP",
+   "マルチコア",
+   "multi-core"
+  ]
+ },
+ {
+  "name": "spawn_on / cpu_count",
+  "category": "Kernel extensions (1.0)",
+  "summary": "Run a function on another core (the SMP extension of Fascon 1.0)",
+  "detail": "`spawn_on(1, worker);` / `spawn_on(2, worker, arg);`. The function takes 0 or 1 parameter and returns nothing; the argument is an integer, a bool, an Id of a shared arena or an `own T` (which moves). `cpu_count()` is the number of usable cores. `fascon qemu` boots with `-smp 4` (`--smp N` for 1 to 4); on the PC a core is a thread. A missing or busy core is panic 0x0012.",
+  "constraints": "F2615: a wrong function shape or argument type. The former F2614 (which rejected `spawn_on` together with irq, task_arena, dma_arena, syscall and trap) is retired: the task table, the current task, the run queue and the timer are per core. The x86_64 virtual BIOS (`--target x86_64`) runs 4 cores too (the AArch64 virtual BIOS stays single-core because it has no PSCI).",
+  "remedy": "A user function of the same name takes precedence.",
+  "aliases": [
+   "spawn_on",
+   "cpu_count",
+   "コア",
+   "core",
+   "PSCI",
+   "-smp"
+  ]
+ },
+ {
+  "name": "for id in a.par()",
+  "category": "Kernel extensions (1.0)",
+  "summary": "A read-only parallel scan of a shared arena (the SMP extension of Fascon 1.0)",
+  "detail": "A scan that enters as a reader: it runs alongside the `par()` scans of other cores while writers (`critical`) wait. It does not split one loop over the cores. Collect results in locals and write them inside `critical` after the loop.",
+  "constraints": "F2612: the body writes, allocates or frees a shared arena, calls a function that does (decided from the effects E(f)), or contains `critical`. Not for per-core arenas.",
+  "remedy": "",
+  "aliases": [
+   "par",
+   "並列走査",
+   "parallel scan",
+   "読み手"
+  ]
+ },
+ {
+  "name": "F2611",
+  "category": "Kernel extensions (1.0)",
+  "summary": "An Id of a per-core arena crosses between cores",
+  "detail": "A channel element, a shared arena element or a `spawn_on` argument contains (inside structs and owns too) an Id of a plain arena. A plain arena has a separate instance on every core, so the Id would refer to a different table there.",
+  "constraints": "",
+  "remedy": "Declare tables shared between cores as `shared arena`; send per-core data with its ownership inside an `own T`.",
+  "aliases": [
+   "F2611",
+   "コアごと",
+   "per-core",
+   "Id"
+  ]
+ },
+ {
+  "name": "F2612 / F2613",
+  "category": "Kernel extensions (1.0)",
+  "summary": "A write inside a parallel scan / an unprotected device access",
+  "detail": "F2612: a `par()` body contains something that modifies a shared arena (a direct write, allocation or free, a call of a function whose effects do, or `critical`). F2613: MMIO, a port or `mmio_read` / `mmio_write` reachable from two or more core roots is outside `critical`.",
+  "constraints": "",
+  "remedy": "F2612: collect the results in locals and write them inside `critical { .. }` after the loop. F2613: wrap the statement in `critical { .. }` or make the function a `critical fn`.",
+  "aliases": [
+   "F2612",
+   "F2613",
+   "par",
+   "mmio",
+   "装置"
+  ]
+ },
+ {
+  "name": "F2614 / F2615",
+  "category": "Kernel extensions (1.0)",
+  "summary": "Items that cannot be combined with spawn_on / the shape of spawn_on and chan",
+  "detail": "F2614 (retired): earlier versions rejected irq, task_arena, dma_arena, syscall and trap in programs that use `spawn_on`; they now work together through per-core task tables, per-core timers and per-task address spaces (F2616, F2601, F2603 and F2613 reject the unsafe combinations instead). F2615: the second argument of `spawn_on` is not a function name, the argument count or type does not fit, a channel capacity is not a power of two (2 to 65536), or its element is neither `own T` nor a value that needs no drop.",
+  "constraints": "",
+  "remedy": "F2615: the function of `spawn_on(core, function[, argument])` takes 0 or 1 parameter and returns nothing, and the argument is an integer, a bool, an Id of a shared arena or an `own T`. A channel capacity is a power of two from 2 to 65536 and its element is `own T` or a value that needs no drop. F2614 is retired, so combinations it used to reject can be written as they are.",
+  "aliases": [
+   "F2614",
+   "F2615",
+   "spawn_on",
+   "chan"
+  ]
+ },
+ {
+  "name": "F2616",
+  "category": "Kernel extensions (1.0)",
+  "summary": "A shared-interrupt handler touches a per-core arena",
+  "detail": "In a multi-core program the handler of a shared peripheral interrupt (INTID 32 and up, delivered to CPU0 only) touches a per-core arena (a plain arena, task_arena and other items with one instance per core); it would look up Ids made on other cores in the table of CPU0.",
+  "constraints": "",
+  "remedy": "Make the arena a `shared arena` and touch it inside `critical { .. }`, or hand the data to the owning core through a `chan`. Handlers of per-core interrupts (16 to 31, such as the timer at INTID 27) may touch the instances of their own core.",
+  "aliases": [
+   "F2616",
+   "spawn_on",
+   "irq",
+   "SPI",
+   "コアごと",
+   "per-core"
+  ]
+ },
+ {
+  "name": "fascon_plat_vm_*",
+  "category": "Kernel extensions (1.0)",
+  "summary": "Per-task address spaces and switches without TLB flushes",
+  "detail": "Every user task has its own page table (a 16-bit ASID and TTBR0 on AArch64, a PML4 and CR3 + PCID on x86_64). A switch only writes the table address and does not flush the TLB. Flushes happen only when a page is unmapped or a space is dropped, and only on the cores that used that ASID (other cores get an IPI / SGI shootdown; one sender at a time, and a waiting core keeps serving requests sent to it). Touching an unmapped page inside the user memory maps 4 KiB in the exception handler and retries the access (demand paging).",
+  "constraints": "Pages are 4 KiB. QEMU TCG has no PCID, so the x86_64 PCID path was not executed in this environment (under TCG a CR3 write drops the non-global TLB entries).",
+  "remedy": "",
+  "aliases": [
+   "ASID",
+   "PCID",
+   "CR3",
+   "TTBR0",
+   "TLB",
+   "シュートダウン",
+   "shootdown",
+   "アドレス空間",
+   "address space",
+   "デマンドページング",
+   "demand paging"
+  ]
+ },
+ {
+  "name": "copy_from_user / copy_to_user",
+  "category": "Kernel extensions (1.0)",
+  "summary": "Shadow buffers that copy system-call windows exactly once (TOCTOU ruled out by construction)",
+  "detail": "On multi-core, threads on other cores can change user memory at the same time. So the syscall entry copies each checked window once into a kernel shadow buffer with `fascon_plat_copy_from_user`, and the body reads only that copy (nothing is read twice, so nothing can be swapped between the check and the use). `&mut` windows are written back on exit by `fascon_plat_copy_to_user`. The copies run with user permissions (LDTRB / STTRB on AArch64, SMAP STAC / CLAC on x86_64), and failures become EFAULT (-14) through an exception table.",
+  "constraints": "A shadow buffer holds up to 0xFFF0 bytes (longer windows give E2BIG = -7). Copies go one byte at a time and are not tuned for speed yet.",
+  "remedy": "",
+  "aliases": [
+   "シャドウバッファ",
+   "shadow buffer",
+   "TOCTOU",
+   "二重読み",
+   "double fetch",
+   "SMAP",
+   "EFAULT"
+  ]
+ },
+ {
+  "name": "panic_broadcast / core_parked",
+  "category": "Kernel extensions (1.0)",
+  "summary": "Stopping every core on a panic",
+  "detail": "When a core panics, `fascon_plat_panic_broadcast` sends a stop interrupt to every other core (SGI 2 on AArch64, NMI on x86_64). Cores that notice the panic in a waiting loop stop in `fascon_plat_core_parked`; the stopped cores are counted and reported as \"N other core(s) stopped\" (exit code 70). An NMI also reaches masked sections, so even if a core stopped while holding the console lock, the panicking core takes the console over after a bounded wait and reports.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "NMI",
+   "SGI",
+   "全コア停止",
+   "stop all cores",
+   "パニック時の停止",
+   "panic stop"
+  ]
+ },
+ {
+  "name": "Id<a>",
+  "category": "Arenas & generations (1.0)",
+  "summary": "a handle coloured by its arena (32 bits: generation 32-K + index K, with K set by the capacity)",
+  "detail": "`Id<file>` and `Id<process>` are different types (mixing them is F2101). Ids are copyable values, so they can be stored anywhere and express cyclic graphs (parent/child/sibling/back links) without references. `Option<Id<a>>` uses 0 as None and stays 4 bytes. Ids of a bump_arena are 64 bits (generation 64-K | index K).",
+  "constraints": "An Id cannot be made from an integer (validate external values).",
+  "remedy": "Inspect it with `.index()` / `.generation()` / `.raw()`.",
+  "aliases": [
+   "Id",
+   "Id<@a>",
+   "ハンドル",
+   "handle",
+   "cross-index",
+   "クロス・インデックス型",
+   "着色",
+   "coloring"
+  ]
+ },
+ {
+  "name": "a.get / a.get_mut",
+  "category": "Arenas & generations (1.0)",
+  "summary": "a temporary lookup (a reference that exists only inside if let / match)",
+  "detail": "`if let Some(p) = process.get_mut(pid) { p.state = 1; }`. p is a second-class reference that cannot leave the block; a stale Id takes the None arm. `process.get_mut(pid).unwrap().state = 1;` is the same expression as `process[pid].state = 1;` (the strict spelling; `.get(id).unwrap()` is read-only, and writing through it is F0596).",
+  "constraints": "While the reference is live, functions that touch (free) slots of the same arena cannot be called: F2502; effects are computed transitively through callees.",
+  "remedy": "Copy what you need into locals, leave the block, then do the operation.",
+  "aliases": [
+   "get",
+   "get_mut",
+   "lookup",
+   "ルックアップ",
+   "if let",
+   "@a.get",
+   "unwrap"
+  ]
+ },
+ {
+  "name": "a[id]",
+  "category": "Arenas & generations (1.0)",
+  "summary": "a checked slot access (a stale Id stops safely); `pcb_table[id].id = 100;` is the generation-verified `.get_mut(id)`",
+  "detail": "Used to read/write fields and to pass `&mut @a[id]`. Where liveness is statically proven (right after alloc, inside a successful lookup, after an earlier check) the generation check is omitted (see the counts with `fascon regions`).",
+  "constraints": "Passing two &mut of the same arena to one call is F0499 (the Ids may be equal).",
+  "remedy": "Copy one side into a local, or split the call.",
+  "aliases": [
+   "index",
+   "スロット",
+   "slot",
+   "生存証明",
+   "liveness proof",
+   "@a[id]"
+  ]
+ },
+ {
+  "name": "a.alloc / free / remove / validate",
+  "category": "Arenas & generations (1.0)",
+  "summary": "allocate, free, take out, and validate external values",
+  "detail": "alloc(v) → Option<Id> (None when full). free(id) → bool (also frees own fields; generation +1). remove(id) → Option<T> (moves the value out). validate(raw: u32) → Option<Id> (turns a value from outside, e.g. a syscall, back into an Id safely). `for id in @a { }` visits live slots only (the body may free).",
+  "constraints": "Reuse is FIFO (in freeing order).",
+  "remedy": "",
+  "aliases": [
+   "alloc",
+   "free",
+   "remove",
+   "validate",
+   "contains",
+   "for id in",
+   "@a.alloc"
+  ]
+ },
+ {
+  "name": "bump_arena",
+  "category": "Arenas & generations (1.0)",
+  "summary": "an arena released in bulk, in O(1), per call region `bump_arena name: T[N];`",
+  "detail": "Allocation just advances the top (one compare + stores). At every exit of the allocating function (its call region) one store resets the top to the mark taken at entry, releasing everything at once. Ids are 64 bits [generation 64-K | index K]: every allocation of a slot bumps its generation, and the check is \"index < top and the generation matches\". After a rewind a stale Id yields None (or, for `b[id]`, a latch stopping at the next commit point), so it never reaches the data of anyone else. Allocations of functions that return Ids or pass them out through `&mut` parameters are promoted to the region of the caller. `for id in b` is a straight 0..top loop and `b.len()` is the current top.",
+  "constraints": "No per-slot free / remove (F2401); elements cannot hold own (F2103); Ids cannot be stored in elements of long-lived tables (plain arenas, other bump arenas) or in statics (F2402).",
+  "remedy": "Keep values freed one by one, and Ids stored for long, in an `arena`.",
+  "aliases": [
+   "bump",
+   "バンプアロケーション",
+   "bump allocation",
+   "呼び出しリージョン",
+   "call region",
+   "bump_arena!",
+   "scratch"
+  ]
+ },
+ {
+  "name": "port_io",
+  "category": "Fixed-address regions (1.0)",
+  "summary": "an x86 I/O port `port_io name[: u8 | u16 | u32 | [u8; N]] at_port number;`",
+  "detail": "Reading it as a value is an in, assigning to it is an out (`com1 = c;` → x86_64 `out dx, al`, `let s = lsr;` → `in al, dx`). The type defaults to u8; array ports are indexed `p[i]` (bounds-checked). AArch64 has no I/O port space, so the compiler remaps to MMIO: COM1 (0x3f8-0x3ff) emulates a 16550 on the PL011 of QEMU virt (0x0900_0000: data → DR, LSR ← FR, the divisor while DLAB is set is only remembered), COM2-4 are not connected (LSR = 0x60), isa-debug-exit (0xf4 / 0x501) exits, and anything else goes to the PCI I/O window (0x3eff_0000 + port). `#[mmio_map(address)]` picks the target explicitly. PC runs emulate ports in the platform layer (COM1 transmit goes to stdout). `--target x86_64 / aarch64` emits only the form of that target. The strict form spells them `p.read()` / `p.write(v)` / `p.read_at(i)` / `p.write_at(i, v)`.",
+  "constraints": "Elements are u8 / u16 / u32 and ports 0 to 0xFFFF (F2205); overlapping ports are F2203; no references (F2204).",
+  "remedy": "",
+  "aliases": [
+   "port",
+   "io port",
+   "I/O ポート",
+   "in",
+   "out",
+   "out dx, al",
+   "at_port",
+   "port_io!",
+   "COM1",
+   "16550",
+   "mmio_map"
+  ]
+ },
+ {
+  "name": "put(x)",
+  "category": "Keywords",
+  "summary": "a builtin printing an integer, a Str or a bool chosen by its type (no newline)",
+  "detail": "With reframing, `println!(\"pid {} = {:#x}\", a, b)` becomes `{ put_str(\"pid \"); put(a); put_str(\" = \"); put_hex(b); print_str(\"\"); }` (inline `{name}` captures work too).",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "put",
+   "println!",
+   "print!",
+   "format"
+  ]
+ },
+ {
+  "name": "型推論",
+  "category": "Types",
+  "summary": "lets need no type annotations (F0282 eradicated)",
+  "detail": "The type of `let task = create_process(100);` comes from the return type; `let mut best = None;` and `let x;` are settled by later assignments, comparisons, calls and arena indexing (each function is type-checked twice, the first pass seeding the second). Integers and None that nothing uses default to i32. F0282 remains only when a still-unknown type is used as the base of a field, a method or an index.",
+  "constraints": "",
+  "remedy": "If F0282 appears, write one type on that let (--emit-strict-fascon shows what was inferred).",
+  "aliases": [
+   "inference",
+   "type inference",
+   "F0282",
+   "推論"
+  ]
+ },
+ {
+  "name": "@（省略可）",
+  "category": "Arenas & generations (1.0)",
+  "summary": "region names need no `@` (and declarations may come in any order)",
+  "detail": "Pass 1 registers every struct, arena, fn and port name; pass 2 reads the bodies. A bare name denotes the region unless a local of that name is in scope (`pcb_table[id]`). The old `@name` remains an explicit marker that always denotes the region (even under a local of the same name). Both give the same expression, so check elision and scan speed are unchanged.",
+  "constraints": "Region names share the namespace of functions, statics and types (a clash is F0428).",
+  "remedy": "",
+  "aliases": [
+   "@",
+   "sigil",
+   "2 パス",
+   "two-pass",
+   "宣言順",
+   "declaration order",
+   "F2104"
+  ]
+ },
+ {
+  "name": "自動リフレーミング",
+  "category": "CLI",
+  "summary": "rewrites ordinary Rust syntax into Fascon forms before compiling (on / off)",
+  "detail": "On with `#![reframing(rust)]` at the top or `--reframing=rust` (env FASCON_REFRAMING), off with `#![reframing(off)]` / `--reframing=off`. `#[link_section = \".uart\"] static mut UART: [u8; 8]` → port_io (x86: COM1, AArch64: PL011), `.mmio.0x..` → mmio, `.port.0x3f8` → port_io, `.fb.0x..` → #[framebuffer] mmio, `arena!` / `bump_arena!` / `port_io!` / `mmio!` / `own_alloc!`, `println!` formatting, removal of `unsafe` / `pub` / `use` / `extern \"C\"` / `#[no_mangle]` / `#![no_std]`, char literals and lifetimes, `while let`, `-> !`, `#[panic_handler]`. All meaning is checked by the rules of Fascon (generation tags, bounds checks, own).",
+  "constraints": "impl blocks, traits, generics and closures are not rewritten (errors under the rules of Fascon).",
+  "remedy": "",
+  "aliases": [
+   "reframing",
+   "--reframing",
+   "#![reframing(rust)]",
+   "Rust 構文",
+   "pure Rust",
+   "FASCON_REFRAMING"
+  ]
+ },
+ {
+  "name": "--emit-strict-fascon",
+  "category": "CLI",
+  "summary": "writes the strict Fascon form for functional-safety review",
+  "detail": "Writes <out dir>/<name>.strict.fsc with the type of every let, typed integer literals, generation-verified lookups (writes `.get_mut(i).unwrap()`, reads `.get(i).unwrap()`), port `read` / `write`, expanded type aliases, call-region notes and the reframing record. Compiling it again gives the same C as the original (checked by the tests).",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "strict",
+   "厳格形",
+   "機能安全",
+   "functional safety",
+   "emit-strict"
+  ]
+ },
+ {
+  "name": "仮想 BIOS",
+  "category": "CLI",
+  "summary": "x86_64 and AArch64 BIOS images from one source (fascon bios / fascon qemu --target)",
+  "detail": "x86_64: an image for QEMU -bios: reset vector (0xFFFF_FFF0) → protected mode → long mode with 0-4 GiB identity-mapped by 2 MiB pages → the kernel image copied to RAM at 1 MiB, then COM1, all 256 interrupt entries, GDT / TSS and ramfb (fw_cfg I/O ports) are set up and main runs. It is multi-core (up to 4 cores started with INIT-SIPI-SIPI, per-core TLS through FS) and has the LAPIC timer (irq 27) and the HPET clock, the I/O APIC (input n is irq 32 + n), ring 3 user processes (`int $0x80`), per-task page tables (CR3 + PCID) and an NMI that stops every core on a panic. AArch64: QEMU virt -bios (flash at 0) copies the kernel image to 0x4008_0000 and enters the BSP (single-core). Neither uses SeaBIOS or UEFI. `fascon bios app.fsc` builds both; `fascon qemu app.fsc --target x86_64 | aarch64` boots one.",
+  "constraints": "Needs clang + ld.lld (or x86_64 / aarch64 gcc) and qemu-system-x86_64 / qemu-system-aarch64.",
+  "remedy": "",
+  "aliases": [
+   "bios",
+   "fascon bios",
+   "--target",
+   "x86_64",
+   "aarch64",
+   "virtual BIOS",
+   "BIOS",
+   "reset vector"
+  ]
+ },
+ {
+  "name": "F0282",
+  "category": "Error codes",
+  "summary": "a type still unknown is used as the base of a field, a method or an index",
+  "detail": "Reported only when two type-checking passes could not settle it (usually later assignments and calls do).",
+  "constraints": "",
+  "remedy": "Write one type on that let.",
+  "aliases": []
+ },
+ {
+  "name": "F2401",
+  "category": "Error codes",
+  "summary": "bump_arena slots are not freed one by one (released together, in O(1), when the call region returns)",
+  "detail": "A slot of a bump_arena was freed one by one with `free` / `remove`. A bump_arena is rewound all at once, in O(1), when its call region returns.",
+  "constraints": "",
+  "remedy": "Keep values freed one by one in an `arena`.",
+  "aliases": []
+ },
+ {
+  "name": "F2402",
+  "category": "Error codes",
+  "summary": "an Id of a bump_arena stored where it would outlive its call region (table elements, statics)",
+  "detail": "When the call region returns the Id becomes invalid by generation and top (still safe at run time, but storing it is pointless, so it is reported at compile time).",
+  "constraints": "",
+  "remedy": "Make the target an `arena` when its Ids are stored for long.",
+  "aliases": []
+ },
+ {
+  "name": "F2205",
+  "category": "Error codes",
+  "summary": "invalid port_io declaration (elements u8 / u16 / u32, ports 0 to 0xFFFF)",
+  "detail": "A `port_io` declaration has the wrong shape: the type is not u8 / u16 / u32 or an array of them (x86 in / out are 8, 16 or 32 bits), or the range does not fit the I/O space (0 to 0xFFFF).",
+  "constraints": "",
+  "remedy": "Match the element width and port numbers to the device. Write memory-mapped registers as `mmio`.",
+  "aliases": []
+ },
+ {
+  "name": "F2304",
+  "category": "Error codes",
+  "summary": "own_alloc(T) would need an endless chain of own children",
+  "detail": "own_alloc creates the non-Option own children zero-filled, so an own path leading back to the type never ends.",
+  "constraints": "",
+  "remedy": "Make the own on the way back `Option<own T>` (it starts as None).",
+  "aliases": []
+ },
+ {
+  "name": "irq 名前 at INTID { .. }",
+  "category": "Kernel extensions (1.0)",
+  "summary": "An interrupt handler item",
+  "detail": "The body runs as a closed section (interrupts masked). The compiler emits a table of INTIDs and handlers; the BSP enables, acknowledges and ends the interrupt. This is not the 0.1 `#[isr]` syntax. INTIDs 16 to 31 are per-core interrupts (the timer is 27) and 32 and up are peripheral interrupts delivered to CPU0. On the x86_64 virtual BIOS the LAPIC timer is 27 and input n of the I/O APIC is 32 + n, so the same source runs on both.",
+  "constraints": "No parameters or result. INTIDs are 16 to 1019 and distinct (F2602). The body cannot call anything that may switch tasks (F2603). On multi-core, handlers of peripheral interrupts (32 and up) cannot touch per-core arenas (F2616).",
+  "remedy": "Request a switch on interrupt exit with `@task.resume(next)`.",
+  "aliases": [
+   "irq",
+   "割り込み",
+   "interrupt",
+   "GIC",
+   "ハンドラ",
+   "interrupt handler"
+  ]
+ },
+ {
+  "name": "環境効果 E_env",
+  "category": "Kernel extensions (1.0)",
+  "summary": "The effects of the other execution roots, assumed to happen at every point that can be interrupted",
+  "detail": "E(f) ranges over arenas (task_arena and bump_arena included). In an open section the union of the effects of the interrupt handlers (and of the other tasks in preemptive mode) is assumed to happen, and unprotected access (F2601) is checked against it. On multi-core the effects of every root on other cores (task, syscall, irq) are added (per-core arenas excluded). A call that may switch (`yield_to`, `exit`) is treated as a call carrying the effects of every execution root, so borrows (F2502) and the expiry of liveness proofs follow the existing rules. MMIO and ports are not checked, and heap allocation and release are closed inside the runtime.",
+  "constraints": "The mode (cooperative or preemptive) is decided by the compiler: preemptive if an irq handler calls `resume`.",
+  "remedy": "",
+  "aliases": [
+   "E_env",
+   "環境効果",
+   "preemption",
+   "プリエンプション",
+   "E(f)",
+   "environment effect"
+  ]
+ },
+ {
+  "name": "--target rtos",
+  "category": "Universal-OS extension (1.0)",
+  "summary": "the bare-metal embedded profile (32-bit Ids, fixed .fascon_arena, no recursion)",
+  "detail": "Compiling unchanged sources with `--target rtos` (or `// fascon-target: rtos` at the top of the file) keeps 32-bit Ids [generation 32-K | index K] and arenas in .fascon_arena (2 MiB aligned, fixed size, up to 16,777,216 slots). A cycle in the call graph (function-pointer candidates included) is F3001. `fascon stack` computes the maximum stack use from the C call graph (GCC -fcallgraph-info=su) and compares it with a limit.",
+  "constraints": "No recursion (use a loop with an explicit stack).",
+  "remedy": "`fascon stack app.fsc --target rtos --limit 8192`",
+  "aliases": [
+   "rtos",
+   "FASCON2_RTOS",
+   "profile",
+   "プロファイル",
+   "fascon-target"
+  ]
+ },
+ {
+  "name": "--target generic-os",
+  "category": "Universal-OS extension (1.0)",
+  "summary": "the general multi-process OS profile (64-bit Ids, VA-reserved arenas, per-CPU magazines, RCU, PAC / BTI, Spectre masking)",
+  "detail": "The same source gets `f20_id_t = uint64_t` (upper 32 = generation, lower 32 = index, 0ULL = None) with colouring (F2101) unchanged. alloc / free of shared arenas are lock-free per-CPU magazines (allowed outside critical) and frees are reclaimed after an RCU grace period. Indices derived from outside data get the Spectre v1 mask + CSDB, function pointers are signed with PACIA and authenticated with AUTIA before calls, callback candidates start with BTI c, and mmio goes through a high virtual mirror (virtual 0-2 MiB is an unmapped guard).",
+  "constraints": "Pass raw Ids as `IdRaw` (u32 on rtos, u64 on generic-os).",
+  "remedy": "`fascon run app.fsc --target generic-os` / `// fascon-target: generic-os`",
+  "aliases": [
+   "generic-os",
+   "FASCON2_GENERIC_OS",
+   "FASCON2_ID64",
+   "IdRaw",
+   "Per-CPU magazine",
+   "マガジン",
+   "PAC",
+   "BTI",
+   "Spectre",
+   "CSDB"
+  ]
+ },
+ {
+  "name": "Result<T, E>",
+  "category": "Universal-OS extension (1.0)",
+  "summary": "a success value T or a failure E (E copyable; usually FaultError)",
+  "detail": "Built with `Ok(v)` / `Err(e)` and used with `Ok(x)` / `Err(e)` patterns, `e?` (an early return of the same form on failure), `is_ok()`, `is_err()`, `unwrap()` and `unwrap_or(v)`. In C an {is_some, value, err} struct. Angle-bracket types are only this, `Option<T>` and `Id<a>` (no generics are added).",
+  "constraints": "`?` applies only to a Result, inside a function returning a Result (F3105).",
+  "remedy": "",
+  "aliases": [
+   "Result",
+   "Ok",
+   "Err",
+   "?",
+   "FaultError",
+   "EINVAL",
+   "EFAULT",
+   "ESTALE",
+   "EPERM",
+   "fault()"
+  ]
+ },
+ {
+  "name": "catch_fault",
+  "category": "Universal-OS extension (1.0)",
+  "summary": "an expression catching latched faults, user-memory faults and failed unwraps inside as Result<T, FaultError>",
+  "detail": "`let r = catch_fault { .. };`. Commit points inside jump locally to the handler instead of stopping (no non-local exit), dropping the values made in the section first. Functions called from the section move their latch into a per-core pending word and return; the caller takes it in. Faults map to errno values (stale Id → ESTALE, overflow → EOVERFLOW, user memory → EFAULT, outside a device window → EIO).",
+  "constraints": "Outer values cannot be moved inside (F3106).",
+  "remedy": "",
+  "aliases": [
+   "F3106",
+   "ESTALE",
+   "EOVERFLOW"
+  ]
+ },
+ {
+  "name": "user T",
+  "category": "Universal-OS extension (1.0)",
+  "summary": "a user-space buffer (`user [u8; N]` / `user Str`), only as a #[syscall(N)] parameter",
+  "detail": "The kernel cannot read the contents directly (F3101). `copy_from_user(ubuf)?` copies once onto the kernel stack (fixed size) or into own [u8; limit] (user Str), and a second read is F3101 too (no TOCTOU). The length of a user Str is checked against the limit (4096 by default, limits.user_str_max in board.toml) before copying; beyond it, EFAULT without copying and the latch F20_FAULT_USER. `copy_to_user(ubuf, &kbuf)?` writes back. On generic-os AArch64 the copies use LDTR / STTR with PAN = 1 and an exception table (.ex_table).",
+  "constraints": "Receive a struct as user [u8; N] and read the copy with `.read(T, 0)` (F3102).",
+  "remedy": "",
+  "aliases": [
+   "copy_from_user",
+   "copy_to_user",
+   "user Str",
+   "F3101",
+   "F3102",
+   "TOCTOU",
+   "PAN",
+   "LDTR",
+   "ex_table"
+  ]
+ },
+ {
+  "name": "#[syscall(N)]",
+  "category": "Universal-OS extension (1.0)",
+  "summary": "a system call entry (the attribute form); the compiler builds the number check, the table and per-type register validation",
+  "detail": "`#[syscall(0)] fn sys_read(fd: u32, ubuf: user [u8; 256]) -> Result<usize, FaultError>`. AArch64 uses SVC #0 (x8 = number), x86_64 SYSCALL. The entry checks integer ranges, bools (0 / 1), Ids (validate; forged → EBADF) and user T ranges (EFAULT) before calling the body. Ok(v) gives x0 = v, Err(e) x0 = -errno. A latched fault in the body does not stop the kernel but becomes Err(errno).",
+  "constraints": "Returns Result<integer or (), FaultError> or i64 (F3104). The 1.0 `syscall .. at N` form cannot take user T or bool (F3103).",
+  "remedy": "",
+  "aliases": [
+   "syscall",
+   "F3103",
+   "F3104",
+   "SVC",
+   "SYSCALL"
+  ]
+ },
+ {
+  "name": "#[trap]",
+  "category": "Universal-OS extension (1.0)",
+  "summary": "EL0 page-fault handling `#[trap] fn user_fault(pid: Id<table>, addr: u64, is_write: bool)`",
+  "detail": "The entry builds the arguments from (ESR, FAR, PC) (pid is the Id of the running task, validated, is_write the WnR bit of the ESR). The body has a _flt latch of its own; Sleep calls are F3203. Copy-on-Write is written with own [u8; 4096] moves only: `procs.cow_copy(pid, va)` copies into a fresh own page, `procs.map_page(pid, va, page, true)` swaps it in with ownership, and `procs.tlb_flush(pid, va)` picks a local TLBI or IPIs from cpu_mask.",
+  "constraints": "Another shape is F3204.",
+  "remedy": "",
+  "aliases": [
+   "trap",
+   "user_fault",
+   "F3204",
+   "Copy-on-Write",
+   "CoW",
+   "map_page",
+   "cow_copy",
+   "share_page",
+   "unmap_page",
+   "tlb_flush",
+   "cpu_mask",
+   "on_cpu",
+   "off_cpu"
+  ]
+ },
+ {
+  "name": "atomic",
+  "category": "Universal-OS extension (1.0)",
+  "summary": "one indivisible read-modify-write of an integer (or bool) field of one slot",
+  "detail": "`atomic { t[id].f |= 1; }` (statement) / `let old = atomic { t[id].n += 1 };` (the value form without `;` yields the old value; = is an exchange) / `atomic { t[id].f }` (a load). On AArch64 one LSE LDADDAL / LDSETAL / SWPAL / LDAR. Overflow of += / -= latches. Reductions involving fields updated under atomic or #[no_column] fields fall back to the phase-1 scan without columns instead of failing (the reason shows in fascon regions).",
+  "constraints": "Calls, loops, several slots or statements are F3201 (use critical).",
+  "remedy": "",
+  "aliases": [
+   "F3201",
+   "LSE",
+   "fetch_add",
+   "exchange",
+   "column fallback"
+  ]
+ },
+ {
+  "name": "rcu_read",
+  "category": "Universal-OS extension (1.0)",
+  "summary": "a read-only section with preemption disabled (an RCU reader)",
+  "detail": "Only &T reads inside. Writes, allocations, frees and calls of functions doing them are F3202; sleeping calls are F3203. On generic-os a free of a shared arena keeps the generation bump and the slot reuse in a deferred queue until a grace period (the epoch of every core advances twice), so a slot a reader holds is not rewritten before it is done (no ABA).",
+  "constraints": "Each field reads old or new; to publish several fields consistently, build a new slot and swap the Id in with atomic.",
+  "remedy": "",
+  "aliases": [
+   "RCU",
+   "F3202",
+   "rcu_synchronize",
+   "grace period",
+   "猶予期間"
+  ]
+ },
+ {
+  "name": "Sleep 効果",
+  "category": "Universal-OS extension (1.0)",
+  "summary": "the mark of functions that may sleep (schedule, sleep_ticks, rcu_synchronize, #[sleep], #[asm(effects = \"sleep\")], and blocking operations)",
+  "detail": "Computed as a transitive closure over the call graph. Calling one inside rcu_read / atomic / #[trap], or while a second-class reference is live, is F3203 (another task could free the target while this one sleeps). On preemption the TCB saves and restores the general registers (including the _flt latch), the frame-region position and the catch_fault pending latch.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "Sleep",
+   "sleep",
+   "schedule",
+   "sleep_ticks",
+   "F3203"
+  ]
+ },
+ {
+  "name": "#[secret]",
+  "category": "Universal-OS extension (1.0)",
+  "summary": "a secret value (a key ...): no copies, output or secret-dependent branches; volatile zeroing on drop",
+  "detail": "On structs, fields and `#[secret] let`. Copies into non-secret places, passing by value and output are F3301; secret-dependent if / match / while / comparisons / && / indices are F3302 (use the constant-time `ct_eq(&a, &b)`); asm operands are F3303; mismatched ct_eq types are F3304. Every drop path runs fascon_secure_zero (volatile stores + an asm taking the address + a barrier: never removed by DSE). With #[on_drop] the order is 1. on_drop → 2. zeroing + barrier → 3. free.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "secret",
+   "ct_eq",
+   "F3301",
+   "F3302",
+   "F3303",
+   "F3304",
+   "constant time",
+   "定数時間"
+  ]
+ },
+ {
+  "name": "dma own T",
+  "category": "Universal-OS extension (1.0)",
+  "summary": "an owned value shared with a device (its own 4 KiB-aligned pages; never embedded)",
+  "detail": "Made with `dma_alloc(T)`; `submit_dma(buf)` lends it (the value is gone, an IOVA comes back; later use is F3401) and `complete_dma(T, iova)` returns Option<dma own T> (forged IOVAs and double completions are None). Lending cleans with DC CVAC + DSB SY, returning invalidates with DC IVAC + DSB SY, and generic-os maps / unmaps the IOVA in the IOMMU (Arm SMMU / Intel VT-d). A struct field is Option<dma own T> (detached with .take(); a bare one is F3402). T must be POD (F3403).",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "dma_alloc",
+   "submit_dma",
+   "complete_dma",
+   "F3401",
+   "F3402",
+   "F3403",
+   "IOMMU",
+   "SMMU",
+   "VT-d",
+   "IOVA"
+  ]
+ },
+ {
+  "name": "bind_mmio",
+  "category": "Universal-OS extension (1.0)",
+  "summary": "bind a register struct of a device found by bus enumeration (DTB / ACPI / PCIe): `bind_mmio(Regs, addr)`",
+  "detail": "Takes a type name first (no generics). Inside a registered device window (board.toml [[device]], a DTB reg, a PCIe BAR) it returns the high virtual mirror, and field / index accesses are volatile (the same guarantees as fixed-address mmio). Outside, it diverts to a window that reads all-ones and drops writes, and latches (EIO under catch_fault). Regs must be a register struct (F3404).",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "mmio T",
+   "F3404",
+   "DTB",
+   "ACPI",
+   "PCIe",
+   "device window",
+   "装置の窓"
+  ]
+ },
+ {
+  "name": "extern \"C\"",
+  "category": "Universal-OS extension (1.0)",
+  "summary": "the C boundary (import `extern \"C\" fn f(..) -> T;` / export `extern \"C\" fn f(..) { .. }`)",
+  "detail": "Integers, bool, Id, Option<Id> and FaultError cross (F3601). Raw Ids from C (uint32_t on rtos, uint64_t on generic-os) get a validate inserted by the compiler; generation 0, out-of-range indices and non-canonical values become None.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "extern",
+   "FFI",
+   "F3601",
+   "validate"
+  ]
+ },
+ {
+  "name": "#[asm(..)]",
+  "category": "Universal-OS extension (1.0)",
+  "summary": "the safe inline-assembly boundary `#[asm(aarch64 = \"..\", x86_64 = \"..\", host = \"..\", effects = \"..\")] fn f(..) -> T;`",
+  "detail": "Operands are integers or bool only (nothing pointing to memory: F3503) and never #[secret] values (F3303). effects (none / sleep / barrier / irq / mmio) enter the effect analysis; sleep gives the Sleep effect. {r} is the result, {name} / {index} the arguments. PC runs use the host C expression.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "asm",
+   "F3503",
+   "inline assembly",
+   "インラインアセンブリ"
+  ]
+ },
+ {
+  "name": "#[on_drop(f)] / #[no_column] / #[stable_abi]",
+  "category": "Universal-OS extension (1.0)",
+  "summary": "attributes for writing libraries: a drop hook, fields without columns, a fixed layout",
+  "detail": "#[on_drop(f)]: calls `fn f(x: &mut S)` first when the value is dropped (another shape is F3505; it cannot sleep). #[no_column]: a write-heavy field; reductions involving it get no columns. #[stable_abi]: declaration order, natural C alignment, no columns; fields are integers, bool, arrays of them, wire structs or other #[stable_abi] structs only (F3502). For dynamically loaded drivers and IPC boundaries. An Id<@a> changes width between rtos (32 bits) and generic-os (64 bits), so it cannot be placed directly (F3501; pass a u64 across and validate it back).",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "on_drop",
+   "no_column",
+   "stable_abi",
+   "F3501",
+   "F3502",
+   "PowerGuard",
+   "F3505"
+  ]
+ },
+ {
+  "name": "import",
+  "category": "Universal-OS extension (1.0)",
+  "summary": "module import `import net::tcp;` (used as `tcp::connect(..)`)",
+  "detail": "Searched in the folder of this file → fsc_modules/ (`fascon pkg add`) → FASCON_PATH → lib/ next to the executable → the embedded standard library. Items are renamed to `net_tcp__connect` / `Net_Tcp__Conn` (namespaces without lifetimes or generics). Modules are checked in parallel and passing ones are cached by content hash in .fascon-cache/. Not found is F3701, an error inside a module F3702, an alias clash F3703 (`import a::b as c;`).",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "module",
+   "F3701",
+   "F3702",
+   "F3703",
+   "fsc_modules",
+   "FASCON_PATH",
+   "namespace",
+   "名前空間"
+  ]
+ },
+ {
+  "name": "fascon pkg",
+  "category": "Universal-OS extension (1.0)",
+  "summary": "the package manager (fascon.toml [dependencies] into fsc_modules/)",
+  "detail": "`fascon pkg init` / `new <name>` / `add <name> --path <dir>` / `add <name> --git <url> [--rev r]` / `install` / `list` / `std`. fascon.lock records what was installed and a content hash. Standard library: sync::spinlock, sync::mutex, collections::vec, time::wheel, sched::hmp, net::wire, net::udp, net::tcp, fs::pagecache, fs::cowfs, ipc::rpc, loader::elf, pm::power.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "pkg",
+   "fascon.toml",
+   "fascon.lock",
+   "package",
+   "パッケージ",
+   "stdlib",
+   "標準ライブラリ"
+  ]
+ },
+ {
+  "name": "board.toml",
+  "category": "Universal-OS extension (1.0)",
+  "summary": "a declarative board definition (memory map, interrupt controller, timer, UART, device windows)",
+  "detail": "`--board boards/qemu-virt-aarch64.toml`. [board] name / arch / profile / cpus, [memory] ram_base / ram_size, [uart] kind / base, [irq] kind / gicd / gicc / gicr, [timer] intid / hz, [[device]] name / base / size, [limits] user_str_max / dma_pool_pages, [vm] mmio_mirror / arena_va_base, [cpu] big = [..]. fascon_board.h is written next to the generated C and read by both the BSP and the generated C. Errors are F3801.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "board",
+   "--board",
+   "BSP",
+   "fascon_board.h",
+   "F3801"
+  ]
+ },
+ {
+  "name": "F3001",
+  "category": "Error codes",
+  "summary": "recursion under `--target rtos`",
+  "detail": "A cycle in the call graph (function-pointer candidates included); the maximum stack use could not be proven.",
+  "constraints": "",
+  "remedy": "Use a loop with an explicit stack.",
+  "aliases": [
+   "recursion",
+   "再帰"
+  ]
+ },
+ {
+  "name": "F3010 / F3011",
+  "category": "Error codes",
+  "summary": "the raw Id width on generic-os (warning) / generic-os-only operations",
+  "detail": "F3010: validate on generic-os got an integer narrower than 64 bits (no room for the generation, always None). F3011: address-space / TLB operations used outside generic-os.",
+  "constraints": "",
+  "remedy": "Use IdRaw / pass --target generic-os.",
+  "aliases": [
+   "F3010",
+   "F3011"
+  ]
+ },
+ {
+  "name": "F3105",
+  "category": "Error codes",
+  "summary": "misuse of Result and `?`",
+  "detail": "`?` on a non-Result, in a function not returning a Result, or a non-copyable Result error type.",
+  "constraints": "",
+  "remedy": "Handle Options with if let and `return Err(EINVAL);`.",
+  "aliases": [
+   "?"
+  ]
+ },
+ {
+  "name": "F3401 / F3402 / F3403 / F3404",
+  "category": "Error codes",
+  "summary": "the rules of DMA and MMIO",
+  "detail": "F3401: a value used by the CPU while lent (submit_dma to complete_dma). F3402: a bare dma own field. F3403: a value shared with a device is not POD. F3404: the type of bind_mmio / mmio T is not a register struct.",
+  "constraints": "",
+  "remedy": "Use the value taken back by complete_dma / use Option<dma own T> / use integers, arrays and wire structs only.",
+  "aliases": [
+   "F3401",
+   "F3402",
+   "F3403",
+   "F3404"
+  ]
+ },
+ {
+  "name": "F3503 / F3504 / F3601 / F3801",
+  "category": "Error codes",
+  "summary": "errors in boundary types, attributes and board definitions",
+  "detail": "F3503: a malformed #[asm] (shape, operands, effects). F3504 (warning): an unknown attribute. F3601: a type that cannot cross extern \"C\". F3801: board.toml cannot be read or misses a required key.",
+  "constraints": "",
+  "remedy": "F3503: follow the shape, operands and effects of the examples in `fascon dict #[asm(..)]`. F3504: fix the spelling of the attribute (it is a warning, so the build continues). F3601: use integers, bool, Id, `Option<Id>` or FaultError as extern \"C\" parameters and results (incoming Ids are validated). F3801: follow the syntax and required keys of the example in `fascon dict board.toml`.",
+  "aliases": [
+   "F3503",
+   "F3504",
+   "F3601",
+   "F3801"
+  ]
+ },
+ {
+  "name": "gc_arena",
+  "category": "Memory",
+  "summary": "an arena reclaimed by fascon-gc (deterministic, precise GC)",
+  "detail": "`gc_arena nodes: Node[N];` (`shared gc_arena` for one instance on every core). Elements are named by Id<nodes> (coloured types; F2101, F0515 and F0520 apply unchanged). gc_collect(nodes) marks by reading only the type descriptors (.rodata), the live bitmaps and the Id-only projection columns, and sweeps live & ~mark with ctz / blsr. Dead slots go to the free of the arena (own drop, zero fill, generation + 1, column unmirror, free list / magazine; shared arenas after an RCU grace period). Roots are statics, slots of ordinary arena / bump_arena, the shadow stack (locals and parameters holding gc Ids) and suspended tasks.",
+  "constraints": "manual free / remove is F2621; allocation and gc_collect inside #[trap], rcu_read, atomic, critical or irq is F2622; F2623 with --gc=off; dma own T in the element is F2624; Ids of a shared gc_arena in a per-core arena are F2625. Collections happen at gc_collect statements (and, for shared gc_arena, at loop-head and waiting safepoints). Temporaries in the middle of an expression are roots too (gc Ids evaluated before an expression that may collect are moved by the compiler into temporaries registered on the shadow stack until the end of the statement). For channels that can carry Ids of a shared gc_arena, elements sent but not yet received are read as roots.",
+  "remedy": "drop the references and the next gc_collect reclaims the slots; when alloc returns None, gc_collect and retry.",
+  "aliases": [
+   "gc",
+   "fascon-gc",
+   "ガベージコレクション",
+   "garbage collection",
+   "gc_collect",
+   "shared gc_arena",
+   "一時値の根",
+   "temporary roots",
+   "チャネルの根",
+   "channel roots"
+  ]
+ },
+ {
+  "name": "promote_to_gc",
+  "category": "Memory",
+  "summary": "copy a bump_arena survivor into a gc_arena (generational evacuation)",
+  "detail": "`promote_to_gc(nodes, bump_id)` gives Option<Id<nodes>>. Build temporaries in a bump_arena in O(1) and copy only what survives; the rest vanishes with one rewind at function exit. Automatic promotion by escape analysis: passing a bump_arena Id where a gc_arena Id of the same element type is expected (a return value, argument, field or typed let) makes the compiler insert promote_to_gc.",
+  "constraints": "the element types must match (bump_arena elements cannot hold own).",
+  "remedy": "",
+  "aliases": [
+   "escape promotion",
+   "自動昇格",
+   "evacuation"
+  ]
+ },
+ {
+  "name": "F2621 / F2622 / F2623 / F2624 / F2625",
+  "category": "Error codes",
+  "summary": "fascon-gc errors",
+  "detail": "F2621: free / remove on a gc_arena (freeing is the job of the GC). F2622: allocation, gc_collect or promote_to_gc on a gc_arena inside #[trap], rcu_read, atomic, critical or an irq handler (functions called from there included) (unbounded time; waiting for parked cores could deadlock). F2623: gc_arena with --gc=off (FASCON_GC=off; a fully deterministic build that links no GC runtime). F2624: dma own T in a gc_arena element (could be reclaimed mid-transfer). F2625: an Id of a shared gc_arena in a per-core arena (a root the collecting core cannot see). F2601-F2604 of the specification already mean other things in Fascon 1.0, so they live at F2621-F2624 with the same last digit.",
+  "constraints": "",
+  "remedy": "F2621: delete the free / remove and leave reclaiming to gc_collect (a Quick Fix does it). F2622: move allocation and collection out of closed sections, irq handlers, #[trap], rcu_read and atomic (into the open sections of ordinary tasks). F2623: drop `--gc=off`, or make the gc_arena an ordinary arena. F2624: keep dma own T in an ordinary arena, not a gc_arena. F2625: keep Ids of a shared gc_arena in shared arenas (shared arena / shared gc_arena).",
+  "aliases": [
+   "F2621",
+   "F2622",
+   "F2623",
+   "F2624",
+   "F2625"
+  ]
+ },
+ {
+  "name": "Pure Safe / Low-Level / Hardware",
+  "category": "Packages",
+  "summary": "the safety labels of fascon pkg",
+  "detail": "fascon pkg label (and fascon pkg install, and fascon build inside a package) scans every source of the package and writes safety and safety_reasons into [package] of fascon.toml: Pure Safe with no #[asm], no extern \"C\" and no hardware boundary (mmio, port_io, bind_mmio, dma, irq, #[trap], #[syscall], user_mem, volatile_bypass); otherwise Low-Level / Hardware with the reasons and places. fascon.lock carries the label of each dependency.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "safety label",
+   "安全性のラベル",
+   "fascon pkg label",
+   "Pure Safe",
+   "Low-Level"
+  ]
+ },
+ {
+  "name": "hal::console / hal::timer / hal::block / hal::net",
+  "category": "Standard library",
+  "summary": "the standard HAL (structs of function pointers)",
+  "detail": "Console { putc, getc, flush }, Timer { now_ns, freq_hz, arm_oneshot, cancel }, BlockDevice { sectors, read, write, flush }, NetDevice { mac, mtu, send, recv, link_up }. Board packages fill them in (console() in board_hal.fsc, ...), and upper libraries only take &Console and friends, so they run unchanged on another board.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "HAL",
+   "board_hal",
+   "Console",
+   "BlockDevice",
+   "NetDevice"
+  ]
+ },
+ {
+  "name": "board.toml [boot] / --board",
+  "category": "Boards",
+  "summary": "a real-hardware image from board.toml alone",
+  "detail": "With load_addr, stack_size, smp (spin-table / psci-hvc / psci-smc / ipi / none), release_addrs, exit (loop / psci / semihosting) and entry_el in [boot], fascon build --board <name> builds an ELF and a raw .img (straight onto flash or an SD card) with the generic BSP (a start.S that drops to EL1 from EL3 / EL2 / EL1, bsp.c and a generated linker script). [dma] coherent = false adds per-cache-line clean / invalidate, and bus_offset gives the address devices see (bus_addr). A board is added without touching the compiler by putting board.toml and pure-Fascon drivers (board_hal.fsc, ...) in boards/<name>/, plus start.S, bsp.c and [toolchain] when needed (RISC-V, ...). fascon qemu --board boots it on [qemu] machine.",
+  "constraints": "",
+  "remedy": "",
+  "aliases": [
+   "--board",
+   "board.toml",
+   "boot image",
+   "spin-table",
+   "PSCI",
+   "bus_addr",
+   "dma_coherent",
+   "raspberrypi3b"
+  ]
+ },
+ {
+  "name": "fascon_plat_*",
+  "category": "Multi-architecture base (1.0)",
+  "summary": "The CPU-independent functions generated C calls (each board BSP implements them)",
+  "detail": "The C the compiler emits contains no CPU-specific instruction and calls only these functions declared in `runtime/fascon2_rt.h`: interrupts and locks (`irq_save` / `irq_restore` / `irq_open` / `wait_irq`, `critical_enter` / `critical_exit`), the clock (`timer_now` / `timer_freq` / `timer_arm`), tasks (`task_create` / `task_create_user` / `task_enter` / `task_yield` / `task_resume` / `task_exit` / `task_current`), multi-core (`spawn_on` / `cpu_count` / `cpu_id`), address spaces (`vm_space` / `vm_map` / `vm_unmap` / `vm_switch` / `vm_flush` / `vm_drop`), user space (`user_register` / `user_window` / `copy_from_user` / `copy_to_user` / `syscall_register` / `trap_register`), panics (`panic_broadcast` / `core_parked`) and fascon-gc (`gc_task_tops`). Implementations: bsp/qemu-virt-aarch64 and bsp/qemu-x86_64-bios (everything), bsp/generic-aarch64 and boards/qemu-virt-riscv64 (interrupts, clock, core count), bsp/portable-stub (the porting template) and bsp/host (PC execution).",
+  "constraints": "Interrupt controllers, page tables and TLB instructions live only in the BSPs, never in the compiler (src/*.rs).",
+  "remedy": "For a new board, write these functions in C under `boards/<name>/` and describe it in `board.toml` (the compiler is not touched). `python3 tools/cross_check.py target/release/fascon` checks that generated C compiles with `-Werror` and links for five architectures.",
+  "aliases": [
+   "fascon_plat",
+   "プラットフォーム API",
+   "platform API",
+   "BSP",
+   "移植",
+   "porting",
+   "マルチアーキテクチャ",
+   "multi-architecture"
+  ]
+ },
+ {
+  "name": "f32 / f64",
+  "category": "Floats & columns (1.0)",
+  "summary": "IEEE-754 floating-point numbers (single and double precision); by default operations run in written order, bit for bit",
+  "detail": "Literals are `1.5`, `2.0f32`, `1e-3`; without a suffix the type is inferred (f64 when undecided). Arithmetic is plain IEEE-754 (contraction into FMA is turned off in the C), `as` to integers saturates (NaN gives 0), and `put(x)` prints the shortest decimal that reads back (the shape of `{:?}` in Rust). Value methods are `to_bits()`, `is_nan()`, `is_finite()` and `abs()`, plus `f32::from_bits(u)` / `f64::from_bits(u)` and constants such as `f64::INFINITY`, `f64::NAN` and `f64::EPSILON`. Reductions are parallelized (reassociated) only under `#[fast_math]`.",
+  "constraints": "Floats cannot be wire struct fields (F2701). `==` is the IEEE-754 comparison (NaN equals nothing, itself included).",
+  "remedy": "Compare bit patterns with `x.to_bits() == y.to_bits()`.",
+  "aliases": [
+   "f32",
+   "f64",
+   "float",
+   "double",
+   "浮動小数点",
+   "IEEE-754",
+   "to_bits",
+   "from_bits",
+   "is_nan",
+   "is_finite",
+   "NaN",
+   "-0.0"
+  ]
+ },
+ {
+  "name": "#[fast_math]",
+  "category": "Floats & columns (1.0)",
+  "summary": "an attribute that lets a loop or function reassociate its float reductions into parallel lanes and use columns",
+  "detail": "Sums and filtered sums such as `#[fast_math] for id in @a { s += @a[id].x; }` read f32 / f64 True-SoA columns (float / double) with four independent vector accumulators (f20_col_sum_f32 / _f64, _m when filtered). Min / max picks use IEEE-754 order-preserving key columns (F20_KEY_F32 / F20_KEY_F64: sign bit 0 flips the sign bit, 1 flips every bit; NaN is never picked; -0.0 compares as +0.0). Loops without the attribute keep the written order, bit for bit. `--fast-math` (FASCON_FAST_MATH=1) applies it to the whole program.",
+  "constraints": "The last digits of a sum may differ from the written-order sum (lanes are added separately, then combined).",
+  "remedy": "Leave it off reductions that must match bit for bit; `--columns off` returns to scans without columns.",
+  "aliases": [
+   "fast_math",
+   "--fast-math",
+   "FASCON_FAST_MATH",
+   "再結合",
+   "reassociation",
+   "f20_col_sum_f32",
+   "f20_col_sum_f64",
+   "F20_KEY_F32",
+   "F20_KEY_F64"
+  ]
+ },
+ {
+  "name": "完全列化（True SoA）",
+  "category": "Floats & columns (1.0)",
+  "summary": "tables whose fields read by reductions leave the slot and live only in a column (one write per update)",
+  "detail": "With `--columns on` (the default) a field that reductions read and that is never referenced as a whole element or by address becomes True SoA (single-write): `@a[id].f` reads and writes the column `ts_f[i]` instead of the slot. Mirror columns (Mirrored-SoA, dual-write) remain only for columns built from fields kept in the slot, such as filter bit columns and key columns. Bulk overwrites of columns of 8 MiB or more use non-temporal stores (F20_NT_STORE and F20_SFENCE at the exit). Write-heavy fields (write weight above scan weight) get no mirror columns. `fascon regions` shows the decision and the reasons per table.",
+  "constraints": "Fields under #[stable_abi], #[wire], the extern \"C\" boundary or whose address is taken stay in the slot (regions names the reason).",
+  "remedy": "`--columns mirrored` keeps mirror columns only, `--columns off` gives the 1.0.0 tables, `--nontemporal off` turns non-temporal stores off.",
+  "aliases": [
+   "True SoA",
+   "True-SoA",
+   "Mirrored-SoA",
+   "--columns mirrored",
+   "--nontemporal",
+   "F20_NT_STORE",
+   "F20_SFENCE",
+   "single-write",
+   "dual-write",
+   "単一書き込み",
+   "二重書き込み"
+  ]
+ },
+ {
+  "name": "条件付き一括更新（Masked Column RMW）",
+  "category": "Floats & columns (1.0)",
+  "summary": "turns `for id in @a { if cond { @a[id].f += x / = x } }` into a branch-free vector update that reads the filter bit column word by word",
+  "detail": "When f is a True-SoA column (u32, u64, i32, i64; f32 and f64 under #[fast_math]), the condition fits a filter bit column and x does not change in the loop (a literal, local, static or constant), f20_col_masked_add_* / f20_col_masked_set_* process 64 slots at a time: zero words are skipped without touching the column lines, all-one words use an unmasked vector operation (non-temporal stores at 8 MiB or more), the rest a predicated operation with the bits spread over the lanes, in place. Integer adds check every lane for overflow; an overflowing word is restored and the sequential loop continues from it (the same panic at the same place).",
+  "constraints": "Shared arenas, tables shared with interrupts or tasks, and dma / gpu / gc / bump / task arenas are not eligible.",
+  "remedy": "The masked column RMW lines of `fascon regions` list the column, bit column, kernel and store kind; `--columns off` returns to the sequential loop.",
+  "aliases": [
+   "masked RMW",
+   "Masked Column RMW",
+   "f20_col_masked_add",
+   "f20_col_masked_set",
+   "条件付き一括更新",
+   "predicated SIMD"
+  ]
+ },
+ {
+  "name": "gpu_arena / GpuBuf<@g> / GpuFence<@g>",
+  "category": "HPC & accelerators (1.0)",
+  "summary": "a table whose slots are lent to an accelerator (GPU / NPU); handles are move-only and completion is checked with tickets",
+  "detail": "`gpu_arena @g: T[N];` lives on a 2 MiB boundary in .bss.fascon_gpu (pinnable pages). `@g.alloc(v)` returns `Option<GpuBuf<@g>>`, and the CPU may use `@g[h]` only while it holds the handle. `@g.dispatch(kernel, grid, block, h)` consumes h (later use is F0382) and returns a ticket `GpuFence<@g>`. `@g.reclaim(f)` returns the handle once the work is done (no waiting); `@g.reclaim_wait(f)` waits for it (the Sleep effect: F2603 in critical and irq, F3203 in rcu_read). A second reclaim with the same ticket gives None. The generated C calls only fascon_plat_gpu_register / dispatch / poll / wait; on the PC a worker thread runs the FASCON_GPU_KERNEL(id) functions of `<name>.gpu.c`.",
+  "constraints": "Elements are plain old data (integers, floats and arrays / structs of them; F2705). It cannot be iterated and has no Id-based operations (F2706).",
+  "remedy": "`--gpu=off` (FASCON_GPU=off) offloads nothing; dispatch runs in place on the calling core (warning F2707).",
+  "aliases": [
+   "gpu_arena",
+   "GpuBuf",
+   "GpuFence",
+   "dispatch",
+   "gpu_dispatch",
+   "reclaim_wait",
+   "FASCON_GPU_KERNEL",
+   "--gpu=off",
+   "fascon_plat_gpu_register",
+   "fascon_plat_gpu_dispatch",
+   "fascon_plat_gpu_poll",
+   "fascon_plat_gpu_wait",
+   ".gpu.c",
+   "GPU"
+  ]
+ },
+ {
+  "name": "--target hpc",
+  "category": "HPC & accelerators (1.0)",
+  "summary": "the HPC / compute node profile (64-bit Ids, 2 MiB-aligned arenas, pinning to physical cores, NUMA-local binding)",
+  "detail": "`--target hpc` or `// fascon-target: hpc`. Ids are 64 bits [generation 32 | index 32] and every table sits on a 2 MiB boundary (MADV_HUGEPAGE on the PC). Once at main and at each spawn_on entry, fascon_plat_pin_core pins the core to a physical core (avoiding SMT siblings) and fascon_plat_numa_bind binds the per-core arenas, fascon__cpu[core] and the own heap to that core NUMA node (MPOL_BIND). `#[numa_node(n)]` picks the node of a shared table. The compute node shape comes from `--topology cores=N,smt=K,numa=M` or `// fascon-topology: ..` (default cores=128 smt=2 numa=8). F3901 to F3903 keep the management core (0) and the compute cores (1..N) apart.",
+  "constraints": "Pinning and binding are advisory and never stop the program (FASCON_HPC_NO_PIN turns them off). `#[no_smt]` goes on fn main.",
+  "remedy": "The HPC section of `fascon regions` lists each core role, physical core and NUMA node, and the functions reachable from compute cores.",
+  "aliases": [
+   "hpc",
+   "FASCON2_HPC",
+   "--topology",
+   "fascon-topology",
+   "numa_node",
+   "no_smt",
+   "allow(hpc_io)",
+   "fascon_plat_pin_core",
+   "fascon_plat_numa_bind",
+   "fascon_plat_numa_node",
+   "fascon_plat_topology",
+   "NUMA",
+   "SMT",
+   "MPOL_BIND",
+   "計算コア",
+   "管理コア"
+  ]
+ },
+ {
+  "name": "F2705",
+  "category": "HPC & accelerators (1.0)",
+  "summary": "the element of a gpu_arena is not plain old data",
+  "detail": "The device reads and writes the slot bytes as they are. own, Id, Str, references, function pointers, bool and Option point into other tables or heaps, or become broken values from device-written bits, so they are not allowed. Allowed are integers, floats and arrays / structs of them (not necessarily wire structs).",
+  "constraints": "",
+  "remedy": "Keep CPU-side data (Id, own, Str) in an ordinary arena and link it by the index `h.index()`; if nothing is offloaded, make it an ordinary `arena`.",
+  "aliases": [
+   "gpu_arena POD"
+  ]
+ },
+ {
+  "name": "F2706",
+  "category": "HPC & accelerators (1.0)",
+  "summary": "misuse of gpu_arena handles and tickets (another table, the wrong type, for, Id operations)",
+  "detail": "`GpuBuf<@g>` and `GpuFence<@g>` work only with the gpu_arena they came from. One of: a handle of another gpu_arena passed to dispatch / free / `@g[h]`, an integer or a handle passed to reclaim instead of a ticket, a table that is not a gpu_arena named in `GpuBuf<..>`, a gpu_arena iterated with for (some slots may be on the device), or an Id operation such as get, contains or validate.",
+  "constraints": "",
+  "remedy": "Handles come from alloc and reclaim, tickets from dispatch. Keep the handles in a table of your own (an arena or an array) and iterate that; write `Id<@a>` for the Id of an ordinary table.",
+  "aliases": [
+   "GpuBuf misuse",
+   "GpuFence misuse"
+  ]
+ },
+ {
+  "name": "F2707",
+  "category": "HPC & accelerators (1.0)",
+  "summary": "a gpu_arena is used with `--gpu=off` (warning)",
+  "detail": "With `--gpu=off` (FASCON_GPU=off) nothing is offloaded: dispatch runs the C function registered with FASCON_GPU_KERNEL(id) in place on the calling core (nothing when none is registered) and completes at once. The generated C calls no fascon_plat_gpu_* hook.",
+  "constraints": "",
+  "remedy": "Drop `--gpu=off` to offload; a table used by the CPU only can be an ordinary `arena`.",
+  "aliases": [
+   "--gpu=off warning"
+  ]
+ },
+ {
+  "name": "F3901",
+  "category": "HPC & accelerators (1.0)",
+  "summary": "external I/O reachable from a compute-core root (a --target hpc warning)",
+  "detail": "A function started with `spawn_on(k, ..)` (k > 0, or a core chosen at run time) reaches MMIO, I/O ports, dma, bind_mmio, submit_dma or gpu_dispatch / reclaim. That is OS / I/O noise on the compute core (interrupts, waits, cache pollution). The HPC section of `fascon regions` lists it too.",
+  "constraints": "",
+  "remedy": "Leave device, DMA and GPU traffic to the management core (core 0) and talk to compute cores through a chan or a shared arena; if it is intended, put `#[allow(hpc_io)]` on the function or the root.",
+  "aliases": [
+   "hpc_io",
+   "allow(hpc_io)"
+  ]
+ },
+ {
+  "name": "F3902",
+  "category": "HPC & accelerators (1.0)",
+  "summary": "dynamic allocation or a table-wide column mirror rebuild on a compute core (--target hpc)",
+  "detail": "A path reachable from a compute-core root uses own, own_alloc, gc_arena allocations, promote_to_gc, gc_collect or dma_alloc (page faults and jitter), or writes, inside `for id in @a` (functions its body calls included), a field read by a Mirrored-SoA column (a filter bit column, a key column, ...) and so rebuilds the mirror table-wide (which columns are mirrors is decided by code generation, so that part is checked afterwards).",
+  "constraints": "",
+  "remedy": "Allocate on the management core before computing and hand data over as an `own` argument, a shared arena or a chan. For mirrors, remove the reason shown by `fascon regions` so the field becomes True SoA, mark it `#[no_column]`, or do table-wide updates on the management core.",
+  "aliases": [
+   "hpc allocation",
+   "mirror rebuild"
+  ]
+ },
+ {
+  "name": "F3903",
+  "category": "HPC & accelerators (1.0)",
+  "summary": "a core number or NUMA node beyond the compute node shape, or SMT siblings assigned with #[no_smt] (--target hpc)",
+  "detail": "A constant spawn_on core number at or above the logical core count, `#[numa_node(n)]` at or above the NUMA node count, or, with `#[no_smt]` on `fn main`, two cores (the management core 0 included) that are sibling threads of one physical core. The shape comes from `--topology`, `// fascon-topology:` or the profile default (cores=128 smt=2 numa=8), in that order. Siblings are c and c + the physical core count by default (adjacent with layout=adjacent).",
+  "constraints": "",
+  "remedy": "Pick cores and nodes the compute node has, or set `--topology cores=N,smt=K,numa=M` / `// fascon-topology: ..` to match the machine; with #[no_smt] pick cores that are not siblings.",
+  "aliases": [
+   "topology",
+   "no_smt violation"
+  ]
+ }
+]

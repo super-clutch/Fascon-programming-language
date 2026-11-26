@@ -1,0 +1,50 @@
+# Raspberry Pi 4（BCM2711・Cortex-A72 x4）— 有志向けの雛形（実機では確かめていません）
+# Raspberry Pi 4 (BCM2711, Cortex-A72 x4) — a template for contributors (not verified on hardware)
+#   EL2 で起動するファームウェアから EL1 へ降りる処理と、mini UART / PL011 のピン設定は BSP 側で足してください
+#   the drop from EL2 (as the firmware starts us) to EL1 and the mini UART / PL011 pin setup belong to the BSP
+
+[board]
+name = "raspberrypi4"
+arch = "aarch64"
+profile = "generic-os"
+cpus = 4
+
+[memory]
+ram_base = 0x0000_0000
+ram_size = 0x3c00_0000          # 960 MiB（GPU との分け方で変わる / depends on the GPU split）
+
+[uart]
+kind = "pl011"
+base = 0xfe20_1000
+
+[irq]
+kind = "gicv2"                  # GIC-400
+gicd = 0xff84_1000
+gicc = 0xff84_2000
+
+[timer]
+kind = "arm-generic"
+intid = 27
+hz = 54_000_000
+
+[[device]]
+name = "pl011"
+base = 0xfe20_1000
+size = 0x200
+
+[[device]]
+name = "emmc2"
+base = 0xfe34_0000
+size = 0x100
+
+[[device]]
+name = "genet"
+base = 0xfd58_0000
+size = 0x10000
+
+[vm]
+mmio_mirror = 0x60_0000_0000
+arena_va_base = 0x40_0000_0000
+
+[cpu]
+big = [0, 1, 2, 3]

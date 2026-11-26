@@ -1,0 +1,129 @@
+// net::tcp — TCP の状態機械（RFC 793 の主要な遷移: 3 ウェイハンドシェイク・データ・FIN による終了）
+// net::tcp — the TCP state machine (the main RFC 793 transitions: three-way handshake, data, close with FIN)
+//
+//   let l = tcp::listen(80).unwrap();
+//   let r = tcp::input(l, wire::TCP_SYN, 1000, 0, 0);   // r.flags = SYN|ACK
+//   ...
+// 送る側（NIC への書き出し）は呼び出し側の仕事: input / close が返す Reply（flags・seq・ack）を送る
+// sending is the caller's job: transmit the Reply (flags, seq, ack) returned by input / close
+import net::wire;
+
+const CLOSED: u8 = 0;
+const LISTEN: u8 = 1;
+const SYN_RCVD: u8 = 2;
+const ESTABLISHED: u8 = 3;
+const CLOSE_WAIT: u8 = 4;
+const LAST_ACK: u8 = 5;
+const FIN_WAIT_1: u8 = 6;
+const FIN_WAIT_2: u8 = 7;
+const TIME_WAIT: u8 = 8;
+const SYN_SENT: u8 = 9;
+
+struct Conn { state: u8, lport: u16, iss: u32, snd_nxt: u32, snd_una: u32, rcv_nxt: u32, rx_bytes: u64 }
+arena conns: Conn[64];
+
+struct Reply { flags: u8, seq: u32, ack: u32 }
+
+fn none() -> Reply {
+    Reply { flags: 0, seq: 0, ack: 0 }
+}
+
+fn listen(port: u16) -> Option<Id<conns>> {
+    conns.alloc(Conn { state: LISTEN, lport: port, iss: 0, snd_nxt: 0, snd_una: 0, rcv_nxt: 0, rx_bytes: 0 })
+}
+
+// 能動オープン: SYN を送る（返す Reply を送る） / active open: send a SYN (transmit the returned Reply)
+fn connect(port: u16, iss: u32) -> Option<Id<conns>> {
+    conns.alloc(Conn { state: SYN_SENT, lport: port, iss: iss, snd_nxt: iss.wrapping_add(1), snd_una: iss, rcv_nxt: 0, rx_bytes: 0 })
+}
+
+fn syn_of(c: Id<conns>) -> Reply {
+    Reply { flags: wire::TCP_SYN, seq: conns[c].iss, ack: 0 }
+}
+
+// 届いたセグメントを処理し、送り返すべき Reply を返す（flags = 0 なら何も送らない）
+// process an incoming segment and return the Reply to send back (flags = 0: send nothing)
+fn input(c: Id<conns>, flags: u8, seq: u32, ack: u32, len: u32) -> Reply {
+    let st = conns[c].state;
+    if (flags & wire::TCP_RST) != 0 {
+        conns[c].state = CLOSED;
+        return none();
+    }
+    if st == LISTEN && (flags & wire::TCP_SYN) != 0 {
+        let iss: u32 = seq.wrapping_mul(2654435761).wrapping_add(17);
+        conns[c].iss = iss;
+        conns[c].rcv_nxt = seq.wrapping_add(1);
+        conns[c].snd_una = iss;
+        conns[c].snd_nxt = iss.wrapping_add(1);
+        conns[c].state = SYN_RCVD;
+        return Reply { flags: wire::TCP_SYN | wire::TCP_ACK, seq: iss, ack: seq.wrapping_add(1) };
+    }
+    if st == SYN_SENT && (flags & wire::TCP_SYN) != 0 && (flags & wire::TCP_ACK) != 0 && ack == conns[c].snd_nxt {
+        conns[c].rcv_nxt = seq.wrapping_add(1);
+        conns[c].snd_una = ack;
+        conns[c].state = ESTABLISHED;
+        return Reply { flags: wire::TCP_ACK, seq: conns[c].snd_nxt, ack: conns[c].rcv_nxt };
+    }
+    // 順番どおりでないセグメントは ACK だけ返す / an out-of-order segment only gets an ACK
+    if st != SYN_RCVD && seq != conns[c].rcv_nxt {
+        return Reply { flags: wire::TCP_ACK, seq: conns[c].snd_nxt, ack: conns[c].rcv_nxt };
+    }
+    if (flags & wire::TCP_ACK) != 0 {
+        conns[c].snd_una = ack;
+        if st == SYN_RCVD && ack == conns[c].snd_nxt {
+            conns[c].state = ESTABLISHED;
+        } else if st == FIN_WAIT_1 && ack == conns[c].snd_nxt {
+            conns[c].state = FIN_WAIT_2;
+        } else if st == LAST_ACK && ack == conns[c].snd_nxt {
+            conns[c].state = CLOSED;
+            return none();
+        }
+    }
+    let mut reply = none();
+    if len > 0 && conns[c].state == ESTABLISHED {
+        conns[c].rcv_nxt = conns[c].rcv_nxt.wrapping_add(len);
+        conns[c].rx_bytes += len as u64;
+        reply = Reply { flags: wire::TCP_ACK, seq: conns[c].snd_nxt, ack: conns[c].rcv_nxt };
+    }
+    if (flags & wire::TCP_FIN) != 0 {
+        conns[c].rcv_nxt = conns[c].rcv_nxt.wrapping_add(1);
+        let s2 = conns[c].state;
+        if s2 == ESTABLISHED {
+            conns[c].state = CLOSE_WAIT;
+        } else if s2 == FIN_WAIT_1 || s2 == FIN_WAIT_2 {
+            conns[c].state = TIME_WAIT;
+        }
+        reply = Reply { flags: wire::TCP_ACK, seq: conns[c].snd_nxt, ack: conns[c].rcv_nxt };
+    }
+    reply
+}
+
+// 送る側のデータ（長さだけ進める。送るのは呼び出し側） / outgoing data (advances by the length; the caller transmits)
+fn send(c: Id<conns>, len: u32) -> Reply {
+    let seq = conns[c].snd_nxt;
+    conns[c].snd_nxt = seq.wrapping_add(len);
+    Reply { flags: wire::TCP_ACK | wire::TCP_PSH, seq: seq, ack: conns[c].rcv_nxt }
+}
+
+// 能動クローズ / 受動クローズ（FIN を送る） / active or passive close (send a FIN)
+fn close(c: Id<conns>) -> Reply {
+    let st = conns[c].state;
+    if st == ESTABLISHED {
+        conns[c].state = FIN_WAIT_1;
+    } else if st == CLOSE_WAIT {
+        conns[c].state = LAST_ACK;
+    } else {
+        return none();
+    }
+    let seq = conns[c].snd_nxt;
+    conns[c].snd_nxt = seq.wrapping_add(1);
+    Reply { flags: wire::TCP_FIN | wire::TCP_ACK, seq: seq, ack: conns[c].rcv_nxt }
+}
+
+fn state(c: Id<conns>) -> u8 {
+    conns[c].state
+}
+
+fn received(c: Id<conns>) -> u64 {
+    conns[c].rx_bytes
+}

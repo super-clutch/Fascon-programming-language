@@ -1,0 +1,10 @@
+// expect: F0382
+// own は移動専用: 移動した後に使う / own is move-only: use after move
+struct Button { label: Str }
+struct Window { ok: own Button }
+fn show(w: own Window) { print_str(w.ok.label); }
+fn main() {
+    let w = own Window { ok: own Button { label: "OK" } };
+    show(w);
+    show(w);
+}

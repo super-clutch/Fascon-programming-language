@@ -1,0 +1,255 @@
+// fascon-test: qemu-only
+// Fascon 1.0: マルチコア × タイマーによるプリエンプション × EL0 のユーザープロセス × 4 KiB の要求時ページング × TOCTOU なしの
+// システムコール。QEMU の -smp 4 で、4 つのコアそれぞれが自分のタスクの表と実行キューを持ち、自分のタイマー（PPI 27）で
+// 自分の EL0 タスクを切り替える。ユーザーメモリはタスクごとのアドレス空間（ASID）に 4 KiB ずつ、触れたときに写される。
+// multi-core × timer preemption × EL0 user processes × 4 KiB demand paging × TOCTOU-free system calls. On QEMU -smp 4
+// every core has its own task table and run queue and switches its own EL0 tasks with its own timer (PPI 27). User
+// memory is mapped 4 KiB at a time, on first touch, into per-task address spaces (ASIDs).
+//   fascon build tests/ok/smp_preempt_user_init.fsc --out tests/ok/smp_preempt_user_init.bin
+//   fascon qemu tests/ok/smp_preempt_user.fsc --headless
+
+const USER_BASE: u64 = 0x1_0000_0000;
+const USER_SIZE: u64 = 0x8_0000;              // タスクごとに 512 KiB（2 MiB の倍数でなくてよい） / 512 KiB per task (no 2 MiB multiple needed)
+const SLICE_MS: u64 = 4;
+const PER_CORE: u32 = 2;                      // コアごとのユーザータスク / user tasks per core
+const CORES: u32 = 4;
+
+struct Task { pid: u32, core: u32, ticks: u32 }
+#[wire(le)] struct Info { pid: u32, core: u32, ticks: u32, pad: u32 }
+#[wire(le)] struct Report { pages: u32, sum_ok: u32, stable: u32, e2big: u32, writeback: u32, preempted: u32 }
+struct Tally { exited: u32, faults: u32, pages_ok: u32, stable: u32, e2big: u32, writeback: u32, preempted: u32, core_ticks: [u64; 4] }
+
+task_arena task: Task[4] stack 16384;         // コアごとの実体: スロット i はコアごとに別のタスク / one instance per core
+user_mem umem for task: 0x8_0000 at 0x1_0000_0000;
+shared arena tally: Tally[1];                 // 全コアで 1 つ（critical の中だけ） / one for all cores (inside critical only)
+
+static INIT: [u8; 16384] = embed("smp_preempt_user_init.bin");
+// 敵対的なユーザープログラム（手書きの機械語）: カーネルの番地の窓と、ユーザーメモリより長い窓で write を呼び、両方が -14
+// なら未定義命令（→ trap）、違えば exit(1)
+// a hostile user program (hand-written machine code): write with a window at a kernel address and one longer than the
+// user memory; an undefined instruction (→ trap) when both give -14, exit(1) otherwise
+static BAD: [u8; 72] = [
+    0x20, 0x00, 0x80, 0xd2, 0x01, 0x01, 0xa8, 0xd2, 0x02, 0x02, 0x80, 0xd2, 0x28, 0x00, 0x80, 0xd2,
+    0x01, 0x00, 0x00, 0xd4, 0x1f, 0x38, 0x00, 0xb1, 0x21, 0x01, 0x00, 0x54, 0x20, 0x00, 0x80, 0xd2,
+    0x01, 0x00, 0x00, 0x10, 0x02, 0x04, 0xa0, 0xd2, 0x42, 0x04, 0x00, 0x91, 0x01, 0x00, 0x00, 0xd4,
+    0x1f, 0x38, 0x00, 0xb1, 0x41, 0x00, 0x00, 0x54, 0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0x80, 0xd2,
+    0x88, 0x07, 0x80, 0xd2, 0x01, 0x00, 0x00, 0xd4];
+
+fn ms(n: u64) -> u64 {
+    timer_freq() / 1000 * n
+}
+
+// コアごとのタイマー割り込み（PPI 27）: このコアの次の生きているタスクへ（ラウンドロビン）。表はこのコアの実体なので、
+// ほかのコアとは競合しない
+// the per-core timer interrupt (PPI 27): round robin to the next live task of this core. The table is the own
+// instance of this core, so other cores never race with it
+irq tick at 27 {
+    timer_arm(ms(SLICE_MS));
+    let cur = task.current();
+    if let Some(t) = task.get_mut(cur) {
+        t.ticks += 1;
+    }
+    let mut first: Option<Id<task>> = None;
+    let mut next: Option<Id<task>> = None;
+    let mut seen = false;
+    for id in task {
+        if first.is_none() { first = Some(id); }
+        if seen && next.is_none() { next = Some(id); }
+        if id == cur { seen = true; }
+    }
+    if next.is_none() { next = first; }
+    if let Some(n) = next {
+        task.resume(n);
+    }
+}
+
+syscall write at 1 (fd: u32, buf: &[u8]) -> i64 {
+    if fd == 2 { return buf.len() as i64; }    // fd 2: 数えるだけ / counted only
+    if fd != 1 { return -9; }
+    critical { put_bytes(buf); }
+    buf.len() as i64
+}
+
+critical fn fill_info(out: &mut Info) -> i64 {
+    let cur = task.current();
+    if let Some(t) = task.get(cur) {
+        out.pid = t.pid;
+        out.core = t.core;
+        out.ticks = t.ticks;
+        out.pad = 0x600d;
+        return 0;
+    }
+    -3
+}
+
+// &mut のワイヤ構造体: 入口で影の写しへ 1 回写し、本体の後で 1 回書き戻す / a &mut wire struct: copied once into a shadow
+// at the entry and written back once after the body
+syscall info at 2 (out: &mut Info) -> i64 {
+    fill_info(out)
+}
+
+// TOCTOU の確かめ: 本体が窓を 2 回読む間に、同じプロセスのほかのコアのスレッドが（カーネルの窓を通して）ユーザーメモリを
+// 書き換える。窓が影の写しなら、2 回の読みは同じ値になる
+// a TOCTOU check: while the body reads the window twice, a thread of the same process on another core rewrites the user
+// memory (simulated through the window of the kernel). With a shadow-copied window both reads see the same value
+syscall stable at 5 (data: &[u8]) -> i64 {
+    if data.len() != 16 { return -22; }
+    let first = data[0];
+    let at = flip_pattern(0xffff_ffff);
+    let second = data[0];
+    if at != 0xffff_ffff { flip_pattern(at); }
+    if at != 0xffff_ffff && first == second { 1 } else { 0 }
+}
+
+// 呼んだタスクのユーザーメモリから 16 バイトの印（pid から決まる並び）を探し、最初のバイトを反転する（at を渡せばそこを
+// 戻す）。見つけた位置を返す
+// find the 16-byte pattern (a sequence derived from the pid) in the user memory of the calling task and invert its first byte
+// (or restore it at `at`); returns the position found
+critical fn flip_pattern(at: u64) -> u64 {
+    let me = task.current();
+    let mut pid: u64 = 0;
+    if let Some(t) = task.get(me) { pid = t.pid as u64; }
+    let mut found: u64 = 0xffff_ffff;
+    if let Some(m) = umem.of(me) {
+        if at != 0xffff_ffff {
+            m[at] = m[at] ^ 0xff;
+            return at;
+        }
+        let n = m.len();
+        let mut i: u64 = 0;
+        while i + 16 <= n && found == 0xffff_ffff {
+            let mut k: u64 = 0;
+            while k < 16 && m[i + k] == ((pid * 7 + k * 29 + 0x5b) & 0xff) as u8 {
+                k += 1;
+            }
+            if k == 16 {
+                m[i] = m[i] ^ 0xff;
+                found = i;
+            }
+            i += 1;
+        }
+    }
+    found
+}
+
+syscall report at 4 (r: &Report) -> i64 {
+    let me = task.current();
+    let mut ticks: u64 = 0;
+    let mut core: u64 = 0;
+    critical {
+        if let Some(t) = task.get(me) {
+            ticks = t.ticks as u64;
+            core = t.core as u64;
+        }
+    }
+    critical {
+        for id in tally {
+            if r.pages == 24 && r.sum_ok == 1 { tally[id].pages_ok += 1; }
+            tally[id].stable += r.stable;
+            tally[id].e2big += r.e2big;
+            tally[id].writeback += r.writeback;
+            if r.preempted != 0 && ticks > 0 { tally[id].preempted += 1; }
+            tally[id].core_ticks[core % 4] += ticks;
+        }
+    }
+    0
+}
+
+syscall exit at 60 (code: i32) -> i64 {
+    critical {
+        for id in tally {
+            if code == 0 { tally[id].exited += 1; }
+        }
+    }
+    finish();
+    task.exit();
+    0
+}
+
+trap user_fault(esr: u64, far: u64, pc: u64) {
+    critical {
+        for id in tally {
+            if (esr >> 26) == 0 && pc == USER_BASE + 0x38 && (far | 1) != 0 { tally[id].faults += 1; }
+        }
+    }
+    finish();
+}
+
+// 全部のタスクが終わったら（どのコアでも）結果を出して機械を止める / once every task is done (on whichever core), print the
+// result and stop the machine
+critical fn finish() {
+    for id in tally {
+        let exited = tally[id].exited;
+        let faults = tally[id].faults;
+        if exited + faults == CORES * PER_CORE + 1 {
+            put_str("[kernel] all tasks done: exited ");
+            put_int(exited as i64);
+            put_str(", faults ");
+            print_int(faults as i64);
+            put_str("[kernel] demand paging: 24 pages of 4 KiB touched by every task: ");
+            print_str(if tally[id].pages_ok == CORES * PER_CORE { "ok" } else { "MISSING" });
+            put_str("[kernel] TOCTOU: the system call body saw a stable snapshot on ");
+            put_int(tally[id].stable as i64);
+            put_str(" of ");
+            print_int((CORES * PER_CORE) as i64);
+            put_str("[kernel] E2BIG for a 64 KiB window: ");
+            put_int(tally[id].e2big as i64);
+            put_str(", write-back of &mut windows: ");
+            print_int(tally[id].writeback as i64);
+            let mut all = true;
+            for c in 0..4 {
+                if tally[id].core_ticks[c] == 0 { all = false; }
+            }
+            put_str("[kernel] every core preempted its own EL0 tasks with its own timer: ");
+            print_str(if all && tally[id].preempted == CORES * PER_CORE { "yes" } else { "NO" });
+            print_str("FASCON-SMP-USER-OK");
+            exit(0);
+        }
+    }
+}
+
+fn spawn_user(pid: u32, core: u32, bad: bool) -> Option<Id<task>> {
+    match task.start_user(Task { pid: pid, core: core, ticks: 0 }, USER_BASE, USER_BASE + USER_SIZE) {
+        Some(t) => {
+            if let Some(m) = umem.of(t) {
+                if bad {
+                    if let Some(dst) = m.window_mut(0, 72) {
+                        dst.copy_from(&BAD);
+                    }
+                } else {
+                    if let Some(dst) = m.window_mut(0, 16384) {
+                        dst.copy_from(&INIT);
+                    }
+                }
+            }
+            Some(t)
+        }
+        None => None,
+    }
+}
+
+// コアごとの起動: このコアのタスクの表にユーザータスクを作り、このコアのタイマーを張って最初のタスクへ入る（戻らない）
+// per-core start-up: create user tasks in the task table of this core, arm the timer of this core and enter the first task (never returns)
+fn core_main(c: u64) {
+    let mut first: Option<Id<task>> = None;
+    for k in 0..PER_CORE {
+        let t = spawn_user((c as u32) * 10 + k + 1, c as u32, false);
+        if first.is_none() { first = t; }
+    }
+    if c == 3 {
+        spawn_user(99, 3, true);
+    }
+    timer_arm(ms(SLICE_MS));
+    if let Some(t) = first {
+        task.enter(t);
+    }
+}
+
+fn main() {
+    print_str("[kernel] SMP x EL0 x 4 KiB pages: 4 cores, 2 user tasks per core + 1 hostile task on core 3");
+    tally.alloc(Tally { exited: 0, faults: 0, pages_ok: 0, stable: 0, e2big: 0, writeback: 0, preempted: 0, core_ticks: [0; 4] });
+    spawn_on(1, core_main, 1);
+    spawn_on(2, core_main, 2);
+    spawn_on(3, core_main, 3);
+    core_main(0);
+}

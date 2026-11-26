@@ -1,0 +1,12 @@
+// expect: F2622
+// rcu_read の中で gc_arena へ確保・回収はできない / no gc_arena allocation or collection inside rcu_read
+struct Node { v: u64, next: Option<Id<nodes>> }
+gc_arena nodes: Node[16];
+
+fn main() {
+    let a = nodes.alloc(Node { v: 1, next: None }).unwrap();
+    rcu_read {
+        let b = nodes.alloc(Node { v: 2, next: Some(a) });
+        gc_collect(nodes);
+    }
+}

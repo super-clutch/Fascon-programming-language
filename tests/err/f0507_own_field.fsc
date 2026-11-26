@@ -1,0 +1,9 @@
+// expect: F0507
+// own フィールドから子を移動で取り出す（取り外せる子は Option<own T> と take()）
+// moving a child out of an own field (detachable children use Option<own T> and take())
+struct Button { label: Str }
+struct Window { ok: own Button }
+fn main() {
+    let w = own Window { ok: own Button { label: "OK" } };
+    let b = w.ok;
+}

@@ -1,0 +1,5 @@
+// expect: F3502
+// #[stable_abi] の構造体のフィールドは ABI を固定できる型だけ / only ABI-stable field types
+#[stable_abi]
+struct Msg { len: u32, name: Str }
+fn main() {}

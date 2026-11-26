@@ -1,0 +1,65 @@
+// fascon-gc: gc_arena の Id を式の途中の一時値として持つ間に回収が起きても、根から漏れない。コンパイラが一時値を
+// 一時ローカルへ展開してシャドウスタックへ登録する（let に分けなくてよい）。旧版では 1 番目の引数・フィールドの Id が
+// 回収されて古い Id（None）になっていた
+// fascon-gc: a collection that happens while a gc_arena Id lives only in a temporary of an expression does not lose it.
+// The compiler spills the temporary into a local and registers it on the shadow stack (no need to split it into lets).
+// Before this change the Id of the first argument / field was collected and became stale (None)
+struct Node { v: u64, next: Option<Id<nodes>> }
+struct Pair { a: Option<Id<nodes>>, b: Option<Id<nodes>> }
+gc_arena nodes: Node[8];
+
+// 呼ばれるたびに回収してから確保する / collects, then allocates, on every call
+fn churn(n: u64) -> Option<Id<nodes>> {
+    gc_collect(nodes);
+    nodes.alloc(Node { v: n, next: None })
+}
+
+fn value(x: Option<Id<nodes>>) -> u64 {
+    match x {
+        Some(id) => match nodes.get(id) {
+            Some(n) => n.v,
+            None => 0,
+        },
+        None => 0,
+    }
+}
+
+fn link(a: Option<Id<nodes>>, b: Option<Id<nodes>>) -> u64 {
+    value(a) * 10 + value(b)
+}
+
+fn pair(a: Option<Id<nodes>>, b: Option<Id<nodes>>) -> Pair {
+    Pair { a: a, b: b }
+}
+
+fn main() {
+    // 回収されると空きが再利用されるように、ゴミで埋めておく / fill with garbage so collected slots get reused
+    for i in 0..6 {
+        nodes.alloc(Node { v: 100 + i, next: None });
+    }
+    // 1. 引数の一時値: 1 番目は新しい確保、2 番目が回収する / an argument temporary: the first is a fresh allocation, the
+    //    second collects
+    let s = link(nodes.alloc(Node { v: 1, next: None }), churn(2));
+    put_str("call arguments: ");
+    print_int(s as i64);
+    // 2. 構造体リテラルのフィールドの一時値 / a temporary in a struct literal field
+    let p = Pair { a: nodes.alloc(Node { v: 3, next: None }), b: churn(4) };
+    put_str("struct fields: ");
+    print_int(link(p.a, p.b) as i64);
+    // 3. 返された構造体の中の Id（入れ子の呼び出し） / Ids inside a returned struct (nested calls)
+    let q = pair(nodes.alloc(Node { v: 5, next: None }), churn(6));
+    put_str("nested call: ");
+    print_int(link(q.a, q.b) as i64);
+    // 4. 鎖: 一時値の Id を next に入れた要素を作る間に回収 / a chain: collect while building a node whose next is a temporary
+    let c = nodes.alloc(Node { v: 7, next: nodes.alloc(Node { v: 8, next: None }) });
+    gc_collect(nodes);
+    let mut chain: u64 = 0;
+    if let Some(id) = c {
+        chain = value(c) * 10 + value(nodes[id].next);
+    }
+    put_str("chain after collect: ");
+    print_int(chain as i64);
+    put_str("live after final collect: ");
+    gc_collect(nodes);
+    print_int(nodes.len() as i64);
+}

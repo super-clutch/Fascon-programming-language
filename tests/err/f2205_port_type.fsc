@@ -1,0 +1,4 @@
+// expect: F2205
+// ポートの要素は u8 / u16 / u32（in / out 命令の幅） / port elements are u8 / u16 / u32 (the widths of in / out)
+port_io wide: u64 at_port 0x40;
+fn main() { }

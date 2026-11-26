@@ -1,0 +1,39 @@
+// fascon-gc の基本: 循環した不要なグラフが回収され、根から届くものは残る
+// fascon-gc basics: an unreachable cycle is reclaimed, what the roots reach stays
+struct Node { v: u64, next: Option<Id<nodes>>, peer: Option<Id<nodes>> }
+struct Holder { keep: Option<Id<nodes>> }
+
+gc_arena nodes: Node[64];
+arena holders: Holder[4];
+
+fn make_cycle(n: u64) {
+    let a = nodes.alloc(Node { v: n, next: None, peer: None }).unwrap();
+    let b = nodes.alloc(Node { v: n + 1, next: Some(a), peer: None }).unwrap();
+    nodes[a].next = Some(b);
+}
+
+fn main() {
+    let keep = nodes.alloc(Node { v: 100, next: None, peer: None }).unwrap();
+    let child = nodes.alloc(Node { v: 200, next: None, peer: None }).unwrap();
+    nodes[keep].next = Some(child);
+    let h = holders.alloc(Holder { keep: Some(keep) }).unwrap();
+    for i in 0..10 {
+        make_cycle(i * 10);
+    }
+    print_int(nodes.len() as u64);
+    let freed = gc_collect(nodes);
+    print_int(freed as u64);
+    print_int(nodes.len() as u64);
+    let local = nodes.alloc(Node { v: 7, next: None, peer: None }).unwrap();
+    holders[h].keep = None;
+    let freed2 = gc_collect(nodes);
+    print_int(freed2 as u64);
+    match nodes.get(local) {
+        Some(n) => print_int(n.v),
+        None => print_str("lost"),
+    }
+    match nodes.get(child) {
+        Some(n) => print_int(n.v),
+        None => print_str("child reclaimed"),
+    }
+}

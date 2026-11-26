@@ -1,0 +1,50 @@
+// 世代リフレッシュ（32 ビット Id）: K = 20 のアリーナは世代が 12 ビット（上限 4095）。同じスロットを何千回も使い回すと
+// 上限の 3/4 で gc_collect が全ての根とスロットの Id を世代 1 へ書き換える。書き換え後も、ローカル・ほかのアリーナ・
+// gc_arena の中の Id はそのまま同じ要素を指す
+// generation refresh (32-bit Ids): an arena with K = 20 has 12-bit generations (limit 4095). Reusing one slot thousands of
+// times makes gc_collect rewrite every root and slot Id to generation 1 at 3/4 of the limit; afterwards the Ids in locals,
+// other arenas and inside the gc arena still name the same elements
+struct Node { v: u64, next: Option<Id<nodes>> }
+struct Holder { at: Option<Id<nodes>> }
+
+gc_arena nodes: Node[1048576];
+arena holders: Holder[4];
+
+fn churn(times: u32) {
+    for i in 0..times {
+        let t = nodes.alloc(Node { v: i as u64, next: None });
+        match t {
+            Some(_) => {}
+            None => print_str("full"),
+        }
+        gc_collect(nodes);
+    }
+}
+
+fn main() {
+    churn(2000);
+    let keep = nodes.alloc(Node { v: 41, next: None }).unwrap();
+    let other = nodes.alloc(Node { v: 42, next: None }).unwrap();
+    nodes[keep].next = Some(other);
+    let h = holders.alloc(Holder { at: Some(other) }).unwrap();
+    let gone = nodes.alloc(Node { v: 99, next: None }).unwrap();
+    let stale = gone;
+    churn(4600);
+    match nodes.get(keep) {
+        Some(n) => print_int(n.v),
+        None => print_str("keep LOST"),
+    }
+    match nodes[keep].next {
+        Some(o) => print_int(nodes[o].v),
+        None => print_str("edge LOST"),
+    }
+    match holders[h].at {
+        Some(o) => print_int(nodes[o].v),
+        None => print_str("holder LOST"),
+    }
+    match nodes.get(stale) {
+        Some(n) => print_int(n.v),
+        None => print_str("stale is None"),
+    }
+    print_int(nodes.len() as u64);
+}

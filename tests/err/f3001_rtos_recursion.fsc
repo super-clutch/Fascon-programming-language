@@ -1,0 +1,10 @@
+// expect: F3001
+// fascon-target: rtos
+// rtos ではスタックの最大消費量を静的に証明するので、再帰（呼び出しの閉路）はエラー
+// with rtos the maximum stack use is proven statically, so recursion (a call cycle) is an error
+fn depth(n: u32) -> u32 {
+    if n == 0 { 0 } else { 1 + depth(n - 1) }
+}
+fn main() {
+    print_int(depth(3));
+}

@@ -1,0 +1,5 @@
+// expect: F2804
+static IMG: [u8; 64] = embed("no_such_file.bin");
+fn main() {
+    print_int(IMG[0] as i64);
+}

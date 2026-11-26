@@ -1,0 +1,57 @@
+// own_alloc(T): 型名を引数に取る動的確保（ジェネリクスなし）。0 で埋めた T と、own の子（Option でないもの）を
+// 同じ所有リージョンに詰めて作り、スコープの終わりで自動的に解放する
+// own_alloc(T): dynamic allocation taking a type name (no generics); creates a zero-filled T with its own children
+// (non-Option ones) packed into the same own region, released automatically at the end of the scope
+struct Leaf { v: i64, tag: u8 }
+struct Pair { left: own Leaf, right: own Leaf }
+struct Inline { pair: Pair, n: u32 }
+struct Tree { root: own Pair, kids: [own Leaf; 3], extra: Option<own Leaf>, inl: Inline, id: Option<Id<things>> }
+struct Thing { x: i64 }
+arena things: Thing[4];
+
+fn total(t: &Tree) -> i64 {
+    let mut s = t.root.left.v + t.root.right.v + t.inl.pair.left.v + t.inl.pair.right.v;
+    for i in 0..3 {
+        s += t.kids[i].v;
+    }
+    s
+}
+
+fn build() -> own Tree {
+    let mut t = own_alloc(Tree);          // 呼び出し元へ移動するのでヒープの所有リージョン / moved to the caller → heap region
+    t.root.left.v = 1;
+    t.root.right.v = 2;
+    t.kids[0].v = 10;
+    t.kids[1].v = 20;
+    t.kids[2].v = 30;
+    t.inl.pair.left.v = 100;
+    t.inl.pair.right.v = 200;
+    t.extra = Some(own Leaf { v: 1000, tag: 1 });
+    t
+}
+
+fn main() {
+    let base = heap_live_blocks();
+    {
+        let z = own_alloc(Tree);          // どこへも移動しない → フレームリージョン / never moved → frame region
+        print_int(total(&z));             // 0（すべて 0 で埋まっている） / 0 (everything is zero-filled)
+        print_int(if z.extra.is_none() { 1 } else { 0 });
+        print_int(if z.id.is_none() { 1 } else { 0 });
+        print_int(z.inl.n as i64);
+    }
+    let t = build();
+    print_int(total(&t));
+    if let Some(e) = t.extra {               // 場所を借りる if let（第二級参照） / an if-let borrowing the place
+        print_int(e.v);
+    }
+    print_int((heap_live_blocks() - base) as i64);   // 根のブロック + extra = 2（子は根に詰めてある） / root block + extra
+    drop(t);
+    print_int((heap_live_blocks() - base) as i64);   // 0: 解放漏れなし / 0: nothing leaked
+    let mut sum = 0;
+    for i in 0..1000 {
+        let b = own_alloc(Pair);
+        sum += b.left.v + b.right.v + i;
+    }
+    print_int(sum);
+    print_int((heap_live_blocks() - base) as i64);
+}

@@ -1,0 +1,111 @@
+// 完全列化（True SoA）にできない表は、写しの列（Mirrored-SoA）か 1.0.0 の走査（AoS）へ安全に戻る: #[stable_abi]・#[wire]・
+// extern "C" の境界を通る要素・外へ出る要素への参照・アドレスを取られるフィールド。どの表でも集計の値は同じ
+// tables that cannot be True SoA fall back safely to mirrored columns (Mirrored-SoA) or to the 1.0.0 scan (AoS):
+// #[stable_abi], #[wire], elements crossing an extern "C" boundary, element references that escape, and fields whose
+// address is taken. The reductions give the same values on every table
+
+#[stable_abi]
+struct Abi { a: u32, b: u64 }
+arena @abi: Abi[16];
+
+#[wire(le)]
+struct Wire { x: u32, y: u32 }
+arena @wire: Wire[16];
+
+struct Ffi { v: u64, k: u32 }
+arena @ffi: Ffi[16];
+
+struct Esc { v: u64, w: u32 }
+arena @esc: Esc[16];
+
+struct Addr { v: u64, w: u32 }
+arena @addr: Addr[16];
+
+// C から呼べる関数（この表の Id が境界を通る: C 側が表の添字を持つ） / a function callable from C (an Id of this table
+// crosses the boundary: the C side holds table indices)
+extern "C" fn ffi_weight(id: Id<@ffi>) -> u64 {
+    @ffi[id].v + @ffi[id].k as u64
+}
+
+fn by_ref(e: &Esc) -> u64 {
+    e.v * 2
+}
+
+fn bump(x: &mut u64) {
+    *x += 1;
+}
+
+fn abi_sum() -> u64 {
+    let mut s: u64 = 0;
+    for id in @abi {
+        s += @abi[id].b;
+    }
+    s
+}
+
+fn wire_sum() -> u64 {
+    let mut s: u64 = 0;
+    for id in @wire {
+        s += @wire[id].x as u64;
+    }
+    s
+}
+
+fn ffi_sum() -> u64 {
+    let mut s: u64 = 0;
+    for id in @ffi {
+        s += @ffi[id].v;
+    }
+    s
+}
+
+fn esc_sum() -> u64 {
+    let mut s: u64 = 0;
+    for id in @esc {
+        s += @esc[id].v;
+    }
+    s
+}
+
+fn addr_sum() -> u64 {
+    let mut s: u64 = 0;
+    for id in @addr {
+        s += @addr[id].v;
+    }
+    s
+}
+
+fn addr_min() -> u64 {
+    let mut best: u32 = 1000;
+    for id in @addr {
+        if @addr[id].w < best {
+            best = @addr[id].w;
+        }
+    }
+    best as u64
+}
+
+fn main() {
+    let mut k: u64 = 0;
+    while k < 12 {
+        if @abi.alloc(Abi { a: k as u32, b: k * 3 }).is_none() { print_int(-1); }
+        if @wire.alloc(Wire { x: (k * 5) as u32, y: 1 }).is_none() { print_int(-1); }
+        let f = @ffi.alloc(Ffi { v: k * 7, k: 2 }).unwrap();
+        let e = @esc.alloc(Esc { v: k * 11, w: 3 }).unwrap();
+        let a = @addr.alloc(Addr { v: k * 13, w: (20 - k) as u32 }).unwrap();
+        if k % 3 == 0 {
+            @ffi[f].v += 1;
+            print_int(ffi_weight(f) as i64);
+            print_int(by_ref(&@esc[e]) as i64);
+            bump(&mut @addr[a].v);
+            @addr[a].w = 30;
+        }
+        k += 1;
+    }
+    print_int(abi_sum() as i64);
+    print_int(wire_sum() as i64);
+    print_int(ffi_sum() as i64);
+    print_int(esc_sum() as i64);
+    print_int(addr_sum() as i64);
+    print_int(addr_min() as i64);
+}

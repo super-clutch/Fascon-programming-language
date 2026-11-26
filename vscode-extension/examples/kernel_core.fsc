@@ -1,0 +1,394 @@
+// kernel_core.fsc — Fascon 1.0 ミッション1: データ指向カーネルの核
+//                   Mission 1: the core of a data-oriented kernel
+//
+// task_struct・struct file・inode 相当の 3 つの表を、それぞれ独立したアリーナ（静的リージョン）に置く。
+// 親子・兄弟・fd 表・逆リンクの相互参照（循環グラフ）は生ポインタではなく、アリーナに着色された Id で表す。
+// Id は 32 ビット = [世代 32-K | 添字 K]（K は容量から決まる。@process は 64 スロットなので世代 26 ビット | 添字 6 ビット）。
+// 解放・再利用されたスロットは世代の不一致で検出される。
+// このファイルにはライフタイム注釈が 1 文字も無い（Fascon の字句にはアポストロフィ記号そのものが無い）。
+//
+// Three tables equivalent to task_struct, struct file and inode live in three independent arenas (static regions).
+// Their cross references (a cyclic graph: parent/child/sibling links, fd tables, back links) are Ids coloured by
+// their arena instead of raw pointers. An Id is 32 bits = [generation 32-K | index K], with K set by the capacity
+// (@process has 64 slots: 26-bit generation | 6-bit index); freed and reused slots are detected by a generation mismatch.
+// This file contains no lifetime annotation (Fascon has no apostrophe token at all).
+
+static TASK_RUNNING: u8 = 0;
+static TASK_ZOMBIE: u8 = 2;
+static NFDS: usize = 16;
+
+// 種別境界つきのハンドル型: FileId<@x> は「File を格納するアリーナ @x の Id」だけを表す
+// kind-bounded handle types: FileId<@x> only denotes Ids of an arena @x that stores File
+type ProcessId<@a: Process> = Id<@a>;
+type FileId<@a: File> = Id<@a>;
+type InodeId<@a: Inode> = Id<@a>;
+
+struct Inode {
+    ino: u32,
+    size: u64,
+    open_count: u32,
+}
+
+struct File {                                   // struct file 相当 / like struct file
+    inode: InodeId<@inode>,                     // File → Inode
+    pos: u64,
+    refcnt: u32,                                // fork / dup で共有 / shared by fork and dup
+    opener: ProcessId<@process>,                // File → Process（逆リンク / back link）
+}
+
+struct Process {                                // task_struct 相当 / like task_struct
+    pid: u32,
+    state: u8,
+    exit_code: i32,
+    parent: Option<ProcessId<@process>>,        // 子 → 親（循環） / child → parent (a cycle)
+    first_child: Option<ProcessId<@process>>,   // 親 → 子（侵入型リスト） / parent → children (intrusive list)
+    next_sibling: Option<ProcessId<@process>>,
+    fds: [Option<FileId<@file>>; NFDS],         // Process → File
+    nfiles: u32,
+}
+
+arena @process: Process[64];
+arena @file: File[256];
+arena @inode: Inode[128];
+
+// ───── プロセス / processes ─────
+
+fn spawn_task(pid: u32, parent: Option<ProcessId<@process>>) -> Option<ProcessId<@process>> {
+    let p = Process {
+        pid: pid,
+        state: TASK_RUNNING,
+        exit_code: 0,
+        parent: parent,
+        first_child: None,
+        next_sibling: None,
+        fds: [None; NFDS],
+        nfiles: 0,
+    };
+    if let Some(cid) = @process.alloc(p) {
+        // 親の子リストの先頭へつなぐ。Id は値なので、写してから書き込む（参照は握らない）
+        // push onto the child list of the parent; Ids are values, so copy first, then write (no reference is held)
+        if let Some(pp) = parent {
+            let old_head = @process[pp].first_child;   // 検査付き（pp は外から来た Id） / checked (pp came from outside)
+            @process[cid].next_sibling = old_head;     // alloc 直後なので世代検査を省略 / proven live right after alloc
+            @process[pp].first_child = Some(cid);      // 直前の検査で証明済み / proven by the check above
+        }
+        return Some(cid);
+    }
+    None
+}
+
+fn fork(parent: ProcessId<@process>, pid: u32) -> Option<ProcessId<@process>> {
+    let child = spawn_task(pid, Some(parent));
+    if let Some(c) = child {
+        // fd 表を複製し、File は参照数を増やして共有する（POSIX の fork と同じ）
+        // copy the fd table and share each File by bumping its reference count (like POSIX fork)
+        for i in 0..NFDS {
+            let slot = @process[parent].fds[i];
+            if let Some(fid) = slot {
+                @process[c].fds[i] = Some(fid);
+                @process[c].nfiles += 1;
+                @file[fid].refcnt += 1;
+            }
+        }
+    }
+    child
+}
+
+// ───── ファイル / files ─────
+
+fn open(pid: ProcessId<@process>, ino: InodeId<@inode>) -> i32 {
+    let mut fd: i32 = -1;
+    if let Some(p) = @process.get(pid) {
+        for i in 0..NFDS {
+            if fd < 0 && p.fds[i].is_none() {
+                fd = i as i32;
+            }
+        }
+    }
+    if fd < 0 {
+        return -1;
+    }
+    let f = File { inode: ino, pos: 0, refcnt: 1, opener: pid };
+    if let Some(fid) = @file.alloc(f) {
+        @process[pid].fds[fd] = Some(fid);
+        @process[pid].nfiles += 1;
+        if let Some(n) = @inode.get_mut(ino) {
+            n.open_count += 1;
+        }
+        return fd;
+    }
+    -1
+}
+
+fn close(pid: ProcessId<@process>, fd: usize) -> bool {
+    if fd >= NFDS {
+        return false;
+    }
+    let slot = @process[pid].fds[fd];
+    if let Some(fid) = slot {
+        @process[pid].fds[fd] = None;
+        @process[pid].nfiles -= 1;
+        let mut last = false;
+        if let Some(f) = @file.get_mut(fid) {
+            f.refcnt -= 1;
+            last = f.refcnt == 0;
+        }
+        if last {
+            let ino = @file[fid].inode;
+            if let Some(n) = @inode.get_mut(ino) {
+                n.open_count -= 1;
+            }
+            @file.free(fid);
+        }
+        return true;
+    }
+    false
+}
+
+fn read(pid: ProcessId<@process>, fd: usize, len: u64) -> u64 {
+    let slot = @process[pid].fds[fd];
+    match slot {
+        Some(fid) => {
+            let ino = @file[fid].inode;
+            let size = @inode[ino].size;
+            let pos = @file[fid].pos;
+            let n = if pos + len > size { size - pos } else { len };
+            @file[fid].pos = pos + n;                   // 共有 File なので fork した子と位置も共有 / shared offset
+            n
+        }
+        None => 0,
+    }
+}
+
+// ───── 終了と回収 / exit and reaping ─────
+
+fn exit_task(pid: ProcessId<@process>, code: i32, init: ProcessId<@process>) {
+    for fd in 0..NFDS {
+        close(pid, fd);
+    }
+    // 孤児になる子を init へ付け替える（Linux の reparent と同じ） / reparent orphans to init (like Linux)
+    let mut cur = @process[pid].first_child;
+    loop {
+        match cur {
+            Some(c) => {
+                let next = @process[c].next_sibling;
+                @process[c].parent = Some(init);
+                @process[c].next_sibling = @process[init].first_child;
+                @process[init].first_child = Some(c);
+                cur = next;
+            }
+            None => {
+                break;
+            }
+        }
+    }
+    @process[pid].first_child = None;
+    @process[pid].state = TASK_ZOMBIE;
+    @process[pid].exit_code = code;
+}
+
+fn reap(parent: ProcessId<@process>) -> u32 {
+    let mut reaped: u32 = 0;
+    let mut prev: Option<ProcessId<@process>> = None;
+    let mut cur = @process[parent].first_child;
+    loop {
+        match cur {
+            None => {
+                break;
+            }
+            Some(c) => {
+                let next = @process[c].next_sibling;
+                if @process[c].state == TASK_ZOMBIE {
+                    match prev {
+                        Some(pv) => {
+                            @process[pv].next_sibling = next;
+                        }
+                        None => {
+                            @process[parent].first_child = next;
+                        }
+                    }
+                    @process.free(c);                   // 世代 +1: c を指す古い Id はすべて無効 / every old Id of c dies
+                    reaped += 1;
+                } else {
+                    prev = Some(c);
+                }
+                cur = next;
+            }
+        }
+    }
+    reaped
+}
+
+// ───── 整合性検査（双方向リンクと参照数） / integrity checks (bidirectional links and reference counts) ─────
+
+fn check_links() -> bool {
+    let mut ok = true;
+    for f in @file {
+        // File.refcnt == そのファイルを指す fd の総数 / refcnt == number of fds that point to the file
+        let mut uses: u32 = 0;
+        for p in @process {
+            for i in 0..NFDS {
+                if @process[p].fds[i] == Some(f) {
+                    uses += 1;
+                }
+            }
+        }
+        if uses != @file[f].refcnt {
+            ok = false;
+        }
+        // 逆リンクの相手（opener）は生きているか、正しく None として検出されるか
+        // is the back-link target (opener) alive, or correctly detected as gone?
+        let o = @file[f].opener;
+        if !@process.contains(o) {
+            put_str("  note: file opened by an exited process (opener Id is stale, detected safely)\n");
+        }
+    }
+    for c in @process {
+        // 子 → 親 → 子リストに自分がいるか / child → parent → is the child on the list of its parent?
+        let parent = @process[c].parent;
+        if let Some(pp) = parent {
+            let mut found = false;
+            let mut cur = @process[pp].first_child;
+            loop {
+                match cur {
+                    Some(x) => {
+                        if x == c {
+                            found = true;
+                        }
+                        cur = @process[x].next_sibling;
+                    }
+                    None => {
+                        break;
+                    }
+                }
+            }
+            if !found {
+                ok = false;
+            }
+        }
+    }
+    ok
+}
+
+fn pad(n: u64, width: u32) {
+    let mut digits: u32 = 1;
+    let mut v = n;
+    while v >= 10 {
+        v = v / 10;
+        digits += 1;
+    }
+    let mut k = digits;
+    while k < width {
+        put_str(" ");
+        k += 1;
+    }
+    put_int(n);
+}
+
+fn ps() {
+    print_str("    PID  STATE  PPID  FILES  SLOT  GEN");
+    for id in @process {
+        pad(@process[id].pid as u64, 7);
+        let st = @process[id].state;
+        if st == TASK_ZOMBIE {
+            put_str("  ZOMBIE");
+        } else {
+            put_str("  RUN   ");
+        }
+        match @process[id].parent {
+            Some(pp) => {
+                if let Some(q) = @process.get(pp) {
+                    pad(q.pid as u64, 5);
+                } else {
+                    put_str("    -");
+                }
+            }
+            None => put_str("    -"),
+        }
+        pad(@process[id].nfiles as u64, 7);
+        pad(id.index() as u64, 6);
+        pad(id.generation() as u64, 5);
+        print_str("");
+    }
+}
+
+fn main() {
+    print_str("== Fascon 1.0 data-oriented kernel (multi-arena + generational Ids) ==");
+    let root_ino = @inode.alloc(Inode { ino: 2, size: 4096, open_count: 0 }).unwrap();
+    let log_ino = @inode.alloc(Inode { ino: 17, size: 100, open_count: 0 }).unwrap();
+
+    let init = spawn_task(1, None).unwrap();
+    let shell = spawn_task(2, Some(init)).unwrap();
+    open(shell, root_ino);
+    open(shell, log_ino);
+
+    // シェルが 3 回 fork（File は共有され refcnt が増える） / the shell forks three times (files are shared)
+    let a = fork(shell, 10).unwrap();
+    let b = fork(shell, 11).unwrap();
+    let c = fork(shell, 12).unwrap();
+    open(a, log_ino);
+    print_str("-- after 3 forks --");
+    ps();
+    put_str("shared log file: read 60 + 60 of 100 bytes through two processes -> ");
+    put_int(read(a, 1, 60));
+    put_str(" + ");
+    put_int(read(b, 1, 60));
+    print_str("");
+
+    // 11 と 12 を終了 → 回収（スロットが解放され、世代が進む） / exit 11 and 12, then reap (slots freed, generations advance)
+    let stale = c;                       // Id はコピーできるハンドル / an Id is a copyable handle
+    exit_task(b, 0, init);
+    exit_task(c, 3, init);
+    put_str("reaped zombies: ");
+    put_int(reap(shell));
+    print_str("");
+
+    // 再利用: 回収は 12 → 11 の順なので FIFO の先頭は 12 のスロット → 新しいプロセスが同じ添字を使う
+    // reuse: 12 is reaped before 11, so the head of the FIFO is the slot of 12 and the new process takes that index
+    let d = spawn_task(20, Some(shell)).unwrap();
+    print_str("-- ABA check: the same slot, a new generation --");
+    put_str("stale Id of pid 12: slot ");
+    put_int(stale.index());
+    put_str(" gen ");
+    put_int(stale.generation());
+    put_str("   new Id of pid 20: slot ");
+    put_int(d.index());
+    put_str(" gen ");
+    put_int(d.generation());
+    print_str("");
+    match @process.get(stale) {
+        Some(p) => {
+            put_str("BUG: stale Id reached pid ");
+            put_int(p.pid);
+            print_str("");
+        }
+        None => print_str("lookup with the stale Id -> None (generation mismatch, no ABA)"),
+    }
+    if let Some(p) = @process.get(d) {
+        put_str("lookup with the new Id   -> pid ");
+        put_int(p.pid);
+        print_str("");
+    }
+
+    // 外部（システムコール）から来た生の値は validate で Id に戻す / raw values from outside are validated
+    put_str("validate(raw of d) = ");
+    if @process.validate(d.raw()).is_some() { print_str("Some"); } else { print_str("None"); }
+    put_str("validate(raw of stale) = ");
+    if @process.validate(stale.raw()).is_some() { print_str("Some"); } else { print_str("None"); }
+    put_str("validate(0xdeadbeef) = ");
+    if @process.validate(0xdeadbeef).is_some() { print_str("Some"); } else { print_str("None"); }
+
+    print_str("-- final --");
+    ps();
+    put_str("files live: ");
+    put_int(@file.len());
+    put_str(", inode 17 open count: ");
+    put_int(@inode[log_ino].open_count);
+    print_str("");
+    if check_links() {
+        print_str("integrity: refcounts and parent/child links are consistent");
+    } else {
+        print_str("integrity: BROKEN");
+    }
+    print_str("FASCON-KERNEL-OK");
+}

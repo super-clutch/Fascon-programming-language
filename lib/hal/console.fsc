@@ -1,0 +1,36 @@
+// hal::console — 標準 HAL: コンソール（関数ポインタの構造体。ボードのパッケージが中身を埋め、上位のライブラリは &Console だけを受け取る）
+// hal::console — standard HAL: the console (a struct of function pointers; a board package fills it in and upper
+// libraries only ever take a &Console)
+//
+//   putc(b)    1 バイト送る（送れるまで待つ）/ send one byte (waits until it can)
+//   getc()     1 バイト受け取る（無ければ None。待たない）/ receive one byte (None if nothing is there; never waits)
+//   flush()    送信の FIFO が空になるまで待つ / wait until the transmit FIFO drains
+struct Console { putc: fn(u8), getc: fn() -> Option<u8>, flush: fn() }
+
+// 10 進で書く（上位ライブラリの共通の道具。ボードには依存しない）/ write in decimal (a shared helper; no board dependence)
+fn console_put_dec(c: &Console, v: u64) {
+    let mut buf: [u8; 20] = [0; 20];
+    let mut n: u32 = 0;
+    let mut x = v;
+    loop {
+        buf[n as usize] = 48 + (x % 10) as u8;
+        n += 1;
+        x = x / 10;
+        if x == 0 {
+            break;
+        }
+    }
+    while n > 0 {
+        n -= 1;
+        (c.putc)(buf[n as usize]);
+    }
+}
+
+// 長さ付きのバイト列を書く / write a byte buffer of a given length
+fn console_write(c: &Console, b: &[u8; 64], len: u32) {
+    let mut i: u32 = 0;
+    while i < len && i < 64 {
+        (c.putc)(b[i as usize]);
+        i += 1;
+    }
+}

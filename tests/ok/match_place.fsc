@@ -1,0 +1,136 @@
+// match / if let で場所を束縛するテスト。コピーできない場所（構造体・own・コピーできない配列や Option）は参照で束縛され、
+// 束縛を通した書き込みは元の場所に届く。コピーできる配列は値で写る。配列への参照は値としても書き込み先としても配列全体を表す
+// match / if-let bindings of places. A place that cannot be copied (structs, own, arrays and Options that cannot be
+// copied) is bound by reference, and writes through the binding reach the place; an array that can be copied is bound
+// by value. A reference to an array stands for the whole array both as a value and as a write target.
+struct P { k: u32, v: i32 }
+struct Button { label: Str, x: i32 }
+struct Pair { a: own Button, k: u32 }
+struct Box2 { inner: P }
+struct W { p: P, n: u32, o: Option<P>, hist: [u32; 4], ps: [P; 2], pr: Pair, st: Option<own Button>, ob: own Button }
+
+arena @w: W[8];
+static ORIGIN: P = P { k: 1, v: 2 };
+
+fn mkw() -> W {
+    W {
+        p: P { k: 4, v: -2 },
+        n: 1,
+        o: Some(P { k: 5, v: 6 }),
+        hist: [10, 11, 12, 13],
+        ps: [P { k: 20, v: 21 }, P { k: 22, v: 23 }],
+        pr: Pair { a: own Button { label: "OK", x: 3 }, k: 9 },
+        st: Some(own Button { label: "S", x: 4 }),
+        ob: own Button { label: "B", x: 7 },
+    }
+}
+
+// 参照の先の場所・参照そのものを束縛する / bind a place behind a reference, or the reference itself
+fn show(w: &W) -> i64 { match w.p { q => q.k as i64 } }
+fn bump(w: &mut W) { match w.p { q => { q.k += 100; } } }
+fn getv(p: &P) -> i64 { match p { q => q.v as i64 } }
+fn setv(p: &mut P, v: i32) { match p { q => { q.v = v; } } }
+
+// 配列への参照: 値として読む・配列全体を書く / references to arrays: read as a value, write the whole array
+fn third(a: &[u32; 4]) -> u32 { match a { h => h[2] } }
+fn second(a: &[u32; 4]) -> u32 { let h = a; h[1] }
+fn fill(a: &mut [u32; 4]) { *a = [1, 2, 3, 4]; }
+fn copyin(a: &mut [u32; 4], b: &[u32; 4]) { *a = b; }
+fn sevens(a: &mut [u32; 4]) { *a = [7; 4]; }
+fn keep(w: &mut W, a: &[u32; 4]) { w.hist = a; }
+
+// own・Option<own> の配列への参照 / references to arrays of own and of Option<own>
+fn sumx(a: &[own Button; 2]) -> i32 { a[0].x + a[1].x }
+fn reset(a: &mut [own Button; 2]) { *a = [own Button { label: "c", x: 3 }, own Button { label: "d", x: 4 }]; }
+fn nkids(a: &[Option<own Button>; 3]) -> u32 {
+    let mut n: u32 = 0;
+    for i in 0..3 {
+        if a[i].is_some() { n += 1; }
+    }
+    n
+}
+
+fn main() {
+    if let Some(id) = @w.alloc(mkw()) {
+        // アリーナのスロットの中の場所 / places inside an arena slot
+        match @w[id].p { q => { print_int(q.k as i64); print_int(q.v as i64); } }
+        match @w[id].p { q => { q.k = 9; q.v += 1; } }
+        print_int(@w[id].p.k as i64);
+        print_int(@w[id].p.v as i64);
+        match @w[id] { q => { q.n = 5; q.p.k = 6; } }
+        print_int(@w[id].n as i64);
+        print_int(@w[id].p.k as i64);
+        print_int(show(&@w[id]));
+        bump(&mut @w[id]);
+        print_int(show(&@w[id]));
+        print_int(getv(&@w[id].p));
+        setv(&mut @w[id].p, 1);
+        print_int(getv(&@w[id].p));
+        // own を持つ構造体 / a struct holding own
+        match @w[id].pr { q => { q.k = 10; q.a.x = 11; print_str(q.a.label); } }
+        print_int(@w[id].pr.k as i64);
+        print_int(@w[id].pr.a.x as i64);
+        match @w[id].ob { b => { b.x = 70; } }
+        print_int(@w[id].ob.x as i64);
+        // 配列 / arrays
+        match @w[id].hist { h => { print_int(h[1] as i64); } }
+        match @w[id].ps { qs => { qs[1].k = 5; print_int(qs[0].v as i64); } }
+        print_int(@w[id].ps[1].k as i64);
+        match @w[id].ps[0] { q => { q.v = -9; } }
+        print_int(@w[id].ps[0].v as i64);
+        print_int(third(&@w[id].hist) as i64);
+        print_int(second(&@w[id].hist) as i64);
+        // Option<own T>・Option<S> の全体と中身 / the whole of Option<own T> and Option<S>, and their payloads
+        match @w[id].st { o => { if let Some(b) = o { print_int(b.x as i64); } } }
+        match @w[id].st { o => { let t = o.take(); if t.is_some() { print_int(1); } } }
+        if @w[id].st.is_none() { print_int(2); }
+        match @w[id].o { o => { if let Some(q) = o { q.k = 3; } } }
+        match @w[id].o { Some(q) => { print_int(q.k as i64); q.k = 77; } None => {} }
+        if let Some(q) = @w[id].o { print_int(q.k as i64); }
+        // 値になる match・入れ子 / a match used as a value, nesting
+        let s = match @w[id].p { q => q.k + 1 };
+        print_int(s as i64);
+        match @w[id] { q => { match q.p { r => { r.k = 42; } } } }
+        print_int(@w[id].p.k as i64);
+        let v: [u32; 4] = [5, 6, 7, 8];
+        keep(&mut @w[id], &v);
+        print_int(@w[id].hist[3] as i64);
+    }
+    // ローカル・static・own の先 / locals, statics, behind own
+    let p = P { k: 3, v: 7 };
+    match p { q => { print_int(q.k as i64 + 1); } }
+    let mut p2 = P { k: 3, v: 7 };
+    match p2 { q => { q.k = 11; } }
+    print_int(p2.k as i64);
+    match ORIGIN { q => { print_int(q.v as i64); } }
+    let mut b = own Box2 { inner: P { k: 1, v: 2 } };
+    match b.inner { q => { q.k = 30; } }
+    print_int(b.inner.k as i64);
+    let mut arr: [P; 2] = [P { k: 1, v: 1 }, P { k: 2, v: 2 }];
+    match arr[1] { q => { q.k = 99; } }
+    match arr { qs => { qs[0].v = 98; } }
+    print_int(arr[1].k as i64);
+    print_int(arr[0].v as i64);
+    // 配列への参照を通した配列全体の書き込み / whole-array writes through references
+    let mut v: [u32; 4] = [0, 0, 0, 0];
+    fill(&mut v);
+    print_int(v[3] as i64);
+    let mut w2: [u32; 4] = [9, 9, 9, 9];
+    copyin(&mut w2, &v);
+    print_int(w2[0] as i64 + w2[3] as i64);
+    sevens(&mut v);
+    print_int(v[0] as i64 + v[3] as i64);
+    let mut ob: [own Button; 2] = [own Button { label: "a", x: 1 }, own Button { label: "b", x: 2 }];
+    match ob { a => { a[0].x = 9; } }
+    print_int(sumx(&ob) as i64);
+    reset(&mut ob);
+    print_int(sumx(&ob) as i64);
+    let kids: [Option<own Button>; 3] = [Some(own Button { label: "k", x: 5 }), None, Some(own Button { label: "m", x: 6 })];
+    match kids { ks => { print_int(nkids(ks) as i64); } }
+    let mut oa: Option<[P; 2]> = Some([P { k: 1, v: 2 }, P { k: 3, v: 4 }]);
+    match oa { Some(ps) => { ps[1].k = 30; } None => {} }
+    if let Some(ps) = oa { print_int(ps[1].k as i64); }
+    // own の領域: スロットの 2 個（st は取り外して解放済み）+ ob の 2 個 + kids の 2 個（b は外へ出ないのでフレームに置かれ、数えない）
+    // own regions: 2 in the slot (st was detached and freed) + 2 in ob + 2 in kids (b never escapes, so it lives in the frame and is not counted)
+    print_int(heap_live_blocks() as i64);
+}

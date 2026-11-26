@@ -1,0 +1,132 @@
+// bios_dual.fsc — Fascon 1.0: 1 つのソースから x86_64 と AArch64 の「仮想 BIOS」を作る
+//                 Fascon 1.0: one source, two "virtual BIOS" images (x86_64 and AArch64)
+//
+//   fascon bios bios_dual.fsc                    # build/bios_dual.x86_64.bios.bin と build/bios_dual.aarch64.bios.bin
+//   fascon qemu bios_dual.fsc --target x86_64    # QEMU pc（-bios）で起動 / boot on QEMU pc (-bios)
+//   fascon qemu bios_dual.fsc --target aarch64   # QEMU virt（-bios）で起動 / boot on QEMU virt (-bios)
+//   fascon run bios_dual.fsc                     # PC 上（COM1 は標準出力） / on the PC (COM1 goes to stdout)
+//
+// - シリアルは port_io（COM1 = 0x3f8 の 16550）。x86_64 では `com1 = c;` がそのまま `out dx, al` になり、
+//   AArch64 ではコンパイラが QEMU virt の PL011（0x0900_0000）へ写す。ソースはどちらも同じ
+//   the serial port is port_io (the 16550 COM1 at 0x3f8): on x86_64 `com1 = c;` is `out dx, al` itself, and on AArch64
+//   the compiler remaps it to the PL011 of QEMU virt (0x0900_0000); the source is the same for both
+// - 起動時の自己診断（POST）は arena の表で、1 行ぶんの一時バッファは bump_arena で（関数が戻ると O(1) で一括解放）
+//   the power-on self test (POST) uses an arena table, and the one-line scratch buffer a bump_arena (bulk-freed in O(1)
+//   when the function returns)
+// - `@` も型注釈も要らない。宣言はどの順でもよい / no `@` and no type annotations; declarations in any order
+
+fn main() {
+    uart_init();
+    log("Fascon virtual BIOS: one source for x86_64 and AArch64");
+    log("serial: port_io COM1 0x3f8 (x86_64: out dx, al / AArch64: PL011)");
+    let found = probe_devices();
+    put_str("devices: ");
+    put_int(found);
+    print_str("");
+    let bad = post_memory(4096);
+    if bad != 0 {
+        log("POST: memory pattern FAILED");
+        fail(3);
+    }
+    log("POST: memory pattern ok (4096 slots, generation-checked arena)");
+    put_str("line buffer after the call regions: ");
+    put_int(line_buf.len());
+    print_str("");
+    print_str("FASCON-BIOS-OK");
+    exit(0);
+}
+
+// ───── シリアル（16550） / the serial port (16550) ─────
+
+port_io com1 at_port 0x3f8;          // THR / RBR（DLAB = 1 の間は除数の下位） / the divisor low byte while DLAB = 1
+port_io com1_ier at_port 0x3f9;
+port_io com1_fcr at_port 0x3fa;
+port_io com1_lcr at_port 0x3fb;
+port_io com1_mcr at_port 0x3fc;
+port_io com1_lsr at_port 0x3fd;      // bit 5 = 送信可 / transmit ready
+port_io qemu_exit at_port 0xf4;      // isa-debug-exit（AArch64 ではセミホスティングの終了に写す） / mapped to a semihosting exit on AArch64
+
+fn uart_init() {
+    com1_ier = 0x00;                 // 割り込みなし / no interrupts
+    com1_lcr = 0x80;                 // DLAB
+    com1 = 0x01;                     // 115200 baud（除数の下位。表示はされない） / divisor low (never printed)
+    com1_ier = 0x00;                 // 除数の上位 / divisor high
+    com1_lcr = 0x03;                 // 8N1
+    com1_fcr = 0xc7;                 // FIFO
+    com1_mcr = 0x03;                 // DTR | RTS
+}
+
+fn putc(c: u8) {
+    while com1_lsr & 0x20 == 0 {
+        cpu_relax();
+    }
+    com1 = c;                        // x86_64: out dx, al
+}
+
+// 1 行を bump_arena に組み立ててから送る。この関数が呼び出しリージョンなので、戻るときに 1 回の格納でまとめて解放
+// build a line in the bump_arena, then send it; this function is a call region, so one store releases it on return
+fn log(s: Str) {
+    let prefix = "[bios] ";
+    for i in 0..prefix.len() {
+        line_buf.alloc(Cell { ch: prefix.byte(i) });
+    }
+    for i in 0..s.len() {
+        line_buf.alloc(Cell { ch: s.byte(i) });
+    }
+    for id in line_buf {
+        putc(line_buf[id].ch);
+    }
+    putc(13);
+    putc(10);
+}
+
+struct Cell { ch: u8 }
+bump_arena line_buf: Cell[256];
+
+// ───── 機器の一覧と自己診断 / the device list and the self test ─────
+
+struct Device { name: Str, port: u32, present: bool }
+arena devices: Device[8];
+
+fn probe_devices() -> i64 {
+    let com = devices.alloc(Device { name: "COM1 16550", port: 0x3f8, present: false }).unwrap();
+    devices[com].present = com1_lsr & 0x60 != 0;        // 送信可なら存在する / transmit ready means present
+    devices.alloc(Device { name: "isa-debug-exit", port: 0xf4, present: true });
+    let mut n = 0;
+    for id in devices {
+        if devices[id].present {
+            put_str("  ");
+            put_str(devices[id].name);
+            put_str(" @ port ");
+            put_hex(devices[id].port as u64);
+            print_str("");
+            n += 1;
+        }
+    }
+    n
+}
+
+struct Word { v: u32 }
+arena ram_test: Word[4096];
+
+fn post_memory(n: u32) -> u32 {
+    let mut i = 0;
+    while i < n {
+        ram_test.alloc(Word { v: i ^ 0xa5a5_5a5a });
+        i += 1;
+    }
+    let mut bad = 0;
+    let mut k = 0;
+    for id in ram_test {
+        if ram_test[id].v != k ^ 0xa5a5_5a5a {
+            bad += 1;
+        }
+        k += 1;
+    }
+    bad
+}
+
+fn fail(code: u8) {
+    qemu_exit = code;                // QEMU は (code << 1) | 1 で終わる / QEMU exits with (code << 1) | 1
+    exit(code as i32);
+}

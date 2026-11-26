@@ -1,0 +1,8 @@
+// expect: F0382
+struct Packet { n: u64 }
+chan work: own Packet[4];
+fn main() {
+    let p = own Packet { n: 1 };
+    work.send(p);
+    print_int(p.n as i64);          // 送った値はもう無い
+}

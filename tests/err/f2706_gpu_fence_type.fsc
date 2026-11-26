@@ -1,0 +1,11 @@
+// expect: F2706
+// reclaim には同じ gpu_arena の GpuFence が要る（整数や別の表の引換券は不可）
+// reclaim needs a GpuFence of the same gpu_arena (not an integer, not another table ticket)
+struct A { x: f32 }
+gpu_arena @g: A[4];
+fn main() {
+    let raw: u64 = 5;
+    if let Some(b) = @g.reclaim(raw) {
+        @g.free(b);
+    }
+}

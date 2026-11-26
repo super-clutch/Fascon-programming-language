@@ -1,0 +1,5 @@
+// expect: F2204
+// I/O ポートへの参照は作れない（値を読んで渡す） / no references to I/O ports (read the value and pass it)
+port_io status at_port 0x64;
+fn show(x: &u8) { print_int(*x as i64); }
+fn main() { show(&status); }

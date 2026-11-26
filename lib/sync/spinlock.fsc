@@ -1,0 +1,53 @@
+// sync::spinlock — atomic の交換で作るスピンロック（純粋な Fascon。ロックの表は全コア共有）
+// sync::spinlock — a spin lock built on an atomic exchange (pure Fascon; the lock table is shared by every core)
+//
+//   import sync::spinlock;
+//   let l = spinlock::create().unwrap();
+//   spinlock::lock(l);  ...  spinlock::unlock(l);
+//
+// 眠らない（Sleep 効果なし）ので rcu_read・atomic の外ならどこでも使える。割り込みハンドラと共有するなら critical の中で
+// never sleeps (no Sleep effect), so it can be used anywhere outside rcu_read / atomic; inside critical when shared with IRQs
+
+struct Lock { held: u32, contended: u64, acquires: u64 }
+shared arena locks: Lock[64];
+
+fn create() -> Option<Id<locks>> {
+    locks.alloc(Lock { held: 0, contended: 0, acquires: 0 })
+}
+
+fn destroy(l: Id<locks>) {
+    locks.free(l);
+}
+
+// 取れるまで回る（交換で 1 を書き、前の値が 0 なら自分が取った） / spin until taken (exchange 1; a previous 0 means ours)
+fn lock(l: Id<locks>) {
+    loop {
+        let was = atomic { locks[l].held = 1 };
+        if was == 0 {
+            break;
+        }
+        atomic { locks[l].contended += 1; }
+        cpu_relax();
+    }
+    atomic { locks[l].acquires += 1; }
+}
+
+fn try_lock(l: Id<locks>) -> bool {
+    let was = atomic { locks[l].held = 1 };
+    if was == 0 {
+        atomic { locks[l].acquires += 1; }
+    }
+    was == 0
+}
+
+fn unlock(l: Id<locks>) {
+    atomic { locks[l].held = 0; }
+}
+
+fn contended(l: Id<locks>) -> u64 {
+    atomic { locks[l].contended }
+}
+
+fn acquires(l: Id<locks>) -> u64 {
+    atomic { locks[l].acquires }
+}

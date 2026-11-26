@@ -1,0 +1,83 @@
+// gpu_offload.fsc — gpu_arena: スロットを装置（PC ではワーカースレッド）へ貸し出し、引換券（GpuFence）で取り戻す。
+// カーネルは隣の gpu_offload.gpu.c（FASCON_GPU_KERNEL(番号)）。`--gpu=off` でも同じ出力（その場で走る）
+// gpu_arena: slots are lent to the device (a worker thread on the PC) and taken back with tickets (GpuFence). The
+// kernels are in gpu_offload.gpu.c next to this file (FASCON_GPU_KERNEL(id)); `--gpu=off` prints the same (they run in
+// place)
+
+struct Particle {
+    x: f32,
+    v: f32,
+    steps: u32,
+    tag: u32,
+}
+
+gpu_arena @parts: Particle[64];
+
+static STEP: u32 = 1;
+static SCALE: u32 = 2;
+
+fn main() {
+    let mut first: [Option<GpuFence<@parts>>; 16] = [None; 16];
+    let mut second: [Option<GpuFence<@parts>>; 16] = [None; 16];
+    let mut k = 0u32;
+    while k < 16u32 {
+        let h = @parts.alloc(Particle { x: k as f32, v: 0.5, steps: 0, tag: k }).unwrap();
+        // CPU が持っている間は読み書きできる / the CPU may read and write while it owns the slot
+        @parts[h].v = @parts[h].v + 0.25;
+        first[k as usize] = Some(@parts.dispatch(STEP, 3, 4, h));
+        k += 1u32;
+    }
+    // 貸し出し中のスロットも確保されたまま / lent slots stay allocated
+    print_int(@parts.len() as i64);
+    // 待たない reclaim を、全部戻るまで繰り返す。偶数の tag はもう一度出し、奇数は解放する
+    // poll with the non-blocking reclaim until all are back; even tags go out again, odd ones are freed
+    let mut total: f32 = 0.0;
+    let mut steps: u64 = 0;
+    let mut left = 16u32;
+    while left > 0u32 {
+        let mut i = 0usize;
+        while i < 16usize {
+            if let Some(f) = first[i] {
+                if let Some(h) = @parts.reclaim(f) {
+                    first[i] = None;
+                    left -= 1u32;
+                    total += @parts[h].x;
+                    steps += @parts[h].steps as u64;
+                    // 同じ引換券で 2 度目は None（ハンドルは 1 つだけ） / a second reclaim with the same ticket is None
+                    if @parts.reclaim(f).is_some() {
+                        panic("reclaimed twice");
+                    }
+                    if @parts[h].tag % 2u32 == 0u32 {
+                        second[i] = Some(@parts.dispatch(SCALE, 1, 1, h));
+                    } else {
+                        @parts.free(h);
+                    }
+                }
+            }
+            i += 1usize;
+        }
+    }
+    put(total);
+    put(" ");
+    print_int(steps as i64);
+    print_int(@parts.len() as i64);
+    // 終わるまで待つ reclaim_wait / reclaim_wait waits until the work is done
+    let mut total2: f32 = 0.0;
+    let mut steps2: u64 = 0;
+    let mut i = 0usize;
+    while i < 16usize {
+        if let Some(f) = second[i] {
+            if let Some(h) = @parts.reclaim_wait(f) {
+                total2 += @parts[h].x;
+                steps2 += @parts[h].steps as u64;
+                print_int(h.index() as i64);
+                @parts.free(h);
+            }
+        }
+        i += 1usize;
+    }
+    put(total2);
+    put(" ");
+    print_int(steps2 as i64);
+    print_int(@parts.len() as i64);
+}

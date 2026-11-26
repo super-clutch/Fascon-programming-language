@@ -1,0 +1,9 @@
+// expect: F3204
+// #[trap] の形は fn 名前(pid: Id<表>, addr: u64, is_write: bool) / the shape of a #[trap] function
+struct Proc { pages: u32 }
+task_arena procs: Proc[4] stack 16384;
+user_mem umem for procs: 0x20_0000 at 0x1_0000_0000;
+#[trap]
+fn user_fault(addr: u64) {
+}
+fn main() {}

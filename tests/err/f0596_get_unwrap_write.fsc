@@ -1,0 +1,8 @@
+// expect: F0596
+// 厳格形 `.get(id).unwrap()` は読み出し専用。書き込むには `.get_mut(id).unwrap()` / the strict read-only form cannot be written
+struct Pcb { state: u8 }
+arena pcb: Pcb[4];
+fn main() {
+    let id = pcb.alloc(Pcb { state: 0 }).unwrap();
+    pcb.get(id).unwrap().state = 1;
+}

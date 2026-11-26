@@ -1,0 +1,4 @@
+// expect: F0515
+struct Packet { n: u64 }
+chan work: &Packet[4];
+fn main() {}

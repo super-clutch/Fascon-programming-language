@@ -1,0 +1,10 @@
+// expect: F2801
+struct Task { pid: u32 }
+task_arena task: Task[4] stack 16384;
+user_mem umem for task: 0x20_0000 at 0x1_0000_0000;
+syscall ping at 3 (x: u64) -> i64 {
+    x as i64
+}
+fn main() {
+    print_int(ping(1));
+}

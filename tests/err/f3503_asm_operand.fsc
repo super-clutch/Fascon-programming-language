@@ -1,0 +1,6 @@
+// expect: F3503
+// asm のオペランドは整数か bool だけ（メモリを指す値は渡せない） / asm operands are integers or bool only
+struct Pt { x: u64 }
+#[asm(aarch64 = "nop", effects = "none")]
+fn poke(p: &Pt);
+fn main() {}

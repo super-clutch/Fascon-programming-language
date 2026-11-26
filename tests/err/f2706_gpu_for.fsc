@@ -1,0 +1,12 @@
+// expect: F2706
+// gpu_arena は for で回せない（装置へ貸し出し中のスロットがある）
+// a gpu_arena cannot be iterated (some slots may be on the device)
+struct A { x: f32 }
+gpu_arena @g: A[4];
+fn main() {
+    let mut s: f32 = 0.0;
+    for id in @g {
+        s += 1.0;
+    }
+    put(s);
+}

@@ -1,0 +1,12 @@
+// expect: F3903
+// fascon-target: hpc
+// fascon-topology: cores=8 smt=2 numa=2
+// 計算ノードに無いコア（論理コアは 0〜7） / a core the compute node does not have (logical cores are 0-7)
+chan done: u64[4];
+fn worker(k: u64) {
+    done.send(k * 2);
+}
+fn main() {
+    spawn_on(9, worker, 1);
+    print_int(done.recv_wait() as i64);
+}

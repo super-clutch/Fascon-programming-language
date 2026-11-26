@@ -1,0 +1,148 @@
+// time::wheel — アリーナで管理するタイマーホイール（1 段のハッシュ式。単調時計 clock_mono_ns の刻みで進める）
+// time::wheel — an arena-managed timer wheel (one hashed level; advanced in ticks of the monotonic clock clock_mono_ns)
+//
+//   let t = wheel::arm(now + 5, 0, 7).unwrap();   // 5 刻み後に一度だけ（タグ 7）/ once, 5 ticks later (tag 7)
+//   wheel::arm(now + 3, 10, 9);                   // 3 刻み後から 10 刻みごと / every 10 ticks from 3 ticks later
+//   let n = wheel::advance(now2, &mut fired);     // 期限の来たタグを fired へ（周期のものは張り直す）
+//
+// 期限の来たタイマーの処理は割り込みハンドラ（Generic Timer / APIC Timer）から呼べる: 眠らない・確保は張り直しだけ
+// processing due timers is callable from the timer interrupt handler: it never sleeps and only re-arms
+
+const SLOTS: u64 = 64;
+
+struct Timer { due: u64, period: u64, tag: u32, next: Option<Id<timers>> }
+arena timers: Timer[512];
+
+struct Wheel { now: u64, fired: u64, buckets: [Option<Id<timers>>; 64] }
+arena wheels: Wheel[1];
+
+fn state() -> Id<wheels> {
+    match wheels.validate(first_raw()) {
+        Some(w) => w,
+        None => wheels.alloc(Wheel { now: 0, fired: 0, buckets: [None; 64] }).unwrap(),
+    }
+}
+
+// 表の最初のスロットの生の値（まだ無ければ 0 = None になる） / the raw value of the first slot (0 = None when absent)
+fn first_raw() -> IdRaw {
+    let mut r: IdRaw = 0;
+    for id in wheels {
+        r = id.raw();
+    }
+    r
+}
+
+fn arm(due: u64, period: u64, tag: u32) -> Option<Id<timers>> {
+    let w = state();
+    let b = (due % SLOTS) as u32;
+    let head = wheels[w].buckets[b];
+    match timers.alloc(Timer { due: due, period: period, tag: tag, next: head }) {
+        Some(t) => {
+            wheels[w].buckets[b] = Some(t);
+            Some(t)
+        }
+        None => None,
+    }
+}
+
+// now まで進め、期限の来たタイマーのタグを out に書く（書いた数を返す。周期タイマーは張り直す）
+// advance to now, writing the tags of due timers into out (returns how many; periodic timers are re-armed)
+fn advance(now: u64, out: &mut [u32; 16]) -> u32 {
+    let w = state();
+    let mut n: u32 = 0;
+    let mut t = wheels[w].now;
+    while t <= now {
+        let b = (t % SLOTS) as u32;
+        let mut cur = wheels[w].buckets[b];
+        wheels[w].buckets[b] = None;
+        let mut keep: Option<Id<timers>> = None;
+        loop {
+            match cur {
+                Some(id) => {
+                    let nx = timers[id].next;
+                    if timers[id].due <= t {
+                        if n < 16 {
+                            out[n] = timers[id].tag;
+                            n += 1;
+                        }
+                        wheels[w].fired += 1;
+                        if timers[id].period > 0 {
+                            let d = timers[id].due + timers[id].period;
+                            let p = timers[id].period;
+                            let g = timers[id].tag;
+                            timers.free(id);
+                            arm(d, p, g);
+                        } else {
+                            timers.free(id);
+                        }
+                    } else {
+                        timers[id].next = keep;
+                        keep = Some(id);
+                    }
+                    cur = nx;
+                }
+                None => break,
+            }
+        }
+        // まだ先の周回のもの（due が SLOTS 以上先）は同じバケツへ戻す / later rounds go back into the same bucket
+        let mut k = keep;
+        loop {
+            match k {
+                Some(id) => {
+                    let nx = timers[id].next;
+                    timers[id].next = wheels[w].buckets[b];
+                    wheels[w].buckets[b] = Some(id);
+                    k = nx;
+                }
+                None => break,
+            }
+        }
+        t += 1;
+    }
+    wheels[w].now = now + 1;
+    n
+}
+
+fn cancel(t: Id<timers>) -> bool {
+    let w = state();
+    let mut due: u64 = 0;
+    let mut live = false;
+    if let Some(p) = timers.get(t) {
+        due = p.due;
+        live = true;
+    }
+    if live {
+        let b = (due % SLOTS) as u32;
+        let mut prev: Option<Id<timers>> = None;
+        let mut cur = wheels[w].buckets[b];
+        loop {
+            match cur {
+                Some(id) => {
+                    let nx = timers[id].next;
+                    if id.raw() == t.raw() {
+                        match prev {
+                            Some(q) => timers[q].next = nx,
+                            None => wheels[w].buckets[b] = nx,
+                        }
+                        timers.free(id);
+                        return true;
+                    }
+                    prev = Some(id);
+                    cur = nx;
+                }
+                None => return false,
+            }
+        }
+    }
+    false
+}
+
+fn fired() -> u64 {
+    let w = state();
+    wheels[w].fired
+}
+
+// 単調時計（ns）を刻みに直す / the monotonic clock (ns) in ticks
+fn ticks(tick_ns: u64) -> u64 {
+    clock_mono_ns() / max(tick_ns, 1)
+}

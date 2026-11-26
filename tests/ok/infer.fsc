@@ -1,0 +1,43 @@
+// 型推論: 注釈なしの let・後から決まる型・前方参照（宣言順は自由）
+fn main() {
+    let a = mk(1, 50);
+    let b = mk(2, 20);
+    let c = mk(3, 70);
+    let mut best = None;                 // Option<Id<tasks>> は後の代入から決まる
+    for id in tasks {
+        if best.is_none() || tasks[id].vruntime < tasks[best.unwrap()].vruntime {
+            best = Some(id);
+        }
+    }
+    if let Some(x) = best {
+        print_int(tasks[x].pid as i64);
+    }
+    let mut acc;                         // 型は後の代入から
+    acc = 0;
+    for i in 0..10 {
+        acc += i;
+    }
+    print_int(acc as i64);
+    let big = 3000000000;                // u32 には収まらないが i64 の文脈で決まる
+    let wide: i64 = big;
+    print_int(wide);
+    let ids = [a, b, c];                 // [Id<tasks>; 3]
+    let mut n = 0;
+    for k in 0..3 {
+        if tasks.contains(ids[k]) {
+            n += 1;
+        }
+    }
+    print_int(n);
+    let empty = None;                    // 何にも使わない None は i32 の Option に既定化（エラーにしない）
+    if empty.is_none() {
+        print_int(7);
+    }
+}
+
+fn mk(pid: u32, vr: u64) -> Id<tasks> {
+    tasks.alloc(Task { pid: pid, vruntime: vr }).unwrap()
+}
+
+arena tasks: Task[8];
+struct Task { pid: u32, vruntime: u64 }

@@ -1,0 +1,12 @@
+// expect: F2622
+// atomic の中で gc_collect はできない（回収の時間が読めない） / no gc_collect inside atomic (unbounded time)
+struct Node { v: u64, hits: u64 }
+gc_arena nodes: Node[16];
+
+fn main() {
+    let a = nodes.alloc(Node { v: 1, hits: 0 }).unwrap();
+    atomic {
+        nodes[a].hits += 1;
+        gc_collect(nodes);
+    }
+}

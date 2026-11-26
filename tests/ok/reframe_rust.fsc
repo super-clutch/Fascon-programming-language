@@ -1,0 +1,90 @@
+#![reframing(rust)]
+// 自動リフレーミング: ふつうの Rust の見た目（static mut + link_section・マクロ・unsafe・pub・文字リテラル・ライフタイム・while let）
+// automatic reframing: ordinary Rust look (static mut + link_section, macros, unsafe, pub, char literals, lifetimes, while let)
+#![no_std]
+#![no_main]
+
+use core::panic::PanicInfo;
+
+// 純 Rust の見た目: link_section 付きの static mut がポートに、マクロがアリーナになる
+#[link_section = ".port.0x3f8"]
+static mut COM1: u8 = 0;
+
+#[link_section = ".port.0x3fd"]
+static mut COM1_LSR: u8 = 0;
+
+const MAX_TASKS: usize = 16;
+
+#[derive(Clone, Copy)]
+pub struct Pcb {
+    pub pid: u32,
+    pub state: u8,
+    pub name: &'static str,
+}
+
+pub struct Node {
+    pub v: i64,
+    pub next: Option<Id<scratch>>,
+}
+
+pub struct Block {
+    pub len: u32,
+}
+
+arena!(pcb_table: Pcb[MAX_TASKS]);
+bump_arena!(scratch: Node[64]);
+
+fn putc(c: u8) {
+    unsafe {
+        while COM1_LSR & 0x20 == 0 {}
+        COM1 = c;
+    }
+}
+
+fn puts(s: &str) {
+    let mut i = 0;
+    while i < s.len() {
+        putc(s.byte(i));
+        i += 1;
+    }
+}
+
+pub fn create_process(pid: u32, name: &'static str) -> Id<pcb_table> {
+    pcb_table.alloc(Pcb { pid: pid, state: 0, name: name }).unwrap()
+}
+
+fn sum_list(n: i64) -> i64 {
+    let mut head = None;
+    for i in 0..n {
+        head = scratch.alloc(Node { v: i, next: head });
+    }
+    let mut s = 0;
+    let mut cur = head;
+    while let Some(id) = cur {
+        s += scratch[id].v;
+        cur = scratch[id].next;
+    }
+    s
+}
+
+#[no_mangle]
+pub extern "C" fn kernel_main() -> ! {
+    let task = create_process(100, "init");
+    pcb_table[task].state = 1;
+    puts("reframing: ");
+    putc(b'O');
+    putc(b'K');
+    putc(b'\n');
+    println!("hello from pure Rust syntax");
+    let total = sum_list(10);
+    print_int(total);
+    let data = own_alloc!(Block);
+    print_int(data.len as i64);
+    print_int(pcb_table[task].pid as i64);
+    exit(0);
+}
+
+#[panic_handler]
+fn panic(_info: &PanicInfo) -> ! {
+    loop {}
+}

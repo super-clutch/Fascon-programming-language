@@ -1,0 +1,105 @@
+// 非時間的ストアと完全列化（True SoA）: 大きな列への一括上書き（auto で非時間的ストア + 出口の F20_SFENCE）、直後に同じ列を
+// 読むループ（普通のストアのまま）、割り込みハンドラと共有する表（auto では普通のストア、--nontemporal=on なら非時間的
+// ストア + F20_SFENCE）、shared arena（完全列化しない）。--nontemporal と --columns のどの組み合わせでも出力は同じ
+// non-temporal stores and True SoA: a bulk overwrite of a large column (auto: non-temporal stores + F20_SFENCE at the
+// exit), a loop whose next statement reads the same column (plain stores), a table shared with an interrupt handler
+// (auto: plain stores; --nontemporal=on: non-temporal stores + F20_SFENCE) and a shared arena (never True SoA). Every
+// combination of --nontemporal and --columns prints the same
+
+struct Sample { v: u64, w: u64, tag: u32 }
+arena @big: Sample[1048576];
+
+struct Cell { v: u64, hits: u32 }
+arena @irqd: Cell[4096];
+
+struct Conn { bytes: u64, port: u32 }
+shared arena @conns: Conn[64];
+
+// 割り込みハンドラ（PC では起きないが、表を共有することはコンパイラが知っている） / an interrupt handler (it never fires on a
+// PC, but the compiler knows the table is shared)
+irq tick at 27 {
+    for id in @irqd {
+        @irqd[id].hits += 1;
+    }
+}
+
+fn big_v() -> u64 {
+    let mut s: u64 = 0;
+    for id in @big {
+        s += @big[id].v;
+    }
+    s
+}
+
+fn big_w() -> u64 {
+    let mut s: u64 = 0;
+    for id in @big {
+        s += @big[id].w;
+    }
+    s
+}
+
+fn irq_v() -> u64 {
+    let mut s: u64 = 0;
+    for id in @irqd {
+        s += @irqd[id].v;
+    }
+    s
+}
+
+fn conn_bytes() -> u64 {
+    let mut s: u64 = 0;
+    for id in @conns {
+        s += @conns[id].bytes;
+    }
+    s
+}
+
+fn reset_big(x: u64) {
+    // 一括上書き: 8 MiB の列（auto で非時間的ストア） / a bulk overwrite of an 8 MiB column (non-temporal under auto)
+    for id in @big {
+        @big[id].v = x;
+    }
+}
+
+fn mark_big() -> u64 {
+    // 直後の文が同じ列を読む: 普通のストアでキャッシュに残す / the next statement reads the same column: plain stores keep it cached
+    for id in @big {
+        @big[id].w = 3;
+    }
+    let mut s: u64 = 0;
+    for id in @big {
+        s += @big[id].w;
+    }
+    s
+}
+
+fn reset_irq() {
+    // 割り込みハンドラと共有する表: auto では普通のストア / a table shared with an interrupt handler: plain stores under auto
+    for id in @irqd {
+        @irqd[id].v = 7;
+    }
+}
+
+fn main() {
+    let mut k: u64 = 0;
+    while k < 300000 {
+        if @big.alloc(Sample { v: k, w: k % 5, tag: 1 }).is_none() { print_int(-1); }
+        k += 1;
+    }
+    let mut j: u64 = 0;
+    while j < 1000 {
+        if @irqd.alloc(Cell { v: j, hits: 0 }).is_none() { print_int(-1); }
+        j += 1;
+    }
+    if @conns.alloc(Conn { bytes: 1500, port: 80 }).is_none() { print_int(-1); }
+    if @conns.alloc(Conn { bytes: 60, port: 443 }).is_none() { print_int(-1); }
+    print_int(big_v() as i64);
+    print_int(big_w() as i64);
+    reset_big(2);
+    print_int(big_v() as i64);
+    print_int(mark_big() as i64);
+    reset_irq();
+    print_int(irq_v() as i64);
+    print_int(conn_bytes() as i64);
+}

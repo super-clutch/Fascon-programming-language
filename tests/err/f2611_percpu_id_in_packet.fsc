@@ -1,0 +1,10 @@
+// expect: F2611
+// own の中に入れても同じ: 構造体のフィールドまで調べる
+struct Job { n: u64 }
+struct Packet { job: Id<jobs>, weight: u32 }
+arena jobs: Job[16];
+chan work: own Packet[8];
+fn main() {
+    let id = jobs.alloc(Job { n: 1 }).unwrap();
+    work.send(own Packet { job: id, weight: 1 });
+}

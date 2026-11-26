@@ -1,0 +1,59 @@
+// fascon-abi: smp_preempt_user.fsc
+// tests/ok/smp_preempt_user.fsc のユーザープログラム（EL0）。作り方: fascon build tests/ok/smp_preempt_user_init.fsc
+// --out tests/ok/smp_preempt_user_init.bin
+// the user program (EL0) of tests/ok/smp_preempt_user.fsc. Build: fascon build tests/ok/smp_preempt_user_init.fsc --out
+// tests/ok/smp_preempt_user_init.bin
+
+// 4 KiB の要素が 24 個: 確保するたびに新しいページに触れる（要求時ページング） / 24 elements of 4 KiB: every allocation
+// touches a fresh page (demand paging)
+struct Block { v: [u64; 511], tag: u64 }
+arena blocks: Block[24];
+// 影の写しの上限を超える窓を作るための 64 KiB / 64 KiB to make a window beyond the shadow limit
+struct Big { b: [u8; 65536] }
+arena bigs: Big[1];
+
+fn busy(rounds: u64) -> u64 {
+    let mut x: u64 = 1;
+    for i in 0..rounds {
+        x = x.wrapping_mul(6364136223846793005).wrapping_add(i);
+    }
+    x
+}
+
+fn main() {
+    let mut me = Info { pid: 0, core: 0, ticks: 0, pad: 0 };
+    let wb = info(&mut me) == 0 && me.pad == 0x600d && me.pid != 0;
+    let mut pages: u32 = 0;
+    let mut sum: u64 = 0;
+    for k in 0..24 {
+        if let Some(b) = blocks.alloc(Block { v: [0; 511], tag: k as u64 + me.pid as u64 }) {
+            blocks[b].v[510] = k as u64;
+            sum += blocks[b].tag + blocks[b].v[510];
+            pages += 1;
+        }
+    }
+    let want: u64 = 24 * me.pid as u64 + 2 * 276;
+    // 印の並び（pid から作るので、像の定数には現れない） / the pattern (made from the pid, so it is not a constant in the image)
+    let mut pat: [u8; 16] = [0; 16];
+    for i in 0..16 {
+        pat[i] = ((me.pid as u64 * 7 + i as u64 * 29 + 0x5b) & 0xff) as u8;
+    }
+    let st = stable(&pat);
+    // 影の写しの上限（64 KiB 弱）を超える窓は -7（E2BIG） / a window beyond the shadow limit (just under 64 KiB) gives -7 (E2BIG)
+    let mut e: i64 = 0;
+    if let Some(g) = bigs.alloc(Big { b: [0; 65536] }) {
+        e = write(2, &bigs[g].b);
+    }
+    let x = busy(4000000);                      // タイマーで切り替わる / preempted by the timer
+    info(&mut me);
+    let r = Report {
+        pages: pages,
+        sum_ok: if sum == want { 1 } else { 0 },
+        stable: if st == 1 { 1 } else { 0 },
+        e2big: if e == -7 { 1 } else { 0 },
+        writeback: if wb { 1 } else { 0 },
+        preempted: if me.ticks > 0 && x != 0 { 1 } else { 0 },
+    };
+    report(&r);
+    exit(0);
+}

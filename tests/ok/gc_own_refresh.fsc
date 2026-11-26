@@ -1,0 +1,65 @@
+// 世代リフレッシュと own の根（32 ビット Id）: K = 20 のアリーナは世代が 12 ビット。同じスロットを何千回も使い回して
+// gc_collect に全ての根の Id を世代 1 へ書き換えさせる。own Holder・Option<own Holder>・own フィールドを持つ構造体・
+// 値渡しの仮引数の中の Id も書き換えられ、リフレッシュの後も同じ要素を指す（同じ own を 2 度書き換えると None になって
+// しまうので、根が own を 2 重に持たないことの確認にもなる）。Id の変数と own の中の両方にある Id は、それぞれ 1 回書き換わる
+// generation refresh with own roots (32-bit Ids): an arena with K = 20 has 12-bit generations. Reusing one slot thousands
+// of times makes gc_collect rewrite every root Id to generation 1. The Ids inside an own Holder, an Option<own Holder>, a
+// struct with own fields and a by-value parameter are rewritten too and still name the same elements afterwards (a second
+// rewrite of the same own would turn them into None, so this also checks that no own is held by two roots). An Id held
+// both by an Id variable and inside an own is rewritten once in each place
+struct Node { v: u64, next: Option<Id<nodes>> }
+struct Holder { id: Option<Id<nodes>>, tag: u64 }
+struct Pair { a: own Holder, b: Option<own Holder> }
+
+gc_arena nodes: Node[1048576];
+
+fn churn(times: u32) {
+    for i in 0..times {
+        let t = nodes.alloc(Node { v: i as u64, next: None });
+        match t {
+            Some(_) => {}
+            None => print_str("full"),
+        }
+        gc_collect(nodes);
+    }
+}
+
+fn value(x: Option<Id<nodes>>) -> u64 {
+    match x {
+        Some(id) => match nodes.get(id) {
+            Some(n) => n.v,
+            None => 0,
+        },
+        None => 0,
+    }
+}
+
+// 値渡しの own の仮引数を持ったままリフレッシュを越える / keep a by-value own parameter across refreshes
+fn hold(h: own Holder, times: u32) -> u64 {
+    churn(times);
+    value(h.id)
+}
+
+fn main() {
+    churn(2000);
+    let a = own Holder { id: nodes.alloc(Node { v: 41, next: None }), tag: 1 };
+    let mut b: Option<own Holder> = Some(own Holder { id: nodes.alloc(Node { v: 42, next: None }), tag: 2 });
+    let p = Pair { a: own Holder { id: nodes.alloc(Node { v: 43, next: None }), tag: 3 }, b: None };
+    let both = nodes.alloc(Node { v: 99, next: None });
+    let twice = own Holder { id: both, tag: 4 };
+    let moved = own Holder { id: nodes.alloc(Node { v: 44, next: None }), tag: 5 };
+    churn(2300);
+    let r = hold(moved, 2300);
+    churn(2000);
+    print_int(value(a.id));
+    if let Some(h) = b {
+        print_int(value(h.id));
+    }
+    print_int(value(p.a.id));
+    print_int(r);
+    print_int(value(twice.id));
+    print_int(value(both));
+    b = None;
+    churn(1);
+    print_int(nodes.len() as u64);
+}

@@ -1,0 +1,7 @@
+// expect: F3304
+// ct_eq は同じ型の整数・整数の配列・#[secret] / ワイヤ構造体を比べる / ct_eq compares values of the same type
+fn main() {
+    let a: [u8; 4] = [1, 2, 3, 4];
+    let b: [u8; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
+    print_int(if ct_eq(&a, &b) { 1 } else { 0 });
+}

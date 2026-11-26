@@ -1,0 +1,12 @@
+// expect: F3203
+// 第二級参照が生きている間に眠ると、その間にほかのタスクが参照先を解放しうる
+// sleeping while a second-class reference is live lets another task free its target meanwhile
+struct Sock { port: u32 }
+arena socks: Sock[16];
+fn main() {
+    let s = socks.alloc(Sock { port: 80 }).unwrap();
+    if let Some(p) = socks.get(s) {
+        schedule();
+        print_int(p.port);
+    }
+}

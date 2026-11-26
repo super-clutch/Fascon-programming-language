@@ -1,0 +1,27 @@
+// expect: F3902
+// fascon-target: hpc
+// 計算コアで、条件のビット列（Mirrored-SoA の写し）が読むフィールドを表ごと書き換える（写しを表ごと作り直す）
+// a compute core rewrites, table-wide, a field a filter bit column (a Mirrored-SoA mirror) reads (the mirror is rebuilt
+// table-wide)
+struct Cell { state: u32, w: u64 }
+arena cells: Cell[256];
+chan done: u64[4];
+fn worker(k: u64) {
+    for i in 0..200 {
+        cells.alloc(Cell { state: (i % 3) as u32, w: k });
+    }
+    let mut n: u64 = 0;
+    for id in cells {
+        if cells[id].state == 1 {
+            n += 1;
+        }
+    }
+    for id in cells {
+        cells[id].state = 2;
+    }
+    done.send(n);
+}
+fn main() {
+    spawn_on(1, worker, 1);
+    print_int(done.recv_wait() as i64);
+}

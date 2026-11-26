@@ -1,0 +1,21 @@
+// expect: F2502
+struct Task { n: u64 }
+struct Item { v: u64 }
+task_arena @task: Task[4] stack 8192;
+arena @items: Item[4];
+fn other(arg: u64) {
+    for id in @items { @items.free(id); }
+}
+fn worker(arg: u64) {
+    let it = @items.alloc(Item { v: 1 }).unwrap();
+    let me = @task.current();
+    if let Some(p) = @items.get_mut(it) {
+        @task.yield_to(me);
+        p.v = 2;
+    }
+}
+fn main() {
+    let a = @task.start(Task { n: 0 }, worker, 1).unwrap();
+    let b = @task.start(Task { n: 0 }, other, 1).unwrap();
+    @task.enter(a);
+}

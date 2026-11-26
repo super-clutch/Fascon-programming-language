@@ -1,0 +1,43 @@
+// own フィールドは掃除のときに drop され、ブロックを出たローカルは根でなくなる。bump_arena からの昇格
+// own fields are dropped by the sweep, locals stop being roots when their block ends; promotion from a bump_arena
+struct Payload { bytes: [u8; 64] }
+struct Node { v: u64, next: Option<Id<nodes>>, data: Option<own Payload> }
+struct Leaf { v: u64, up: Option<Id<nodes>> }
+
+gc_arena nodes: Node[256];
+gc_arena leaves: Leaf[64];
+bump_arena scratch: Leaf[64];
+
+fn build(n: u64) -> Option<Id<leaves>> {
+    // 一時的なものは bump_arena に作り、生き残りだけを gc_arena へ昇格する（残りは出口の巻き戻し 1 回で消える）
+    // temporaries go to the bump_arena; only the survivor is promoted to the gc_arena (the rest vanishes at the exit rewind)
+    let mut keep: Option<Id<leaves>> = None;
+    for i in 0..8 {
+        let t = scratch.alloc(Leaf { v: n + i, up: None }).unwrap();
+        if i == 5 {
+            keep = promote_to_gc(leaves, t);
+        }
+    }
+    keep
+}
+
+fn main() {
+    let base = heap_live_blocks();
+    {
+        let a = nodes.alloc(Node { v: 1, next: None, data: Some(own Payload { bytes: [7; 64] }) }).unwrap();
+        let b = nodes.alloc(Node { v: 2, next: Some(a), data: Some(own Payload { bytes: [9; 64] }) }).unwrap();
+        print_int(nodes[b].v + nodes[a].v);
+        print_int(heap_live_blocks() - base);
+        print_int(gc_collect(nodes) as u64);
+    }
+    // a と b はもう根ではない → own Payload も含めて回収 / a and b are no longer roots → reclaimed with their own Payloads
+    print_int(gc_collect(nodes) as u64);
+    print_int(heap_live_blocks() - base);
+    let p = build(40);
+    match p {
+        Some(id) => print_int(leaves[id].v),
+        None => print_str("not promoted"),
+    }
+    print_int(gc_collect(leaves) as u64);
+    print_int(leaves.len() as u64);
+}

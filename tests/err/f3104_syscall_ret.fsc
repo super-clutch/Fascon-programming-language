@@ -1,0 +1,10 @@
+// expect: F3104
+// #[syscall(N)] の関数は Result<usize, FaultError> か i64 を返す / returns Result<usize, FaultError> or i64
+struct Task { pid: u32 }
+task_arena task: Task[4] stack 16384;
+user_mem umem for task: 0x20_0000 at 0x1_0000_0000;
+#[syscall(7)]
+fn sys_bad(x: u64) -> bool {
+    x == 0
+}
+fn main() {}

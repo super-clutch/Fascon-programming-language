@@ -1,0 +1,36 @@
+// 標準ライブラリ: time::wheel（タイマーホイール）と sched::hmp（性能 / 高効率コア・ホットプラグ）
+// the standard library: time::wheel (a timer wheel) and sched::hmp (big / little cores, hotplug)
+import time::wheel;
+import sched::hmp;
+
+fn main() {
+    wheel::arm(5, 0, 1);
+    wheel::arm(3, 10, 2);
+    let t3 = wheel::arm(70, 0, 3).unwrap();
+    wheel::arm(130, 0, 4);
+    let mut fired: [u32; 16] = [0; 16];
+    let n = wheel::advance(4, &mut fired);
+    print_int(n);
+    print_int(fired[0]);
+    let n2 = wheel::advance(13, &mut fired);
+    print_int(n2);
+    print_int(fired[0] * 10 + fired[1]);
+    print_int(if wheel::cancel(t3) { 1 } else { 0 });
+    let n3 = wheel::advance(140, &mut fired);
+    print_int(n3);
+    print_int(wheel::fired());
+
+    hmp::add_cpu(0, true);
+    hmp::add_cpu(1, true);
+    hmp::add_cpu(2, false);
+    hmp::add_cpu(3, false);
+    print_int(hmp::place(800, 10));
+    print_int(hmp::place(900, 10));
+    print_int(hmp::place(100, 10));
+    print_int(hmp::place(50, 95));
+    print_int(hmp::place(200, 10));
+    print_int(hmp::hotplug(2, false));
+    print_int(hmp::load_of(3));
+    print_int(hmp::balance(true));
+    print_int(hmp::load_of(0) + hmp::load_of(1));
+}

@@ -1,0 +1,43 @@
+// port_io: x86_64 は in / out 命令、AArch64 はコンパイラが MMIO へ写す、PC 実行はプラットフォーム層が真似る
+// port_io: in / out on x86_64, MMIO chosen by the compiler on AArch64, emulated by the platform layer on a PC
+port_io com1 at_port 0x3f8;                 // 型を省くと u8 / u8 when the type is omitted
+port_io com1_ctl: [u8; 7] at_port 0x3f9;    // 0x3f9〜0x3ff の 7 個のレジスタ（重なりは F2203） / the 7 registers 0x3f9-0x3ff (overlaps are F2203)
+port_io scratch_reg: u8 at_port 0x80;
+port_io wide: u32 at_port 0x5000;
+
+fn putc(c: u8) {
+    while com1_ctl[4] & 0x20 == 0 {}       // LSR: 送信可を待つ / wait for "transmit ready"
+    com1 = c;                                // x86_64: out dx, al
+}
+
+fn puts(s: Str) {
+    let mut i = 0;
+    while i < s.len() {
+        putc(s.byte(i));
+        i += 1;
+    }
+}
+
+fn main() {
+    // 16550 の初期化（DLAB の間の 0x3f8 は除数なので出力されない） / 16550 setup (0x3f8 is the divisor while DLAB is set)
+    com1_ctl[0] = 0x00;                     // IER
+    com1_ctl[2] = 0x80;                     // LCR: DLAB
+    com1 = 0x01;                            // 除数の下位（出力されない） / divisor low (not printed)
+    com1_ctl[0] = 0x00;                     // 除数の上位 / divisor high
+    com1_ctl[2] = 0x03;                     // LCR: 8N1
+    puts("port_io: ok\n");
+    scratch_reg = 0x11;
+    scratch_reg |= 0x40;                    // 読んで書く / read-modify-write
+    print_int(scratch_reg as i64);
+    wide = 0xdeadbeef;
+    print_int(wide as i64);
+    let lsr = com1_ctl[4];
+    print_int(lsr as i64);
+    let mut k = 0;
+    for i in 0..8 {
+        if i != 0 && i != 5 {
+            k += 1;
+        }
+    }
+    print_int(k);
+}

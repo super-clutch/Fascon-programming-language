@@ -1,0 +1,6 @@
+// expect: F2402
+// static はプログラムの最後まで生きるのでバンプの Id は置けない / statics outlive every call region
+struct Tmp { v: i64 }
+bump_arena tmp: Tmp[16];
+static NONE_YET: Option<Id<tmp>> = None;
+fn main() { }

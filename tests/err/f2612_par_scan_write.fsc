@@ -1,0 +1,16 @@
+// expect: F2612
+// 並列走査（読み手）の中から、共有アリーナを書き換える関数を呼ぶ: 効果 E(bump) の W に procs が入っている
+struct Proc { pid: u32, ticks: u64 }
+shared arena procs: Proc[16];
+fn bump(id: Id<procs>) {
+    procs[id].ticks += 1;
+}
+fn worker() {
+    for id in procs.par() {
+        bump(id);
+    }
+}
+fn main() {
+    procs.alloc(Proc { pid: 1, ticks: 0 });
+    spawn_on(1, worker);
+}

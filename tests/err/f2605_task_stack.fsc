@@ -1,0 +1,4 @@
+// expect: F2605
+struct Task { n: u64 }
+task_arena @task: Task[4] stack 1000;
+fn main() { print_int(1); }

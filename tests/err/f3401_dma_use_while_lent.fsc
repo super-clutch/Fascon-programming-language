@@ -1,0 +1,9 @@
+// expect: F3401
+// デバイスへ貸し出し中（submit_dma 〜 complete_dma）は CPU から触れない / untouchable while lent to a device
+fn main() {
+    let mut buf = dma_alloc([u8; 4096]);
+    buf[0] = 1;
+    let iova = submit_dma(buf);
+    buf[1] = 2;
+    let _ = complete_dma([u8; 4096], iova);
+}

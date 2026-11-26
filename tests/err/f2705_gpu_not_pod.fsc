@@ -1,0 +1,9 @@
+// expect: F2705
+// gpu_arena の要素に Id は置けない（装置はほかの表を指す値を扱えない）
+// a gpu_arena element cannot hold an Id (the device cannot deal with values pointing into other tables)
+struct Owner { n: u32 }
+arena @owners: Owner[4];
+struct Job { owner: Id<@owners>, w: f32 }
+gpu_arena @jobs: Job[16];
+fn main() {
+}

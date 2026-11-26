@@ -1,0 +1,10 @@
+// expect: F3101
+// user T は直接読めない（copy_from_user を通す） / a user T cannot be read directly
+struct Task { pid: u32 }
+task_arena task: Task[4] stack 16384;
+user_mem umem for task: 0x20_0000 at 0x1_0000_0000;
+#[syscall(5)]
+fn sys_peek(ubuf: user [u8; 16]) -> Result<usize, FaultError> {
+    Ok(ubuf[0] as usize)
+}
+fn main() {}

@@ -1,0 +1,87 @@
+// ipc::rpc — ゼロコピーのプロセス間通信: メッセージは own T のまま所有権ごと受け手へ移る（コピーしない）。宛先を呼べる
+// 権限はケイパビリティ（世代タグ付きの Id。偽造・失効したトークンは validate で None）で検査する
+// ipc::rpc — zero-copy inter-process communication: messages move to the receiver as own T with ownership (no copies).
+// The right to call is checked with capabilities (generation-tagged Ids; forged or revoked tokens fail validate)
+//
+//   let cap = rpc::grant(owner, rpc::R_CALL).unwrap();
+//   rpc::call_async(cap, op, arg)        // 非同期: 送るだけ / asynchronous: send only
+//   rpc::serve_one(handler)              // サーバー側: 1 通処理して返事を送る / server side: handle one, reply
+//   rpc::wait_reply()                    // 同期: 返事が届くまで眠る（Sleep 効果） / synchronous: sleep until the reply
+
+const R_CALL: u32 = 1;
+const R_ADMIN: u32 = 2;
+
+struct Cap { owner: u32, rights: u32, uses: u64 }
+arena caps: Cap[64];
+
+struct Msg { op: u32, arg: u64, reply: u64, sender: u32, data: [u8; 32] }
+chan requests: own Msg[16];
+chan replies: own Msg[16];
+
+fn grant(owner: u32, rights: u32) -> Option<Id<caps>> {
+    caps.alloc(Cap { owner: owner, rights: rights, uses: 0 })
+}
+
+// 失効: スロットを返すと世代が進み、配ったトークンはすべて無効になる / revoke: freeing advances the generation, so every
+// token handed out becomes invalid
+fn revoke(c: Id<caps>) {
+    caps.free(c);
+}
+
+// 外から来た生のトークンを検査する / check a raw token that came from outside
+fn check(raw: IdRaw, need: u32) -> Option<Id<caps>> {
+    match caps.validate(raw) {
+        Some(c) => {
+            if (caps[c].rights & need) == need {
+                Some(c)
+            } else {
+                None
+            }
+        }
+        None => None,
+    }
+}
+
+fn call_async(token: IdRaw, op: u32, arg: u64) -> Result<u32, FaultError> {
+    match check(token, R_CALL) {
+        Some(c) => {
+            caps[c].uses += 1;
+            let m = own Msg { op: op, arg: arg, reply: 0, sender: caps[c].owner, data: [0; 32] };
+            // 所有権ごと送る（m は以後使えない: F0382） / send with ownership (m cannot be used afterwards: F0382)
+            requests.send(m);
+            Ok(op)
+        }
+        None => Err(EPERM),
+    }
+}
+
+// 1 通だけ処理する（無ければ false）。handler はコールバック（stack_only の規則が効く）
+// handle one message (false when none); handler is a callback (the stack_only rules apply)
+fn serve_one(handler: fn(u32, u64) -> u64) -> bool {
+    match requests.recv() {
+        Some(mut m) => {
+            m.reply = handler(m.op, m.arg);
+            replies.send(m);
+            true
+        }
+        None => false,
+    }
+}
+
+fn poll_reply() -> Option<u64> {
+    match replies.recv() {
+        Some(m) => Some(m.reply),
+        None => None,
+    }
+}
+
+// 同期の呼び出し（返事が届くまで眠る: Sleep 効果。rcu_read や atomic の中では呼べない）
+// a synchronous call (sleeps until the reply arrives: the Sleep effect; not callable inside rcu_read or atomic)
+fn wait_reply() -> u64 {
+    let m = replies.recv_wait();
+    m.reply
+}
+
+fn uses(c: Id<caps>) -> u64 {
+    caps[c].uses
+}

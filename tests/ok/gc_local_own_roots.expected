@@ -1,0 +1,46 @@
+1 collected 6
+1 own Holder 11
+1 Option<own Holder> 12
+1 own field 13
+1 Option<own> field 14
+1 array of Option<own> 15
+1 after b = None, collected 7
+1 tags 36
+2 by-value own param 2107
+2 by-value struct param 22
+3 after move, collected 7
+3 moved own 31
+3 before overwrite 32
+3 after overwrite, collected 7
+3 overwritten own 33
+3 after take, collected 6
+3 taken own 34
+3 source is None after take 1
+3 after field overwrite, collected 7
+3 overwritten own field 36
+3 assigned Option<own> field 37
+4 own Node temporary, a later argument collects 41
+4 own temporary after a collecting argument 42
+4 moved local as an argument 43
+4 own field before a collecting field 44
+4 Some(own) temporary 45
+4 packed own temporary 46
+4 own field before a collecting array literal 47
+5 collected 8
+5 frame own 51
+5 packed child in the frame 52
+6 guards made, collected 8
+6 guard ids 6163
+on_drop: collected 0, own id 63, kept 64
+on_drop: collected 2, own id 61, kept 62
+on_drop: collected 2, own id 65
+6 after the guards, collected 7
+on_drop: collected 0, own id 66
+6 cells swept 1
+on_drop: collected 1, own id 0
+7 returned own 71
+on_drop: collected 0, own id 0
+7 early return 721
+final collect 8
+live nodes 0
+own blocks leaked 0

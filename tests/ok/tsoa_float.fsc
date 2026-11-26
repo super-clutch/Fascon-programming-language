@@ -1,0 +1,148 @@
+// 浮動小数点の完全列化（#[fast_math]）: f32 / f64 の総和は float / double の列とベクトルの累計、最小 / 最大は IEEE-754 の
+// 順序を保つ鍵の列（NaN は選ばれず、-0.0 と +0.0 は同じ鍵）。属性のないループは書いた順のままビット一致
+// float True SoA (#[fast_math]): f32 / f64 sums use float / double columns and vector accumulators, min / max use
+// IEEE-754 order-preserving key columns (NaN is never picked, -0.0 and +0.0 share a key); loops without the attribute
+// keep the written order, bit for bit
+
+struct Particle {
+    x: f32,
+    vx: f32,
+    mass: f64,
+    charge: f64,
+    kind: u32,
+}
+
+arena parts: Particle[4096];
+
+#[fast_math]
+fn total_mass() -> f64 {
+    let mut m = 0.0;
+    for id in parts {
+        m += parts[id].mass;
+    }
+    m
+}
+
+fn lightest() -> Option<Id<parts>> {
+    let mut best = f64::INFINITY;
+    let mut pick: Option<Id<parts>> = None;
+    #[fast_math]
+    for id in parts {
+        if parts[id].charge < best {
+            best = parts[id].charge;
+            pick = Some(id);
+        }
+    }
+    put("min charge ");
+    put(best);
+    put("\n");
+    pick
+}
+
+fn main() {
+    let mut i = 0u32;
+    while i < 3000u32 {
+        // 値は小さな整数か 2 進で割り切れる数（どの順で足しても丸めが出ない） / small integers or dyadic values (no rounding in any order)
+        let fi = i as f32;
+        let k = i % 7u32;
+        let ch = ((i * 37u32) % 1001u32) as f64 - 500.0;
+        if parts.alloc(Particle { x: fi * 0.5, vx: 1.0, mass: 0.25 * (k as f64), charge: ch, kind: k }).is_none() {
+            panic("full");
+        }
+        i += 1u32;
+    }
+    // 1 つおきに解放（死んだスロットは列で 0.0 / 鍵は NONE） / free every other one (dead slots are 0.0 / NONE keys)
+    let mut n = 0u32;
+    for id in parts {
+        if n % 2u32 == 1u32 {
+            parts.free(id);
+        }
+        n += 1u32;
+    }
+    put("mass ");
+    put(total_mass());
+    put("\n");
+    let mut sx: f32 = 0.0;
+    let mut sv: f32 = 0.0;
+    #[fast_math]
+    for id in parts {
+        sx += parts[id].x;
+    }
+    #[fast_math]
+    for id in parts {
+        if parts[id].kind == 3u32 {
+            sv += parts[id].vx;
+        }
+    }
+    put("x ");
+    put(sx);
+    put(" kind3 ");
+    put(sv);
+    put("\n");
+    // 属性なし: 書いた順のループ（同じ値になる入力なので同じ出力） / no attribute: the loop in written order
+    let mut plain = 0.0;
+    for id in parts {
+        plain += parts[id].mass;
+    }
+    put("plain ");
+    put(plain);
+    put("\n");
+    match lightest() {
+        Some(id) => {
+            put("lightest kind ");
+            put(parts[id].kind);
+            put("\n");
+        }
+        None => put("none\n"),
+    }
+    // NaN と -0.0: NaN は選ばれない。-0.0 と +0.0 は同じ鍵なので、最初に見つかった方の値が残る
+    // NaN and -0.0: NaN is never picked; -0.0 and +0.0 share a key, so the value found first stays
+    let z = 0.0;
+    let mut c = 0u32;
+    for id in parts {
+        parts[id].charge = if c == 4u32 {
+            z / z
+        } else if c == 9u32 {
+            -z
+        } else if c == 11u32 {
+            z
+        } else {
+            5.0
+        };
+        c += 1u32;
+    }
+    match lightest() {
+        Some(id) => {
+            put_hex(parts[id].charge.to_bits());
+            put("\n");
+        }
+        None => put("none\n"),
+    }
+    // 大きい方（最大）と <= （同じ値なら後の添字） / the max and <= (the later index wins a tie)
+    let mut hi = f64::NEG_INFINITY;
+    let mut at: Option<Id<parts>> = None;
+    #[fast_math]
+    for id in parts {
+        if parts[id].charge >= hi {
+            hi = parts[id].charge;
+            at = Some(id);
+        }
+    }
+    put("max ");
+    put(hi);
+    if let Some(id) = at {
+        put(" at index ");
+        put(id.index());
+    }
+    put("\n");
+    let mut nan_best = f64::NAN;
+    #[fast_math]
+    for id in parts {
+        if parts[id].charge < nan_best {
+            nan_best = parts[id].charge;
+        }
+    }
+    put("nan start ");
+    put(nan_best);
+    put("\n");
+}

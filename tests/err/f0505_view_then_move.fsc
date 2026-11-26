@@ -1,0 +1,9 @@
+// expect: F0505
+#[wire(le)] struct Hdr { magic: u32 }
+fn main() {
+    let mut b = own_alloc([u8; 16]);
+    if let Some(h) = b.view_mut(Hdr, 0) {
+        let moved = b;
+        h.magic = 1;
+    }
+}

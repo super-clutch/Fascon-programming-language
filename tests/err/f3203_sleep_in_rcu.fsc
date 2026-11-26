@@ -1,0 +1,14 @@
+// expect: F3203
+// rcu_read の読み手はプリエンプション禁止なので、眠る呼び出しはできない / an RCU reader cannot sleep
+struct Sock { port: u32 }
+arena socks: Sock[16];
+fn wait_more() { sleep_ticks(10); }
+fn main() {
+    let s = socks.alloc(Sock { port: 80 }).unwrap();
+    rcu_read {
+        if let Some(p) = socks.get(s) {
+            print_int(p.port);
+        }
+        wait_more();
+    }
+}

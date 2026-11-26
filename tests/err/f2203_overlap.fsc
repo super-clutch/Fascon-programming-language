@@ -1,0 +1,5 @@
+// expect: F2203
+// 2 つの MMIO リージョンが同じ物理メモリに重なる / two MMIO regions overlapping the same physical memory
+mmio @a: [u32; 1024] at 0x0900_0000;
+mmio @b: [u32; 16] at 0x0900_0100;
+fn main() { }

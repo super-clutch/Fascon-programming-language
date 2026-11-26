@@ -1,0 +1,38 @@
+// Raspberry Pi 3 のボードのパッケージ（boards/raspberrypi3b）で作る実機の像: HAL のコンソール、スピンテーブルで起こした
+// コア、VideoCore のメールボックス（非一貫の DMA: bus_addr = 0xC000_0000 の別名、キャッシュの掃き出し・無効化）
+// a real-hardware image from the Raspberry Pi 3 board package: the HAL console, cores woken through the spin table and the
+// VideoCore mailbox (non-coherent DMA: bus_addr = the 0xC000_0000 alias, cache clean / invalidate)
+//
+//   fascon qemu --board raspberrypi3b tests/board/rpi3_hello.fsc
+import hal::console;
+import board_hal;
+import rpi_mailbox;
+
+struct Hello { core: u32, sq: u64 }
+chan done: own Hello[4];
+
+fn worker(n: u64) {
+    done.send(own Hello { core: cpu_id(), sq: n * n });
+}
+
+fn main() {
+    let con = board_hal::console();
+    console::console_put_dec(&con, 2026);
+    (con.putc)(10);
+    put_str("board revision ");
+    put_hex(rpi_mailbox::board_revision() as u64);
+    print_str("");
+    put_str("ARM memory MiB ");
+    print_int((rpi_mailbox::arm_memory_size() >> 20) as u64);
+    spawn_on(1, worker, 3);
+    spawn_on(2, worker, 4);
+    spawn_on(3, worker, 5);
+    let mut sum: u64 = 0;
+    for k in 0..3 {
+        let h = done.recv_wait();
+        sum += h.sq;
+    }
+    put_str("squares from 3 cores ");
+    print_int(sum);
+    print_str("FASCON-RPI3-OK");
+}

@@ -1,0 +1,158 @@
+// loader::elf — 実行ファイル（ELF64）の検査とロードの計画: 署名（鍵付き MAC: SipHash-2-4）の定数時間の検証、
+// W^X（書き込みと実行を同時に許すセグメントの拒否）、ASLR の基底、共有ライブラリの遅延結合（PLT の表）
+// loader::elf — checking and planning the load of an executable (ELF64): constant-time verification of the signature
+// (a keyed MAC: SipHash-2-4), W^X (segments that are both writable and executable are rejected), the ASLR base and lazy
+// binding of shared libraries (a PLT table)
+//
+// 鍵は #[secret]: 複製・出力・鍵に依存する分岐はコンパイラが止め、破棄のときに 0 で埋める
+// the key is #[secret]: copies, output and key-dependent branches are stopped by the compiler; it is zeroed when dropped
+
+const PT_LOAD: u32 = 1;
+const PF_X: u32 = 1;
+const PF_W: u32 = 2;
+const EM_X86_64: u16 = 62;
+const EM_AARCH64: u16 = 183;
+
+#[wire(le)] struct Ehdr { ident: [u8; 16], kind: u16, machine: u16, version: u32, entry: u64, phoff: u64, shoff: u64, flags: u32, ehsize: u16, phentsize: u16, phnum: u16, shentsize: u16, shnum: u16, shstrndx: u16 }
+#[wire(le)] struct Phdr { kind: u32, flags: u32, offset: u64, vaddr: u64, paddr: u64, filesz: u64, memsz: u64, align: u64 }
+
+#[secret]
+struct MacKey { k0: u64, k1: u64 }
+
+// ───── SipHash-2-4（64 ビットの鍵付き PRF。署名の代わりの MAC として使う）/ SipHash-2-4 (a 64-bit keyed PRF, used as a MAC) ─────
+fn rotl(x: u64, b: u64) -> u64 {
+    (x << b) | (x >> (64 - b))
+}
+
+fn sip_round(v: &mut [u64; 4]) {
+    v[0] = v[0].wrapping_add(v[1]);
+    v[1] = rotl(v[1], 13);
+    v[1] = v[1] ^ v[0];
+    v[0] = rotl(v[0], 32);
+    v[2] = v[2].wrapping_add(v[3]);
+    v[3] = rotl(v[3], 16);
+    v[3] = v[3] ^ v[2];
+    v[0] = v[0].wrapping_add(v[3]);
+    v[3] = rotl(v[3], 21);
+    v[3] = v[3] ^ v[0];
+    v[2] = v[2].wrapping_add(v[1]);
+    v[1] = rotl(v[1], 17);
+    v[1] = v[1] ^ v[2];
+    v[2] = rotl(v[2], 32);
+}
+
+fn siphash(key: &MacKey, img: &[u8]) -> u64 {
+    #[secret] let mut v: [u64; 4] = [key.k0 ^ 0x736f6d6570736575, key.k1 ^ 0x646f72616e646f6d, key.k0 ^ 0x6c7967656e657261, key.k1 ^ 0x7465646279746573];
+    let n = img.len();
+    let mut i: u64 = 0;
+    while i + 8 <= n {
+        let mut m: u64 = 0;
+        for k in 0..8 {
+            m = m | ((img[i + k] as u64) << (8 * k));
+        }
+        v[3] = v[3] ^ m;
+        sip_round(&mut v);
+        sip_round(&mut v);
+        v[0] = v[0] ^ m;
+        i += 8;
+    }
+    let mut last: u64 = (n & 0xff) << 56;
+    let mut k: u64 = 0;
+    while i + k < n {
+        last = last | ((img[i + k] as u64) << (8 * k));
+        k += 1;
+    }
+    v[3] = v[3] ^ last;
+    sip_round(&mut v);
+    sip_round(&mut v);
+    v[0] = v[0] ^ last;
+    v[2] = v[2] ^ 0xff;
+    sip_round(&mut v);
+    sip_round(&mut v);
+    sip_round(&mut v);
+    sip_round(&mut v);
+    #[secret] let tag: u64 = v[0] ^ v[1] ^ v[2] ^ v[3];
+    expose(&tag)
+}
+
+// MAC の値そのものは秘密でない（公開して比べる値）。秘密から公開へ移す 1 か所 / the MAC value itself is public (it is what gets
+// compared); the one place where a secret becomes public
+fn expose(t: &u64) -> u64 {
+    *t
+}
+
+// 定数時間の検証（早く抜けない） / constant-time verification (no early exit)
+fn verify(key: &MacKey, img: &[u8], tag: u64) -> bool {
+    let t = siphash(key, img);
+    ct_eq(t, tag)
+}
+
+// ヘッダとセグメントを検査し、入口の番地を返す / check the header and segments, return the entry address
+fn check(img: &[u8]) -> Result<u64, FaultError> {
+    if img.len() < 64 {
+        return Err(EINVAL);
+    }
+    let h = match img.read(Ehdr, 0) {
+        Some(x) => x,
+        None => return Err(EINVAL),
+    };
+    if h.ident[0] != 0x7f || h.ident[1] != 0x45 || h.ident[2] != 0x4c || h.ident[3] != 0x46 || h.ident[4] != 2 {
+        return Err(EINVAL);
+    }
+    if h.machine != EM_AARCH64 && h.machine != EM_X86_64 {
+        return Err(EINVAL);
+    }
+    let n = h.phnum as u64;
+    for k in 0..n {
+        let off = h.phoff + k * 56;
+        if off + 56 > img.len() {
+            return Err(EINVAL);
+        }
+        let p = match img.read(Phdr, off) {
+            Some(x) => x,
+            None => return Err(EINVAL),
+        };
+        if p.kind == PT_LOAD {
+            // W^X: 書き込みと実行を同時に許すセグメントは載せない / W^X: never load a segment that is writable and executable
+            if (p.flags & PF_W) != 0 && (p.flags & PF_X) != 0 {
+                return Err(EPERM);
+            }
+            if p.offset + p.filesz > img.len() || p.filesz > p.memsz {
+                return Err(EINVAL);
+            }
+        }
+    }
+    Ok(h.entry)
+}
+
+// ASLR の基底: 種から 2 MiB 境界の番地を [1 GiB, 256 GiB) で選ぶ（splitmix64） / the ASLR base: a 2 MiB-aligned address in
+// [1 GiB, 256 GiB) chosen from a seed (splitmix64)
+fn aslr_base(seed: u64) -> u64 {
+    let mut z = seed.wrapping_add(0x9e3779b97f4a7c15);
+    z = (z ^ (z >> 30)).wrapping_mul(0xbf58476d1ce4e5b9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94d049bb133111eb);
+    z = z ^ (z >> 31);
+    let slots: u64 = (256 - 1) * 512;
+    0x4000_0000 + (z % slots) * 0x20_0000
+}
+
+// ───── 遅延結合（PLT）/ lazy binding (PLT) ─────
+struct PltSlot { sym: u32, addr: u64, resolves: u32 }
+arena plt: PltSlot[256];
+
+fn bind_lazy(sym: u32) -> Option<Id<plt>> {
+    plt.alloc(PltSlot { sym: sym, addr: 0, resolves: 0 })
+}
+
+// 初めて呼ばれたときだけ解決する（resolver は動的リンカの記号表を引くコールバック） / resolve on the first call only
+fn call_target(s: Id<plt>, resolver: fn(u32) -> u64) -> u64 {
+    if plt[s].addr == 0 {
+        plt[s].addr = resolver(plt[s].sym);
+        plt[s].resolves += 1;
+    }
+    plt[s].addr
+}
+
+fn resolves(s: Id<plt>) -> u32 {
+    plt[s].resolves
+}

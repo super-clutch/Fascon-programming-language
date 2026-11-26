@@ -1,0 +1,7 @@
+// expect: F2802
+struct Task { pid: u32 }
+task_arena task: Task[4] stack 16384;
+user_mem umem for task: 0x20_0000 at 0x1_0000_0000;
+// 窓は 2 本ずつ: 5 個で 10 本
+syscall many at 5 (a: &[u8], b: &[u8], c: &[u8], d: &[u8], e: &[u8]) -> i64 { 0 }
+fn main() {}

@@ -1,0 +1,105 @@
+// Fascon 1.0 カーネル拡張 Step 1: プリエンプティブなタスク切り替え
+// Fascon 1.0 kernel extensions, step 1: preemptive task switching
+//
+//   fascon run  examples/kernel_preempt.fsc     PC で実行（仮想の時計。cpu_relax() が割り込まれうる点）
+//                                               run on a PC (a virtual clock; cpu_relax() is where interrupts arrive)
+//   fascon qemu examples/kernel_preempt.fsc     QEMU virt（AArch64、GICv2 + 仮想タイマー INTID 27）で起動
+//                                               boot on QEMU virt (AArch64, GICv2 + the virtual timer, INTID 27)
+//
+// - `task_arena` はスロットごとにカーネルスタックと保存文脈を持つアリーナ。方針（次のタスクの選択）は Fascon で書く
+//   a `task_arena` is an arena whose slots also carry a kernel stack and a saved context; the policy is plain Fascon
+// - `irq tick at 27 { .. }` はタイマー割り込みのハンドラ。`resume(next)` が割り込みの出口での切り替えを予約する
+//   `irq tick at 27 { .. }` handles the timer interrupt; `resume(next)` requests the switch on interrupt exit
+// - タスク表は割り込みハンドラも触るので、タスク側のアクセスは `critical`（閉じた区間）に入れる。書き忘れは F2601
+//   the task table is touched by the handler too, so task-side accesses sit in `critical` (closed sections); forgetting
+//   one is the compile error F2601
+
+const READY: u8 = 1;
+const DONE: u8 = 2;
+const TICK: u64 = 20000;
+
+struct Task { pid: u32, state: u8, vruntime: u64, work: u64 }
+
+task_arena @task: Task[8] stack 16384;
+
+irq tick at 27 {
+    timer_arm(TICK);
+    let cur = @task.current();              // 割り込まれたタスク / the interrupted task
+    @task[cur].vruntime += 1;               // irq の本体は閉じた区間 / an irq body is a closed section
+    if let Some(next) = pick_next() {
+        @task.resume(next);
+    }
+}
+
+// vruntime が最小の READY なタスク / the READY task with the smallest vruntime
+fn pick_next() -> Option<Id<@task>> {
+    let mut best: u64 = 0xffff_ffff_ffff_ffff;
+    let mut pick = None;
+    for id in @task {
+        if @task[id].state == READY {
+            if @task[id].vruntime < best { best = @task[id].vruntime; pick = Some(id); }
+        }
+    }
+    pick
+}
+
+critical fn step(limit: u64) -> bool {
+    let me = @task.current();
+    @task[me].work += 1;
+    @task[me].work >= limit
+}
+
+critical fn finish() {
+    let me = @task.current();
+    @task[me].state = DONE;
+}
+
+// 譲らないタスク: タイマーだけが切り替える / never yields: only the timer switches it out
+fn worker(limit: u64) {
+    loop {
+        if step(limit) { break; }
+        cpu_relax();
+    }
+    finish();
+    loop { cpu_relax(); }
+}
+
+critical fn all_done() -> bool {
+    let mut left: u32 = 0;
+    for id in @task {
+        if @task[id].state == READY {
+            if @task[id].pid != 0 { left += 1; }
+        }
+    }
+    left == 0
+}
+
+critical fn report() {
+    let mut slices: u64 = 0;
+    for id in @task {
+        if @task[id].pid != 0 {
+            put_str("task "); put(@task[id].pid); put_str(" work="); put(@task[id].work); print_str("");
+            slices += @task[id].vruntime;
+        }
+    }
+    if slices >= 2 { print_str("preempted by the timer: yes"); } else { print_str("preempted by the timer: no"); }
+}
+
+fn reporter(arg: u64) {
+    loop {
+        if all_done() { break; }
+        cpu_relax();
+    }
+    report();
+    exit(0);
+}
+
+fn main() {
+    // irq_open / enter より前は起動時の文脈（割り込み禁止）: critical は要らない
+    // before irq_open / enter this is the boot context (interrupts masked): no critical needed
+    let a = @task.start(Task { pid: 1, state: READY, vruntime: 0, work: 0 }, worker, 3000).unwrap();
+    let b = @task.start(Task { pid: 2, state: READY, vruntime: 0, work: 0 }, worker, 5000).unwrap();
+    let r = @task.start(Task { pid: 0, state: READY, vruntime: 0, work: 0 }, reporter, 0).unwrap();
+    timer_arm(TICK);
+    @task.enter(a);                         // 割り込みを許可して a へ（戻らない） / enable interrupts, enter a
+}

@@ -1,0 +1,11 @@
+// expect: F3202
+// rcu_read の中で解放する関数を呼べない / no calls of freeing functions inside rcu_read
+struct Sock { port: u32 }
+arena socks: Sock[16];
+fn close(s: Id<socks>) { socks.free(s); }
+fn main() {
+    let s = socks.alloc(Sock { port: 80 }).unwrap();
+    rcu_read {
+        close(s);
+    }
+}

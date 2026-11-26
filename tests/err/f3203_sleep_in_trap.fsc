@@ -1,0 +1,10 @@
+// expect: F3203
+// #[trap] の関数（ページフォールトの処理）は眠れない / a #[trap] function (page-fault handling) cannot sleep
+struct Proc { pages: u32 }
+task_arena procs: Proc[4] stack 16384;
+user_mem umem for procs: 0x20_0000 at 0x1_0000_0000;
+#[trap]
+fn user_fault(pid: Id<procs>, addr: u64, is_write: bool) {
+    if is_write { sleep_ticks(1); }
+}
+fn main() {}

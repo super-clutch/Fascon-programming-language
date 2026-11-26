@@ -1,0 +1,10 @@
+// expect: F2101
+// アリーナの色違い: @file の Id で @process を引こうとする / an Id of @file used to index @process
+struct Process { pid: u32 }
+struct File { pos: u64 }
+arena @process: Process[8];
+arena @file: File[8];
+fn main() {
+    let f = @file.alloc(File { pos: 0 }).unwrap();
+    print_int(@process[f].pid);
+}

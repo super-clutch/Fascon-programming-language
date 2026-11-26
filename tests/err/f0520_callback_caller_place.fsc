@@ -1,0 +1,14 @@
+// expect: F0520
+// 参照を、別の参照引数の先（呼び出し元の場所）へ代入しようとする / assigning the reference into the place behind another
+// reference parameter (the caller's place)
+struct Holder { v: i32 }
+struct Ctx { last: Holder }
+fn remember(x: &mut Holder, ctx: &mut Ctx) {
+    ctx.last = x;
+}
+fn visit2(h: &mut Holder, c: &mut Ctx, f: fn(&mut Holder, &mut Ctx)) { f(h, c); }
+fn main() {
+    let mut h = Holder { v: 1 };
+    let mut c = Ctx { last: Holder { v: 0 } };
+    visit2(&mut h, &mut c, remember);
+}

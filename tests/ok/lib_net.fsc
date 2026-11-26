@@ -1,0 +1,54 @@
+// 標準ライブラリ: net::udp（ゼロコピーの受信・rcu_read のソケット検索・bump_arena の一時領域）と net::tcp（状態機械）
+// the standard library: net::udp (zero-copy receive, rcu_read socket lookup, bump_arena scratch) and net::tcp (state machine)
+import net::wire;
+import net::udp;
+import net::tcp;
+
+// テスト用の UDP パケットを RX リングのバッファ（dma own）に組み立てる / build a test UDP packet in an RX ring buffer (dma own)
+fn frame(dport: u16, b0: u8) -> dma own [u8; 2048] {
+    let mut b = dma_alloc([u8; 2048]);
+    b[12] = 0x08;
+    b[13] = 0x00;
+    b[14] = 0x45;
+    b[23] = 17;
+    b[36] = (dport >> 8) as u8;
+    b[37] = (dport & 0xff) as u8;
+    b[38] = 0;
+    b[39] = 12;
+    b[42] = b0;
+    b[43] = b0 + 1;
+    b
+}
+
+fn main() {
+    let s = udp::bind(5353).unwrap();
+    let p1 = udp::rx_packet(frame(5353, 40), 60).unwrap();
+    let p2 = udp::rx_packet(frame(9999, 50), 60).unwrap();
+    print_int(udp::deliver(p1));
+    print_int(udp::deliver(p2));
+    match udp::recv(s) {
+        Some(p) => {
+            print_int(udp::payload_byte(p, 0) as u64 + udp::payload_byte(p, 1) as u64);
+            udp::release(p);
+        }
+        None => print_str("no packet"),
+    }
+    print_int(heap_live_blocks());
+
+    let l = tcp::listen(80).unwrap();
+    let r1 = tcp::input(l, wire::TCP_SYN, 1000, 0, 0);
+    print_int(r1.flags as u64);
+    print_int(r1.ack as u64);
+    let r2 = tcp::input(l, wire::TCP_ACK, 1001, r1.seq + 1, 0);
+    print_int(tcp::state(l) as u64);
+    let r3 = tcp::input(l, wire::TCP_ACK | wire::TCP_PSH, 1001, r1.seq + 1, 100);
+    print_int(r3.ack as u64);
+    let r4 = tcp::input(l, wire::TCP_FIN | wire::TCP_ACK, 1101, r1.seq + 1, 0);
+    print_int(tcp::state(l) as u64);
+    print_int(r4.ack as u64);
+    let r5 = tcp::close(l);
+    print_int(tcp::state(l) as u64);
+    let r6 = tcp::input(l, wire::TCP_ACK, 1102, r5.seq + 1, 0);
+    print_int(tcp::state(l) as u64);
+    print_int(tcp::received(l) + r2.flags as u64 + r6.flags as u64);
+}

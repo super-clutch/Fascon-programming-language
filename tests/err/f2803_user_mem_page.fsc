@@ -1,0 +1,7 @@
+// expect: F2803
+// ユーザーメモリは 4 KiB の倍数（ページの単位で写す）: 0x1800 は 6 KiB
+// user memory is a multiple of 4 KiB (it is mapped page by page): 0x1800 is 6 KiB
+struct Task { pid: u32 }
+task_arena task: Task[4] stack 16384;
+user_mem umem for task: 0x1800 at 0x1_0000_0000;
+fn main() {}

@@ -1,0 +1,10 @@
+// expect: F0596
+// 共有ルックアップを通した書き込み / a write through a shared lookup
+struct Task { pid: u32 }
+arena @task: Task[4];
+fn main() {
+    let t = @task.alloc(Task { pid: 1 }).unwrap();
+    if let Some(p) = @task.get(t) {
+        p.pid = 5;
+    }
+}

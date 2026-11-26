@@ -1,0 +1,84 @@
+// 標準ライブラリ: ipc::rpc（ケイパビリティ・own の移動）・loader::elf（W^X・SipHash の MAC・ASLR・遅延結合）・pm::power
+// the standard library: ipc::rpc (capabilities, own moves), loader::elf (W^X, SipHash MAC, ASLR, lazy binding), pm::power
+import ipc::rpc;
+import loader::elf;
+import pm::power;
+
+fn double_it(op: u32, arg: u64) -> u64 {
+    arg * 2 + op as u64
+}
+
+fn resolve(sym: u32) -> u64 {
+    0x1000 + sym as u64
+}
+
+fn image(flags: u32) -> own [u8; 128] {
+    let mut b = own_alloc([u8; 128]);
+    b[0] = 0x7f;
+    b[1] = 0x45;
+    b[2] = 0x4c;
+    b[3] = 0x46;
+    b[4] = 2;
+    b[18] = 183;
+    b[24] = 0x00;
+    b[25] = 0x10;
+    b[32] = 64;
+    b[56] = 1;
+    b[64] = 1;
+    b[68] = flags as u8;
+    b[96] = 16;
+    b[104] = 16;
+    b
+}
+
+fn main() {
+    let cap = rpc::grant(7, rpc::R_CALL).unwrap();
+    let raw = cap.raw();
+    print_int(rpc::call_async(raw, 3, 20).unwrap_or(99));
+    print_int(if rpc::serve_one(double_it) { 1 } else { 0 });
+    print_int(rpc::poll_reply().unwrap_or(0));
+    rpc::revoke(cap);
+    match rpc::call_async(raw, 3, 20) {
+        Ok(_) => print_str("revoked token accepted?!"),
+        Err(e) => print_int(e.code()),
+    }
+
+    let img = image(5);
+    match elf::check(&*img) {
+        Ok(entry) => print_int(entry),
+        Err(e) => print_int(e.code()),
+    }
+    let bad = image(7);
+    match elf::check(&*bad) {
+        Ok(_) => print_str("W^X violation accepted?!"),
+        Err(e) => print_int(e.code()),
+    }
+    let key = elf::MacKey { k0: 0x0706050403020100, k1: 0x0f0e0d0c0b0a0908 };
+    let tag = elf::siphash(&key, &*img);
+    print_int(if elf::verify(&key, &*img, tag) { 1 } else { 0 });
+    print_int(if elf::verify(&key, &*bad, tag) { 1 } else { 0 });
+    let base = elf::aslr_base(12345);
+    print_int(if base % 0x20_0000 == 0 && base >= 0x4000_0000 { 1 } else { 0 });
+    let s = elf::bind_lazy(9).unwrap();
+    print_int(elf::call_target(s, resolve));
+    print_int(elf::call_target(s, resolve));
+    print_int(elf::resolves(s) as u64);
+
+    let d = power::domain().unwrap();
+    power::domain_get(d);
+    {
+        let g = power::acquire(1);
+        print_int(if power::suspend() { 1 } else { 0 });
+        print_int(power::guards());
+    }
+    print_int(power::guards());
+    print_int(if power::domain_on(d) { 1 } else { 0 });
+    power::domain_put(d);
+    print_int(if power::suspend() { 1 } else { 0 });
+    power::resume();
+    let gv = power::governor(80, 20).unwrap();
+    print_int(power::dvfs_step(gv, 90));
+    print_int(power::dvfs_step(gv, 95));
+    print_int(power::dvfs_step(gv, 10));
+    print_int(power::millivolts(gv));
+}

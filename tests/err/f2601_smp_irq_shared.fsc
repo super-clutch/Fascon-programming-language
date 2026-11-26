@@ -1,0 +1,20 @@
+// expect: F2601
+// マルチコア: 割り込みハンドラの本体は「このコアの割り込み禁止」だけで、ほかのコアは止まらない。共有アリーナには critical が要る
+// multi-core: an irq body only masks the interrupts of this core; other cores keep running, so a shared arena needs critical
+struct Hit { n: u64 }
+shared arena hits: Hit[1];
+irq tick at 27 {
+    timer_arm(1000);
+    for id in hits {
+        hits[id].n += 1;
+    }
+}
+fn worker() {
+    irq_open();
+    loop { wait_irq(); }
+}
+fn main() {
+    hits.alloc(Hit { n: 0 });
+    spawn_on(1, worker);
+    irq_open();
+}

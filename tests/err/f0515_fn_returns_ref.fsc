@@ -1,0 +1,5 @@
+// expect: F0515
+// 関数ポインタ型の戻り値に参照は書けない（引数の位置ではないため） / a function pointer type cannot return a reference (not a
+// parameter position)
+fn apply(x: &mut i32, f: fn(&mut i32) -> &mut i32) { }
+fn main() { }

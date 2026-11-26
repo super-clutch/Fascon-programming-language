@@ -1,0 +1,16 @@
+// expect: F2502
+// &mut の参照（get_mut）が生きている間に、同じアリーナの `for id in @a` の集計をその場で書く → 1.0 は禁止する
+// writing a `for id in @a` reduction over the same arena right inside a live &mut lookup reference → rejected by 1.0
+// 列の写しが借用中に古くても誰にも見えないことの根拠（docs/PERF-1.0.ja.md「列」） / why a stale column mirror during a borrow is unobservable (docs/PERF-1.0.md, "Columns")
+struct Task { pid: u32, state: u32, vruntime: u64 }
+arena @task: Task[64];
+
+fn main() {
+    let a = @task.alloc(Task { pid: 1, state: 1, vruntime: 5 }).unwrap();
+    if let Some(p) = @task.get_mut(a) {
+        p.vruntime = 9;
+        let mut s: u64 = 0;
+        for id in @task { s += @task[id].vruntime; }
+        print_int(s as i64);
+    }
+}

@@ -1,0 +1,7 @@
+// expect: F0507
+// `*b` からコピーできない値（構造体）を取り出す（own が空になる） / taking a non-copyable value (a struct) out of `*b`
+struct Node { v: i32, label: Str }
+fn main() {
+    let b = own Node { v: 1, label: "n" };
+    let n = *b;
+}

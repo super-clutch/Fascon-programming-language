@@ -1,0 +1,14 @@
+// fascon-abi: step4_userspace.fsc
+// Step 4 のユーザー側（EL0）。上の行で、カーネルのソースから syscall の宣言とワイヤ構造体 Stat を読みます。
+// 作り方: fascon build step4_init.fsc --out step4_init.bin
+// The user side of Step 4 (EL0). The line above imports the syscall declarations and the wire struct Stat from the
+// kernel source. Build: fascon build step4_init.fsc --out step4_init.bin
+
+fn main() {
+    write(1, "hello from EL0\n");            // syscall の宣言から svc の呼び出しが作られる / becomes an svc
+    let mut st = Stat { size: 0, pos: 0 };
+    if stat(3, &mut st) == 0 {
+        print_int(st.size as i64);
+    }
+    exit(0);
+}

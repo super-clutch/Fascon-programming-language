@@ -1,0 +1,5 @@
+// expect: F3402
+// dma own は構造体へ直接置かない（Option<dma own T> にして .take() で外す）
+// a dma own is not put in a struct field directly (use Option<dma own T> and detach it with .take())
+struct Rx { buf: dma own [u8; 2048], len: u32 }
+fn main() {}

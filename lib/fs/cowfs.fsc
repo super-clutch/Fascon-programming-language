@@ -1,0 +1,170 @@
+// fs::cowfs — 電源断に強い Copy-on-Write のジャーナリング・ファイルシステムの骨組み
+// fs::cowfs — the skeleton of a power-fail-safe Copy-on-Write journaling file system
+//
+//   書き込みは今のデータを上書きせず、新しい own ブロックを inode の pending に置く（CoW）。commit がジャーナルの
+//   トランザクション番号を進めてから pending → committed へ所有権ごと差し替える（古いブロックはそこで解放）。commit の前に
+//   電源が落ちる（crash）と pending はすべて捨てられ、committed の側だけが残るので、いつも直前の commit の状態に戻る
+//   writes never overwrite current data: a new own block goes into the inode's pending slot (CoW). commit advances the
+//   journal's transaction number, then swaps pending → committed with ownership (the old block is freed there). A power
+//   loss (crash) before commit drops every pending block and keeps the committed side, so the state is always that of the
+//   last commit
+//
+//   inode と dentry は Id で互いを指す（子 → 親の向きだけ。循環しない）/ inodes and dentries point to each other by Id (child →
+//   parent only; no cycles)
+
+const BLK: u32 = 64;
+
+struct Inode { size: u32, pend_size: u32, committed: Option<own [u8; 64]>, pending: Option<own [u8; 64]> }
+arena inodes: Inode[128];
+
+struct Dentry { name: u64, inode: Id<inodes>, parent: Option<Id<dentries>>, durable: bool }
+arena dentries: Dentry[128];
+
+struct Journal { txn: u64, records: u64 }
+arena journal: Journal[1];
+
+fn jr() -> Id<journal> {
+    let mut j: Option<Id<journal>> = None;
+    for id in journal {
+        j = Some(id);
+    }
+    match j {
+        Some(x) => x,
+        None => journal.alloc(Journal { txn: 0, records: 0 }).unwrap(),
+    }
+}
+
+// 名前（8 バイトまで）を u64 に詰める / pack a name (up to 8 bytes) into a u64
+fn name8(b: &[u8; 8]) -> u64 {
+    let mut v: u64 = 0;
+    for i in 0..8 {
+        v = (v << 8) | (b[i] as u64);
+    }
+    v
+}
+
+fn create(parent: Option<Id<dentries>>, name: u64) -> Option<Id<dentries>> {
+    match inodes.alloc(Inode { size: 0, pend_size: 0, committed: None, pending: None }) {
+        Some(ino) => {
+            let j = jr();
+            journal[j].records += 1;
+            dentries.alloc(Dentry { name: name, inode: ino, parent: parent, durable: false })
+        }
+        None => None,
+    }
+}
+
+fn lookup(parent: Option<Id<dentries>>, name: u64) -> Option<Id<dentries>> {
+    let mut found: Option<Id<dentries>> = None;
+    for id in dentries {
+        if dentries[id].name == name {
+            let same = match dentries[id].parent {
+                Some(p) => match parent {
+                    Some(q) => p.raw() == q.raw(),
+                    None => false,
+                },
+                None => parent.is_none(),
+            };
+            if same {
+                found = Some(id);
+            }
+        }
+    }
+    found
+}
+
+// CoW の書き込み: 新しいブロックを作って pending へ（前の pending は捨てる） / a CoW write: a fresh block goes to pending
+fn write(d: Id<dentries>, data: &[u8; 64], size: u32) {
+    let ino = dentries[d].inode;
+    let mut blk = own_alloc([u8; 64]);
+    for i in 0..64 {
+        blk[i] = data[i];
+    }
+    inodes[ino].pending = Some(blk);
+    inodes[ino].pend_size = min(size, BLK);
+    let j = jr();
+    journal[j].records += 1;
+}
+
+// 読み出しはいちばん新しい側（pending があればそれ） / reads see the newest side (pending when present)
+fn read(d: Id<dentries>, i: u32) -> u8 {
+    let ino = dentries[d].inode;
+    let mut v: u8 = 0;
+    if let Some(n) = inodes.get(ino) {
+        match n.pending {
+            Some(b) => v = b[i % BLK],
+            None => match n.committed {
+                Some(c) => v = c[i % BLK],
+                None => {}
+            },
+        }
+    }
+    v
+}
+
+fn size(d: Id<dentries>) -> u32 {
+    let ino = dentries[d].inode;
+    if inodes[ino].pending.is_some() {
+        inodes[ino].pend_size
+    } else {
+        inodes[ino].size
+    }
+}
+
+// コミット: トランザクション番号を進め、pending を committed へ所有権ごと移す / commit: bump the transaction and move pending
+// into committed with ownership
+fn commit() -> u64 {
+    let j = jr();
+    journal[j].txn += 1;
+    for id in inodes {
+        match inodes[id].pending.take() {
+            Some(b) => {
+                inodes[id].committed = Some(b);
+                inodes[id].size = inodes[id].pend_size;
+            }
+            None => {}
+        }
+    }
+    for id in dentries {
+        dentries[id].durable = true;
+    }
+    journal[j].records = 0;
+    journal[j].txn
+}
+
+// 電源断: コミットしていないものを捨てる（pending のブロックと、まだ durable でない dentry と inode）
+// a power loss: drop everything uncommitted (pending blocks and dentries / inodes that are not durable yet)
+fn crash() -> u32 {
+    let mut lost: u32 = 0;
+    for id in inodes {
+        if inodes[id].pending.take().is_some() {
+            lost += 1;
+        }
+    }
+    let mut gone: [u64; 128] = [0; 128];
+    let mut n: u32 = 0;
+    for id in dentries {
+        if !dentries[id].durable && n < 128 {
+            gone[n] = dentries[id].inode.raw() as u64;
+            n += 1;
+            dentries.free(id);
+            lost += 1;
+        }
+    }
+    for k in 0..n {
+        match inodes.validate(gone[k] as IdRaw) {
+            Some(ino) => {
+                inodes.free(ino);
+            }
+            None => {}
+        }
+    }
+    let j = jr();
+    journal[j].records = 0;
+    lost
+}
+
+fn txn() -> u64 {
+    let j = jr();
+    journal[j].txn
+}

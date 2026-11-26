@@ -1,0 +1,10 @@
+// expect: F2612
+struct Proc { pid: u32 }
+arena procs: Proc[16];
+fn main() {
+    let mut n: u64 = 0;
+    for id in procs.par() {
+        n += procs[id].pid as u64;
+    }
+    print_int(n as i64);
+}

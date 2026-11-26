@@ -1,0 +1,26 @@
+// expect: F2502
+// 高階関数が &mut tasks[id] を貸している間に、コールバックが tasks のスロットを解放しうる（呼ばれうる関数の効果の和で検査）
+// a callback may free slots of tasks while the higher-order function lends &mut tasks[id] (checked with the union of the
+// effects of the functions that can be passed)
+struct Task { pid: u32, vruntime: i64 }
+arena tasks: Task[8];
+fn age(t: &mut Task) { t.vruntime += 10; }
+fn reap(t: &mut Task) {
+    for id in tasks {
+        if tasks[id].pid == 0 {
+            tasks.free(id);
+        }
+    }
+    t.pid = 0;
+}
+fn for_each_task(f: fn(&mut Task)) {
+    for id in tasks {
+        f(&mut tasks[id]);
+    }
+}
+fn main() {
+    let id = tasks.alloc(Task { pid: 1, vruntime: 5 }).unwrap();
+    for_each_task(age);
+    for_each_task(reap);
+    print_int(tasks[id].vruntime);
+}

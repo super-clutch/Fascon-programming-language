@@ -1,0 +1,121 @@
+// Fascon 1.0 カーネル拡張 Step 3: ネットワーク（構文イメージ）
+// 実装済み: 1.0 のコンパイラで通ります（fascon check）。QEMU で動く例は examples/kernel_net.fsc。仕様: docs/SPEC-1.0-KERNEL.ja.md 4.3 節
+// Implemented: accepted by the 1.0 compiler (fascon check); the example that runs on QEMU is examples/kernel_net.fsc.
+// Step 2 の機能だけで書けます（新しい言語機能は無い） / uses only the Step 2 features
+
+const MY_IP: u32 = 0x0a00_020f;               // 10.0.2.15
+static MY_MAC: [u8; 6] = [0x52, 0x54, 0x00, 0x12, 0x34, 0x56];
+
+#[wire(be)] struct Eth  { dst: [u8; 6], src: [u8; 6], kind: u16 }
+#[wire(be)] struct Arp  { htype: u16, ptype: u16, hlen: u8, plen: u8, op: u16, sha: [u8; 6], spa: u32, tha: [u8; 6], tpa: u32 }
+#[wire(be)] struct Ipv4 { vihl: u8, tos: u8, len: u16, id: u16, frag: u16, ttl: u8, proto: u8, csum: u16, src: u32, dst: u32 }
+#[wire(be)] struct Icmp { kind: u8, code: u8, csum: u16, id: u16, seq: u16 }
+#[wire(le)] struct Frame { vhdr: [u8; 12], data: [u8; 1514] }    // virtio-net ヘッダ + Ethernet フレーム
+
+// 受信と送信で同じ表を使うので、ハンドルを付け替えるだけで返信できる（ゼロコピー）
+// one table for receive and transmit: a reply is the same handle moved to the other queue (zero copy)
+dma_arena @pkt: Frame[64];
+
+fn csum16(s: &[u8]) -> u16 {                  // 1 の補数和。wrapping なので止まらない / never stops
+    let mut sum: u32 = 0;
+    let mut i: u64 = 0;
+    while i + 1 < s.len() {
+        sum = sum.wrapping_add(((s[i] as u32) << 8) | (s[i + 1] as u32));
+        i += 2;
+    }
+    if i < s.len() { sum = sum.wrapping_add((s[i] as u32) << 8); }
+    while (sum >> 16) != 0 { sum = (sum & 0xffff) + (sum >> 16); }
+    (sum ^ 0xffff) as u16
+}
+
+// 受信リングから回収したハンドルを値で受け取る。len はデバイスが書いた長さ（信頼できない）
+// takes the handle reclaimed from the receive ring by value; len was written by the device (untrusted)
+fn on_frame(h: Dma<@pkt>, len: u32) {
+    let n = min(len as u64, 1514);            // 止まらない切り詰め / clamp without stopping
+    let mut kind: u16 = 0;
+    if let Some(eth) = @pkt[h].data.view_mut(Eth, 0) {
+        kind = eth.kind;
+        eth.dst = eth.src;                    // その場で書き換える / rewritten in place
+        eth.src = MY_MAC;
+    }
+    let mut reply = false;
+    if kind == 0x0806 { reply = arp_reply(&mut @pkt[h].data, n); }
+    if kind == 0x0800 { reply = echo_reply(&mut @pkt[h].data, n); }
+    if reply {
+        tx_submit(h, n);                      // 同じバッファを送信リングへ貸す。複製は 1 バイトも無い
+    } else {
+        rx_refill(h);                         // 受信リングへ戻す
+    }
+}
+
+fn arp_reply(f: &mut [u8], n: u64) -> bool {
+    if let Some(a) = f.view_mut(Arp, 14) {
+        if a.op == 1 {
+            if a.tpa == MY_IP {
+                a.op = 2;
+                a.tha = a.sha;
+                a.tpa = a.spa;
+                a.sha = MY_MAC;
+                a.spa = MY_IP;
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn echo_reply(f: &mut [u8], n: u64) -> bool {
+    let mut total: u64 = 0;
+    let mut ok = false;
+    if let Some(ip) = f.view_mut(Ipv4, 14) {
+        if ip.vihl == 0x45 {
+            if ip.proto == 1 {
+                if ip.dst == MY_IP {
+                    total = ip.len as u64;
+                    ip.dst = ip.src;
+                    ip.src = MY_IP;
+                    ip.ttl = 64;
+                    ip.csum = 0;
+                    ok = true;
+                }
+            }
+        }
+    }
+    if !ok { return false; }
+    if total < 28 { return false; }
+    if 14 + total > n { return false; }       // 回線の長さは信頼できない: 受信した長さと照らす
+    // 窓（読み出し）が生きている間は、同じバッファの書き込みのビューを取れない（F0502）。和を先に求めてから書く
+    // while a (read) window lives no writable view of the same buffer can be taken (F0502): sum first, then write
+    let mut c: u16 = 0;
+    if let Some(hdr) = f.window(14, 20) { c = csum16(hdr); }
+    if let Some(ip) = f.view_mut(Ipv4, 14) { ip.csum = c; }
+    if let Some(ic) = f.view_mut(Icmp, 34) {
+        if ic.kind != 8 { return false; }
+        ic.kind = 0;
+        ic.csum = 0;
+    }
+    if let Some(body) = f.window(34, total - 20) { c = csum16(body); }
+    if let Some(ic) = f.view_mut(Icmp, 34) { ic.csum = c; }
+    true
+}
+
+// 送信・受信リングの操作は step2_storage.fsc の submit と同じ形（記述子に h.phys() を書いて lend）
+// the ring operations have the same shape as submit in step2_storage.fsc
+critical fn tx_submit(h: Dma<@pkt>, n: u64) {
+    @pkt.lend(h);
+}
+
+critical fn rx_refill(h: Dma<@pkt>) {
+    @pkt.lend(h);
+}
+
+fn main() {
+    for i in 0..32 {
+        match @pkt.alloc(Frame { vhdr: [0; 12], data: [0; 1514] }) {
+            Some(h) => rx_refill(h),
+            None => {}
+        }
+    }
+    irq_open();
+    loop { wait_irq(); }
+}

@@ -1,0 +1,14 @@
+// expect: F0382
+// dispatch のあとのハンドルは移動済み（装置が持っている間は CPU から読み書きできない）
+// the handle is moved by dispatch (the CPU cannot touch the slot while the device has it)
+struct Body { x: f32, v: f32 }
+gpu_arena @bodies: Body[16];
+fn main() {
+    if let Some(h) = @bodies.alloc(Body { x: 0.0, v: 1.0 }) {
+        let f = @bodies.dispatch(1, 1, 32, h);
+        @bodies[h].x = 2.0;
+        if let Some(b) = @bodies.reclaim_wait(f) {
+            @bodies.free(b);
+        }
+    }
+}

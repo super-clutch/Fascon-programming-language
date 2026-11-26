@@ -1,0 +1,76 @@
+// rpi_mailbox — VideoCore のメールボックス（プロパティのチャネル 8）を、所有権つきの DMA バッファで安全に使う
+// rpi_mailbox — the VideoCore mailbox (property channel 8), used safely through an owned DMA buffer
+//
+//   bus_addr(buf)  バッファを装置へ貸し出し（キャッシュラインを PoC まで掃き出す）、装置から見た番地を返す（board.toml の
+//                  [dma] bus_offset = 0xC000_0000 の別名）。貸している間 Fascon からは触れない（buf は移動済み）
+//                  lend the buffer to the device (clean its cache lines to the PoC) and return the address the device
+//                  sees (the 0xC000_0000 alias from [dma] bus_offset); Fascon cannot touch it while lent (buf was moved)
+//   mbox_call      1 通送って返事を待ち、complete_dma で無効化して所有権を取り戻す / send one message, wait for the
+//                  reply, and take ownership back with complete_dma (which invalidates the lines)
+struct Mbox { read: u32, _r0: [u32; 3], peek: u32, sender: u32, status: u32, config: u32, write: u32 }
+
+const MBOX_FULL: u32 = 0x8000_0000;
+const MBOX_EMPTY: u32 = 0x4000_0000;
+const PROPERTY: u32 = 8;
+
+fn bus_addr(buf: dma own [u32; 36]) -> u64 {
+    submit_dma(buf)
+}
+
+fn mbox_call(msg: dma own [u32; 36]) -> Option<dma own [u32; 36]> {
+    let mb = bind_mmio(Mbox, 0x3f00_b880);
+    let bus = bus_addr(msg);
+    while (mb.status & MBOX_FULL) != 0 {
+        cpu_relax();
+    }
+    mb.write = ((bus as u32) & 0xffff_fff0) | PROPERTY;
+    loop {
+        while (mb.status & MBOX_EMPTY) != 0 {
+            cpu_relax();
+        }
+        let r = mb.read;
+        if (r & 0xf) == PROPERTY {
+            break;
+        }
+    }
+    complete_dma([u32; 36], bus)
+}
+
+// ボードの版（タグ 0x0001_0002）/ the board revision (tag 0x0001_0002)
+fn board_revision() -> u32 {
+    let mut m = dma_alloc([u32; 36]);
+    m[0] = 7 * 4;
+    m[1] = 0;
+    m[2] = 0x0001_0002;
+    m[3] = 4;
+    m[4] = 0;
+    m[5] = 0;
+    m[6] = 0;
+    match mbox_call(m) {
+        Some(r) => {
+            if r[1] == 0x8000_0000 {
+                r[5]
+            } else {
+                0
+            }
+        }
+        None => 0,
+    }
+}
+
+// ARM 側の RAM（タグ 0x0001_0005: 先頭と大きさ）/ the ARM-side RAM (tag 0x0001_0005: base and size)
+fn arm_memory_size() -> u32 {
+    let mut m = dma_alloc([u32; 36]);
+    m[0] = 8 * 4;
+    m[1] = 0;
+    m[2] = 0x0001_0005;
+    m[3] = 8;
+    m[4] = 0;
+    m[5] = 0;
+    m[6] = 0;
+    m[7] = 0;
+    match mbox_call(m) {
+        Some(r) => r[6],
+        None => 0,
+    }
+}

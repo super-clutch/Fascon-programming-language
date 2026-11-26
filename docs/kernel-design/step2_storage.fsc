@@ -1,0 +1,121 @@
+// Fascon 1.0 カーネル拡張 Step 2: 永続ストレージ（構文イメージ）
+// 実装済み: 1.0 のコンパイラで通ります（fascon check）。QEMU で動く例は examples/kernel_storage.fsc。仕様: docs/SPEC-1.0-KERNEL.ja.md 4.2 節
+// Implemented: accepted by the 1.0 compiler (fascon check); the example that runs on QEMU is examples/kernel_storage.fsc.
+
+const SLOT: u64 = 31;                         // fascon qemu --disk が virtio-blk を置く窓 / the transport used by fascon qemu
+const R_DEVICE_ID: u64 = 2;                   // 0x008 / 4
+const R_QUEUE_NOTIFY: u64 = 20;               // 0x050 / 4
+const R_INT_STATUS: u64 = 24;                 // 0x060 / 4
+const R_INT_ACK: u64 = 25;                    // 0x064 / 4
+
+// ワイヤ構造体: 整列 1・詰め物なし・バイト順固定の POD（詰め物が要る形は F2701）
+// wire structs: alignment 1, no padding, fixed byte order, plain old data (F2701 if padding would be needed)
+#[wire(le)] struct VqDesc { addr: u64, len: u32, flags: u16, next: u16 }
+#[wire(le)] struct VqUsedElem { id: u32, len: u32 }
+#[wire(le)] struct BlkReq { kind: u32, reserved: u32, sector: u64, data: [u8; 512], status: u8 }
+#[wire(le)] struct SuperBlock { magic: u32, nfiles: u32, root_lba: u64 }
+#[wire(le)] struct DirEnt { name: [u8; 28], lba: u32, len: u32 }
+
+mmio @virtio: [[u32; 128]; 32] at 0x0a00_0000;
+
+// デバイスと共有するリング: 所有の対象ではなく、読み書きは常に volatile
+// rings shared with the device: never owned, every access is volatile
+dma @vq_desc: [VqDesc; 16];
+dma @vq_avail: [u16; 20];                     // flags, idx, ring[16], used_event
+dma @vq_used_idx: [u16; 2];                   // flags, idx
+dma @vq_used: [VqUsedElem; 16];
+
+// DMA バッファの表。Dma<@req> は移動専用のハンドル
+// the table of DMA buffers; Dma<@req> is a move-only handle
+dma_arena @req: BlkReq[16];
+
+struct Buf { lba: u64, valid: bool, dirty: bool, data: Option<Dma<@req>> }   // 入出力中は data が None
+arena @bcache: Buf[16];
+
+struct Disk { avail: u16, seen: u16 }
+arena @disk: Disk[1];
+
+critical fn submit(h: Dma<@req>) {
+    let i = h.index();
+    @vq_desc[i].addr = h.phys();              // 番地は整数として記述子へ / the address goes out as an integer
+    @vq_desc[i].len = 529;
+    @vq_desc[i].flags = 2;                    // デバイスが書く / device-writable
+    @vq_desc[i].next = 0;
+    @req.lend(h);                             // 所有権がデバイスへ移る。h はここで消える（以後の使用は F0382）
+    for d in @disk {
+        let slot = (@disk[d].avail % 16) as u64;
+        @vq_avail[2 + slot] = i as u16;
+        @disk[d].avail = @disk[d].avail.wrapping_add(1);
+        @vq_avail[1] = @disk[d].avail;
+    }
+    @virtio[SLOT][R_QUEUE_NOTIFY] = 0;
+}
+
+// @req は irq blk_done も触る（reclaim / free）ので、確保も閉じた区間で行う。無ければ F2601
+// @req is also touched by irq blk_done, so the allocation is closed too; F2601 otherwise
+critical fn read_block(lba: u64) -> bool {
+    match @req.alloc(BlkReq { kind: 0, reserved: 0, sector: lba, data: [0; 512], status: 255 }) {
+        Some(h) => { submit(h); true }
+        None => false,
+    }
+}
+
+// 窓 0 + SLOT の割り込みは INTID 48 + SLOT
+irq blk_done at 79 {
+    let st = @virtio[SLOT][R_INT_STATUS];
+    @virtio[SLOT][R_INT_ACK] = st;            // 書かずに戻ると割り込みの嵐 / without this the level IRQ storms
+    for d in @disk {
+        while @disk[d].seen != @vq_used_idx[1] {
+            let e = (@disk[d].seen % 16) as u64;
+            let raw = @vq_used[e].id;         // デバイスが書いた添字: 信頼できない / untrusted
+            @disk[d].seen = @disk[d].seen.wrapping_add(1);
+            if let Some(h) = @req.reclaim(raw) {      // 範囲内かつ貸し出し中のときだけ戻る / only if in range and lent
+                complete(h);
+            }
+        }
+    }
+}
+
+fn complete(h: Dma<@req>) {
+    if @req[h].status != 0 {
+        @req.free(h);
+        return;
+    }
+    let lba = @req[h].sector;
+    if lba == 0 {
+        if let Some(sb) = @req[h].data.view(SuperBlock, 0) {     // バイト列の上の第二級参照（保存できない）
+            if sb.magic == 0x4653_4331 { put_str("fs: files="); put(sb.nfiles); print_str(""); }
+        }
+    }
+    cache_put(lba, h);                        // ハンドルをキャッシュへ移す / the handle moves into the cache
+}
+
+fn cache_put(lba: u64, h: Dma<@req>) {
+    match @bcache.alloc(Buf { lba: lba, valid: true, dirty: false, data: Some(h) }) {
+        Some(b) => {}
+        None => {}                            // 満杯: h はここで捨てられ、スロットが返る / full: h is dropped and its slot returns
+    }
+}
+
+// ファイルの検索: 止まらない窓とビューだけで書く
+// directory lookup written with non-stopping windows and views only
+fn find(dir: &[u8], name: &[u8]) -> Option<u32> {
+    let mut off: u64 = 0;
+    while off + 36 <= dir.len() {
+        if let Some(e) = dir.view(DirEnt, off) {
+            if let Some(n) = e.name.window(0, name.len()) {
+                if n == name { return Some(e.lba); }
+            }
+        }
+        off += 36;
+    }
+    None
+}
+
+fn main() {
+    if @virtio[SLOT][R_DEVICE_ID] != 2 { panic("virtio-blk is not at the expected transport"); }
+    let d = @disk.alloc(Disk { avail: 0, seen: 0 }).unwrap();
+    irq_open();
+    if read_block(0) { print_str("superblock requested"); }
+    loop { wait_irq(); }
+}

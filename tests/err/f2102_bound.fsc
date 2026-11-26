@@ -1,0 +1,8 @@
+// expect: F2102
+// 種別境界の違反: FileId<@a: File> に Process のアリーナを渡す / a Process arena given to FileId<@a: File>
+struct Process { pid: u32 }
+struct File { pos: u64 }
+type FileId<@a: File> = Id<@a>;
+arena @process: Process[8];
+struct Fd { id: FileId<@process> }
+fn main() { }

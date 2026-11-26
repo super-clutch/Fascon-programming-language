@@ -1,0 +1,453 @@
+{
+  "name": "fascon-vscode",
+  "displayName": "Fascon Language Support",
+  "description": "%description%",
+  "version": "1.0.0",
+  "publisher": "fascon",
+  "license": "(MIT OR Apache-2.0)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/super-clutch/Fascon-programming-language"
+  },
+  "engines": {
+    "vscode": "^1.82.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Snippets"
+  ],
+  "keywords": [
+    "fascon",
+    "rust",
+    "region",
+    "arena",
+    "bump allocation",
+    "kernel",
+    "bare-metal",
+    "bios",
+    "x86_64",
+    "aarch64",
+    "qemu",
+    "c"
+  ],
+  "main": "./out/main.js",
+  "activationEvents": [
+    "onLanguage:fascon",
+    "onCommand:fascon.showDictionary",
+    "onCommand:fascon.searchDictionary",
+    "onCommand:fascon.newExample2",
+    "onCommand:fascon.buildBios",
+    "onCommand:fascon.emitStrict",
+    "onCommand:fascon.pkgLabel"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "fascon",
+        "aliases": [
+          "Fascon",
+          "fascon"
+        ],
+        "extensions": [
+          ".fsc",
+          ".fascon",
+          ".fsc.rs"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "fascon",
+        "scopeName": "source.fascon",
+        "path": "./syntaxes/fascon.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "fascon",
+        "path": "./snippets/fascon.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "fascon.showDictionary",
+        "title": "%command.showDictionary%",
+        "category": "Fascon"
+      },
+      {
+        "command": "fascon.searchDictionary",
+        "title": "%command.searchDictionary%",
+        "category": "Fascon"
+      },
+      {
+        "command": "fascon.lookupWord",
+        "title": "%command.lookupWord%",
+        "category": "Fascon"
+      },
+      {
+        "command": "fascon.explainAtCursor",
+        "title": "%command.explainAtCursor%",
+        "category": "Fascon"
+      },
+      {
+        "command": "fascon.build",
+        "title": "%command.build%",
+        "category": "Fascon"
+      },
+      {
+        "command": "fascon.showRegions",
+        "title": "%command.showRegions%",
+        "category": "Fascon"
+      },
+      {
+        "command": "fascon.associateRs",
+        "title": "%command.associateRs%",
+        "category": "Fascon"
+      },
+      {
+        "command": "fascon.restartServer",
+        "title": "%command.restartServer%",
+        "category": "Fascon"
+      },
+      {
+        "command": "fascon.hostRun",
+        "title": "%command.hostRun%",
+        "category": "Fascon"
+      },
+      {
+        "command": "fascon.qemuRun",
+        "title": "%command.qemuRun%",
+        "category": "Fascon"
+      },
+      {
+        "command": "fascon.qemuScreenshot",
+        "title": "%command.qemuScreenshot%",
+        "category": "Fascon"
+      },
+      {
+        "command": "fascon.newExample2",
+        "title": "%command.newExample2%",
+        "category": "Fascon"
+      },
+      {
+        "command": "fascon.showVersion",
+        "title": "%command.showVersion%",
+        "category": "Fascon"
+      },
+      {
+        "command": "fascon.qemuRunX86",
+        "title": "%command.qemuRunX86%",
+        "category": "Fascon"
+      },
+      {
+        "command": "fascon.qemuRunArmBios",
+        "title": "%command.qemuRunArmBios%",
+        "category": "Fascon"
+      },
+      {
+        "command": "fascon.buildBios",
+        "title": "%command.buildBios%",
+        "category": "Fascon"
+      },
+      {
+        "command": "fascon.emitStrict",
+        "title": "%command.emitStrict%",
+        "category": "Fascon"
+      },
+      {
+        "command": "fascon.toggleReframing",
+        "title": "%command.toggleReframing%",
+        "category": "Fascon"
+      },
+      {
+        "command": "fascon.buildBoard",
+        "title": "%command.buildBoard%",
+        "category": "Fascon"
+      },
+      {
+        "command": "fascon.qemuBoard",
+        "title": "%command.qemuBoard%",
+        "category": "Fascon"
+      },
+      {
+        "command": "fascon.pkgLabel",
+        "title": "%command.pkgLabel%",
+        "category": "Fascon"
+      },
+      {
+        "command": "fascon.stackReport",
+        "title": "%command.stackReport%",
+        "category": "Fascon"
+      },
+      {
+        "command": "fascon.qemuGenericOs",
+        "title": "%command.qemuGenericOs%",
+        "category": "Fascon"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "fascon.searchDictionary",
+        "key": "ctrl+alt+d",
+        "mac": "cmd+alt+d"
+      },
+      {
+        "command": "fascon.explainAtCursor",
+        "key": "ctrl+alt+e",
+        "mac": "cmd+alt+e",
+        "when": "editorLangId == fascon"
+      },
+      {
+        "command": "fascon.qemuRun",
+        "key": "ctrl+alt+q",
+        "mac": "cmd+alt+q",
+        "when": "editorLangId == fascon"
+      },
+      {
+        "command": "fascon.qemuRunX86",
+        "key": "ctrl+alt+x",
+        "mac": "cmd+alt+x",
+        "when": "editorLangId == fascon"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "fascon.explainAtCursor",
+          "when": "editorLangId == fascon",
+          "group": "navigation@90"
+        },
+        {
+          "command": "fascon.lookupWord",
+          "when": "editorLangId == fascon",
+          "group": "navigation@91"
+        },
+        {
+          "command": "fascon.build",
+          "when": "editorLangId == fascon",
+          "group": "navigation@92"
+        },
+        {
+          "command": "fascon.qemuRun",
+          "when": "editorLangId == fascon",
+          "group": "navigation@93"
+        },
+        {
+          "command": "fascon.hostRun",
+          "when": "editorLangId == fascon",
+          "group": "navigation@94"
+        },
+        {
+          "command": "fascon.qemuRunX86",
+          "when": "editorLangId == fascon",
+          "group": "navigation@95"
+        },
+        {
+          "command": "fascon.emitStrict",
+          "when": "editorLangId == fascon",
+          "group": "navigation@96"
+        },
+        {
+          "command": "fascon.buildBios",
+          "when": "editorLangId == fascon",
+          "group": "navigation@97"
+        },
+        {
+          "command": "fascon.qemuBoard",
+          "when": "editorLangId == fascon",
+          "group": "navigation@98"
+        },
+        {
+          "command": "fascon.buildBoard",
+          "when": "editorLangId == fascon",
+          "group": "navigation@99"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "fascon.build",
+          "when": "editorLangId == fascon",
+          "group": "navigation"
+        },
+        {
+          "command": "fascon.qemuRun",
+          "when": "editorLangId == fascon",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Fascon",
+      "properties": {
+        "fascon.language": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "ja",
+            "en"
+          ],
+          "default": "auto",
+          "enumDescriptions": [
+            "%config.language.auto%",
+            "%config.language.ja%",
+            "%config.language.en%"
+          ],
+          "description": "%config.language%"
+        },
+        "fascon.serverPath": {
+          "type": "string",
+          "default": "",
+          "description": "%config.serverPath%"
+        },
+        "fascon.cacheLine": {
+          "type": "number",
+          "enum": [
+            32,
+            64,
+            128
+          ],
+          "default": 64,
+          "description": "%config.cacheLine%"
+        },
+        "fascon.barrierPolicy": {
+          "type": "string",
+          "enum": [
+            "strict",
+            "paranoid"
+          ],
+          "default": "strict",
+          "enumDescriptions": [
+            "%config.barrierPolicy.strict%",
+            "%config.barrierPolicy.paranoid%"
+          ],
+          "description": "%config.barrierPolicy%"
+        },
+        "fascon.ptrBits": {
+          "type": "number",
+          "enum": [
+            32,
+            64
+          ],
+          "default": 64,
+          "description": "%config.ptrBits%"
+        },
+        "fascon.isrCapacity": {
+          "type": "number",
+          "default": 1024,
+          "description": "%config.isrCapacity%"
+        },
+        "fascon.outDir": {
+          "type": "string",
+          "default": "build",
+          "description": "%config.outDir%"
+        },
+        "fascon.extraPath": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "%config.extraPath%"
+        },
+        "fascon.screenshotFrames": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 20,
+          "description": "%config.screenshotFrames%"
+        },
+        "fascon.qemuTimeout": {
+          "type": "number",
+          "default": 90,
+          "minimum": 10,
+          "description": "%config.qemuTimeout%"
+        },
+        "fascon.columns": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.columns%"
+        },
+        "fascon.cpu": {
+          "type": "string",
+          "enum": [
+            "native",
+            "baseline"
+          ],
+          "default": "native",
+          "enumDescriptions": [
+            "%config.cpu.native%",
+            "%config.cpu.baseline%"
+          ],
+          "description": "%config.cpu%"
+        },
+        "fascon.target": {
+          "type": "string",
+          "enum": [
+            "portable",
+            "x86_64",
+            "aarch64"
+          ],
+          "default": "portable",
+          "enumDescriptions": [
+            "%config.target.portable%",
+            "%config.target.x86_64%",
+            "%config.target.aarch64%"
+          ],
+          "description": "%config.target%"
+        },
+        "fascon.reframing": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "rust",
+            "off"
+          ],
+          "default": "auto",
+          "enumDescriptions": [
+            "%config.reframing.auto%",
+            "%config.reframing.rust%",
+            "%config.reframing.off%"
+          ],
+          "description": "%config.reframing%"
+        },
+        "fascon.emitStrictOnBuild": {
+          "type": "boolean",
+          "default": false,
+          "description": "%config.emitStrictOnBuild%"
+        },
+        "fascon.profile": {
+          "type": "string",
+          "enum": [
+            "classic",
+            "rtos",
+            "generic-os"
+          ],
+          "default": "classic",
+          "enumDescriptions": [
+            "%config.profile.classic%",
+            "%config.profile.rtos%",
+            "%config.profile.genericOs%"
+          ],
+          "description": "%config.profile%"
+        },
+        "fascon.gc": {
+          "type": "string",
+          "enum": [
+            "on",
+            "off"
+          ],
+          "default": "on",
+          "description": "%config.gc%"
+        },
+        "fascon.board": {
+          "type": "string",
+          "default": "",
+          "description": "%config.board%"
+        }
+      }
+    }
+  },
+  "icon": "media/icon.png"
+}

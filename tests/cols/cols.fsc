@@ -1,0 +1,239 @@
+// 列（集計の列・ビット列・鍵の列）のテスト / test of the columns (aggregate, bit and key columns)
+//
+// `for id in @a` の集計は、その集計が読む値だけを並べた列を走査する。列はスロットの写しなので、要素が変わるすべての道筋
+// （alloc / free / remove、Id での書き込み、get_mut の借用の終わり、スロットの中の場所を束縛した match / if let の終わり、
+// &mut を渡した呼び出し）で作り直す。ここではそのすべての道筋のあとで集計を取り、`--columns off`（1.0.0 と同じ走査）と
+// 同じ結果になることを確かめる（cols.expected）。
+// Reductions over `for id in @a` scan columns holding just the values they read. Columns mirror the slots, so they are
+// rebuilt on every path that changes an element (alloc / free / remove, writes by Id, the end of a get_mut borrow, the
+// end of a match / if-let binding of a place inside the slot, calls given &mut). This program takes the reductions
+// after each of those paths; the output must equal that of `--columns off` (the 1.0.0 scans), recorded in cols.expected.
+
+static RUNNING: u32 = 1;
+static IDLE: u32 = 0;
+static HEAVY: u8 = 5;
+
+struct Sched { state: u32, prio: u8 }
+struct Task { pid: u32, s: Sched, vruntime: u64, ticks: u32, weight: i32, flag: bool, note: Option<u32>, hist: [u32; 4] }
+
+// K = 9（2^K = 512 スロット、生存ビットマップ 8 語） / K = 9 (512 slots, 8 bitmap words)
+arena @task: Task[300];
+// K = 2（2^K = 4 < 64: 列の番兵は 64） / K = 2 (2^K = 4 < 64: the column sentinel is 64)
+arena @tiny: Task[4];
+// 2^62 前後の値: OR の上界が足りず、正確な走査をやり直す / values near 2^62: the OR bound fails and the exact pass reruns
+struct Big { v: u64 }
+arena @big: Big[3];
+
+// ───── 集計（列を読む） / reductions (read columns) ─────
+fn total() -> u64 { let mut s: u64 = 0; for id in @task { s += @task[id].vruntime; } s }
+fn run_load() -> u64 { let mut s: u64 = 0; for id in @task { if @task[id].s.state == RUNNING { s += @task[id].vruntime; } } s }
+fn ticks_prio() -> u64 { let mut s: u64 = 0; for id in @task { s = s + @task[id].ticks as u64 + @task[id].s.prio as u64; } s }
+fn n_running() -> u32 { let mut n: u32 = 0; for id in @task { if @task[id].s.state == RUNNING && !@task[id].flag { n += 1; } } n }
+fn n_idle() -> u64 { let mut n: u64 = 0; for id in @task { if @task[id].s.state == IDLE { n += 2; } } n }
+fn n_heavy() -> u64 { let mut n: u64 = 0; for id in @task { if let Some(t) = @task.get(id) { if t.s.prio >= HEAVY || (t.ticks & 3) == 1 { n += 1; } } } n }
+fn pick_next() -> u64 {
+    let mut best: u64 = 0xFFFF_FFFF_FFFF_FFFF;
+    let mut pick: Option<Id<@task>> = None;
+    for id in @task { if @task[id].s.state == RUNNING && @task[id].vruntime < best { best = @task[id].vruntime; pick = Some(id); } }
+    match pick { Some(p) => (@task[p].pid as u64) * 100000 + best, None => 1 }
+}
+fn heaviest() -> i64 {
+    let mut best: i32 = -2147483647 - 1;
+    let mut pick: Option<Id<@task>> = None;
+    for id in @task { if best < @task[id].weight { best = @task[id].weight; pick = Some(id); } }
+    match pick { Some(p) => (@task[p].pid as i64) * 100000 + best as i64, None => 2 }
+}
+fn last_least_ticks() -> u64 {
+    let mut best: u32 = 0xFFFF_FFFF;
+    let mut pick: Option<Id<@task>> = None;
+    for id in @task { if @task[id].ticks <= best && @task[id].s.state != IDLE { pick = Some(id); best = @task[id].ticks; } }
+    match pick { Some(p) => (@task[p].pid as u64) * 100000 + best as u64, None => 3 }
+}
+fn least_vruntime() -> u64 { let mut best: u64 = 0xFFFF_FFFF_FFFF_FFFF; for id in @task { if @task[id].vruntime < best { best = @task[id].vruntime; } } best }
+// ───── 列にできない集計（1.0.0 の走査のまま） / reductions that keep the 1.0.0 scan ─────
+fn above(lim: u64) -> u32 { let mut n: u32 = 0; for id in @task { if @task[id].vruntime > lim { n += 1; } } n }
+fn last_least_vruntime() -> u64 {
+    let mut best: u64 = 0xFFFF_FFFF_FFFF_FFFF;
+    let mut pick: Option<Id<@task>> = None;
+    for id in @task { if @task[id].vruntime <= best { best = @task[id].vruntime; pick = Some(id); } }
+    match pick { Some(p) => @task[p].pid as u64, None => 4 }
+}
+fn tiny_sum() -> u64 { let mut s: u64 = 0; for id in @tiny { s += @tiny[id].vruntime; } s }
+fn tiny_pick() -> u64 {
+    let mut best: u64 = 0xFFFF_FFFF_FFFF_FFFF;
+    let mut pick: Option<Id<@tiny>> = None;
+    for id in @tiny { if @tiny[id].vruntime < best && @tiny[id].s.state == RUNNING { best = @tiny[id].vruntime; pick = Some(id); } }
+    match pick { Some(p) => (@tiny[p].pid as u64) * 100000 + best, None => 5 }
+}
+fn tiny_count() -> u64 { let mut n: u64 = 0; for id in @tiny { if @tiny[id].s.state == IDLE { n += 1; } } n }
+fn big_sum() -> u64 { let mut s: u64 = 0; for id in @big { s += @big[id].v; } s }
+
+// ───── 参照を通して書くだけの関数（アリーナは読まない） / writers through references (never read the arena) ─────
+fn bump(t: &mut Task, x: u64) { t.vruntime += x; t.s.state = RUNNING; }
+fn set_v(v: &mut u64, x: u64) { *v = x; }
+fn set_sched(s: &mut Sched, st: u32, p: u8) { s.state = st; s.prio = p; }
+// get_mut の借用の中から return / a return from inside a get_mut borrow
+fn age(id: Id<@task>, x: u64) -> u64 {
+    if let Some(t) = @task.get_mut(id) {
+        if x % 4 == 0 { t.vruntime = x; return 1; }
+        t.ticks += 1;
+    }
+    0
+}
+// match の束縛（スロットの中の場所を参照で束縛）の中から return / a return from inside a match binding of a place in the slot
+fn age2(id: Id<@task>, x: u64) -> u64 {
+    match @task[id] {
+        t => {
+            if x % 4 == 0 { t.vruntime = x; return 1; }
+            t.ticks += 1;
+        }
+    }
+    0
+}
+
+fn report(tag: u64) {
+    print_int(tag as i64);
+    print_int(total() as i64);
+    print_int(run_load() as i64);
+    print_int(ticks_prio() as i64);
+    print_int(n_running() as i64);
+    print_int(n_idle() as i64);
+    print_int(n_heavy() as i64);
+    print_int(pick_next() as i64);
+    print_int(heaviest());
+    print_int(last_least_ticks() as i64);
+    print_int((least_vruntime() % 1000000007) as i64);
+    print_int(above(700) as i64);
+    print_int(last_least_vruntime() as i64);
+    print_int(tiny_sum() as i64);
+    print_int(tiny_pick() as i64);
+    print_int(tiny_count() as i64);
+}
+
+fn mk(k: u64, seed: u64) -> Task {
+    Task { pid: k as u32, s: Sched { state: ((seed >> 7) % 3) as u32, prio: ((seed >> 11) % 9) as u8 }, vruntime: (seed >> 5) % 1000, ticks: ((seed >> 13) % 40) as u32, weight: (((seed >> 3) % 2001) as i32) - 1000, flag: (seed >> 17) % 4 == 0, note: None, hist: [0, 0, 0, 0] }
+}
+
+fn main() {
+    let mut seed: u64 = 20261106;
+    let mut ids: [Option<Id<@task>>; 300] = [None; 300];
+    let mut step: u64 = 0;
+    report(0);
+    while step < 6000 {
+        seed = (seed * 1103515245 + 12345) % 2147483648;
+        let r = (seed >> 3) % 100;
+        let k = ((seed >> 9) % 300) as usize;
+        if r < 30 {
+            if ids[k].is_none() { ids[k] = @task.alloc(mk(k as u64, seed)); }
+        } else if r < 40 {
+            if let Some(id) = ids[k] { @task.free(id); ids[k] = None; }
+        } else if r < 44 {
+            if let Some(id) = ids[k] { let t = @task.remove(id); ids[k] = None; if let Some(x) = t { if x.pid == 7 { print_int(x.vruntime as i64); } } }
+        } else if r < 52 {
+            if let Some(id) = ids[k] { @task[id].vruntime = (seed >> 4) % 1500; }
+        } else if r < 57 {
+            if let Some(id) = ids[k] { @task[id].s.state = ((seed >> 6) % 3) as u32; @task[id].ticks += 1; @task[id].weight = (((seed >> 8) % 3001) as i32) - 1500; }
+        } else if r < 60 {
+            if let Some(id) = ids[k] { @task[id].s = Sched { state: RUNNING, prio: ((seed >> 5) % 9) as u8 }; @task[id].flag = (seed >> 9) % 2 == 0; }
+        } else if r < 63 {
+            if let Some(id) = ids[k] { @task[id] = mk(k as u64 + 1000, seed >> 2); }
+        } else if r < 68 {
+            if let Some(id) = ids[k] { if let Some(p) = @task.get_mut(id) { p.vruntime += 7; if p.vruntime > 1200 { p.s.state = IDLE; } } }
+        } else if r < 71 {
+            if let Some(id) = ids[k] { match @task.get_mut(id) { Some(p) => { if p.ticks > 30 { p.ticks = 0; } else { p.ticks += 3; } } None => { print_int(-1); } } }
+        } else if r < 74 {
+            if let Some(id) = ids[k] {
+                let mut j: u32 = 0;
+                loop {
+                    if j >= 4 { break; }
+                    if let Some(p) = @task.get_mut(id) {
+                        p.weight = p.weight / 2 + (j as i32);
+                        if j == 1 { j += 2; continue; }
+                        if j == 3 { p.s.prio = 8; break; }
+                    }
+                    j += 1;
+                }
+            }
+        } else if r < 77 {
+            if let Some(id) = ids[k] { bump(&mut @task[id], 5); }
+        } else if r < 80 {
+            if let Some(id) = ids[k] { set_v(&mut @task[id].vruntime, (seed >> 3) % 2000); }
+        } else if r < 83 {
+            if let Some(id) = ids[k] { set_sched(&mut @task[id].s, ((seed >> 4) % 3) as u32, ((seed >> 6) % 9) as u8); }
+        } else if r < 86 {
+            if let Some(id) = ids[k] { let x = age(id, seed >> 5); if x == 7 { print_int(7); } }
+        } else if r < 88 {
+            if let Some(id) = ids[k] { @task[id].note = Some(3); let n = @task[id].note.take(); if n.is_none() { print_int(-2); } @task[id].hist[1] = (seed % 50) as u32; }
+        } else if r < 90 {
+            let v = (seed >> 7) % 800;
+            for id in @task { if @task[id].s.state == IDLE { @task[id].vruntime = v; } }
+        } else if r < 92 {
+            for id in @task { if let Some(p) = @task.get_mut(id) { if p.ticks > 35 { p.ticks = 1; } } }
+        } else if r < 96 {
+            let tk = ((seed >> 10) % 4) as usize;
+            let t2 = @tiny.alloc(mk(tk as u64 + 50, seed));
+            if let Some(t) = t2 { if (seed >> 12) % 2 == 0 { @tiny[t].vruntime = 9; } if (seed >> 13) % 3 == 0 { @tiny.free(t); } }
+        } else {
+            for id in @tiny { if (@tiny[id].pid + (seed as u32 % 7)) % 2 == 0 { @tiny.free(id); } }
+        }
+        if step % 500 == 0 { report(step + 1); }
+        step += 1;
+    }
+    report(999999);
+    // 第 2 段: 要素を match / if let の束縛（スロットの中の場所を参照で束縛）を通して変える。束縛の書き込みが届く列の写しは、
+    // アームのどの出口（終わり・break・continue・return）でも作り直される
+    // phase 2: change elements through match / if-let bindings (a place inside the slot bound by reference). The mirrors
+    // of the columns the binding's writes reach are rebuilt at every exit of the arm (its end, break, continue, return)
+    step = 0;
+    while step < 3000 {
+        seed = (seed * 1103515245 + 12345) % 2147483648;
+        let r = (seed >> 3) % 100;
+        let k = ((seed >> 9) % 300) as usize;
+        if r < 25 {
+            if ids[k].is_none() { ids[k] = @task.alloc(mk(k as u64, seed)); }
+        } else if r < 32 {
+            if let Some(id) = ids[k] { @task.free(id); ids[k] = None; }
+        } else if r < 42 {
+            if let Some(id) = ids[k] { match @task[id].s { q => { q.state = ((seed >> 6) % 3) as u32; q.prio = ((seed >> 5) % 9) as u8; } } }
+        } else if r < 52 {
+            if let Some(id) = ids[k] { match @task[id] { t => { t.vruntime += 7; if t.vruntime > 1200 { t.s.state = IDLE; } } } }
+        } else if r < 60 {
+            if let Some(id) = ids[k] { let x = age2(id, seed >> 5); if x == 7 { print_int(7); } }
+        } else if r < 68 {
+            if let Some(id) = ids[k] {
+                let mut j: u32 = 0;
+                loop {
+                    if j >= 4 { break; }
+                    match @task[id] {
+                        t => {
+                            t.weight = t.weight / 2 + (j as i32);
+                            if j == 1 { j += 2; continue; }
+                            if j == 3 { t.s.prio = 8; break; }
+                        }
+                    }
+                    j += 1;
+                }
+            }
+        } else if r < 74 {
+            if let Some(id) = ids[k] { let v = match @task[id].s { q => { q.state = RUNNING; q.prio as u64 } }; if v == 9 { print_int(9); } }
+        } else if r < 80 {
+            if let Some(id) = ids[k] { match @task[id] { t => { match t.s { q => { q.prio = ((seed >> 7) % 9) as u8; } } t.ticks += 1; } } }
+        } else if r < 86 {
+            let v = (seed >> 7) % 800;
+            for id in @task { match @task[id].s { q => { if q.state == IDLE { q.state = RUNNING; } } } @task[id].vruntime = v; }
+        } else if r < 92 {
+            if let Some(id) = ids[k] { match @task[id].hist { h => { if h[1] > 100 { print_int(8); } } } @task[id].hist[1] = (seed % 50) as u32; }
+        } else {
+            if let Some(id) = ids[k] { match @task[id] { t => { if t.flag { t.ticks = 0; } } } }
+        }
+        if step % 500 == 0 { report(step + 2000000); }
+        step += 1;
+    }
+    report(2999999);
+    // 2^62 前後: 3 個の和は 2^64 未満（正確な走査で求める） / near 2^62: the sum of three stays below 2^64 (exact pass)
+    let _a = @big.alloc(Big { v: 4611686018427387904 });
+    let _b = @big.alloc(Big { v: 4611686018427387905 });
+    let _c = @big.alloc(Big { v: 4611686018427387907 });
+    print_int((big_sum() / 1000000) as i64);
+    print_int((big_sum() % 1000000) as i64);
+}

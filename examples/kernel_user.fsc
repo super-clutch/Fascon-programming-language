@@ -1,0 +1,194 @@
+// Fascon 1.0 カーネル拡張 Step 4: ユーザー空間（EL0）とシステムコール
+//   fascon build examples/user_init.fsc --out examples/user_init.bin     （ユーザープログラムの像を作る）
+//   fascon qemu examples/kernel_user.fsc --headless                        （カーネルを起動する）
+// 像は同梱済みなので、2 行目だけでも動きます。
+// Step 4 of the Fascon 1.0 kernel extensions: user space (EL0) and system calls. The image is bundled, so the second
+// command alone works.
+//
+// - user_mem: タスクごとに 2 MiB のユーザーメモリ。どのタスクからも同じ仮想番地（0x1_0000_0000）に見える
+//   2 MiB of user memory per task, seen at the same virtual address by every task
+// - syscall: EL0 からの入口。窓（&[u8] / &mut [u8]）とワイヤ構造体への参照は、入口でそのタスクのユーザーメモリに
+//   収まることを確かめてから本体に届く。外れた呼び出しは本体に入らず -14 が返る
+//   entries from EL0; windows and references to wire structs reach the body only after the entry has checked that they
+//   lie inside the user memory of the calling task. A bad call never enters the body and gets -14
+// - trap: EL0 の不正な動作は、そのタスクだけを終わらせる / a fault at EL0 ends only that task
+
+const USER_BASE: u64 = 0x1_0000_0000;
+const USER_SIZE: u64 = 0x20_0000;
+const SLICE: u64 = 20;                       // 1 回の持ち時間（ミリ秒） / a time slice in milliseconds
+
+struct Task { pid: u32, ticks: u32 }
+#[wire(le)] struct Info { pid: u32, ticks: u32, uptime_ms: u64 }
+
+task_arena task: Task[8] stack 16384;
+user_mem umem for task: 0x20_0000 at 0x1_0000_0000;
+
+static INIT: [u8; 16384] = embed("user_init.bin");
+// 手書きの機械語（悪意のあるユーザープログラムの役）。Fascon で書いたユーザープログラムは、でたらめな番地も不正な命令も
+// 作れないので、境界の検証と trap の確認にはこれを使う:
+//   1. write(1, カーネルの番地 0x4008_0000, 16)        → 入口が -14 を返す（本体に届かない）
+//   2. write(1, 自分の番地, ユーザーメモリより 1 長い)  → 同じく -14
+//   3. 両方 -14 なら未定義命令（→ trap user_fault）。違えば exit(1)
+// Hand-written machine code playing a hostile user program. A user program written in Fascon cannot make up addresses
+// or emit faulting instructions, so this is what exercises the boundary checks and the trap:
+//   1. write(1, a kernel address, 16) → refused with -14 at the entry;  2. a window one byte longer than the user
+//   memory → -14 as well;  3. an undefined instruction when both were -14 (→ trap user_fault), exit(1) otherwise
+static BAD: [u8; 72] = [
+    0x20, 0x00, 0x80, 0xd2, 0x01, 0x01, 0xa8, 0xd2, 0x02, 0x02, 0x80, 0xd2, 0x28, 0x00, 0x80, 0xd2,
+    0x01, 0x00, 0x00, 0xd4, 0x1f, 0x38, 0x00, 0xb1, 0x21, 0x01, 0x00, 0x54, 0x20, 0x00, 0x80, 0xd2,
+    0x01, 0x00, 0x00, 0x10, 0x02, 0x04, 0xa0, 0xd2, 0x42, 0x04, 0x00, 0x91, 0x01, 0x00, 0x00, 0xd4,
+    0x1f, 0x38, 0x00, 0xb1, 0x41, 0x00, 0x00, 0x54, 0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0x80, 0xd2,
+    0x88, 0x07, 0x80, 0xd2, 0x01, 0x00, 0x00, 0xd4];
+
+// 集計は 1 件だけのアリーナに置く（static は書き換えられない） / the tally lives in a one-slot arena (statics are immutable)
+struct Stats { exited: u32, faults: u32 }
+arena stats: Stats[1];
+
+critical fn count(exited: u32, faults: u32) {
+    for id in stats {
+        stats[id].exited += exited;
+        stats[id].faults += faults;
+    }
+}
+
+fn ms(n: u64) -> u64 {
+    timer_freq() / 1000 * n
+}
+
+// タイマー割り込み: 次の生きているタスクへ（ラウンドロビン） / the timer interrupt: round robin to the next live task
+irq tick at 27 {
+    timer_arm(ms(SLICE));
+    let cur = task.current();
+    if let Some(t) = task.get_mut(cur) {
+        t.ticks += 1;
+    }
+    let mut first: Option<Id<task>> = None;
+    let mut next: Option<Id<task>> = None;
+    let mut seen = false;
+    for id in task {
+        if first.is_none() { first = Some(id); }
+        if seen && next.is_none() { next = Some(id); }
+        if id == cur { seen = true; }
+    }
+    if next.is_none() { next = first; }
+    if let Some(n) = next {
+        task.resume(n);
+    }
+}
+
+syscall write at 1 (fd: u32, buf: &[u8]) -> i64 {
+    if fd != 1 { return -9; }
+    critical { put_bytes(buf); }
+    buf.len() as i64
+}
+
+syscall info at 2 (out: &mut Info) -> i64 {
+    fill_info(out)
+}
+
+// 2 つの窓を取る: &mut の窓がもう一方と重なる呼び出しは、入口が -14 で返す
+// two windows: a call whose &mut window overlaps the other is refused with -14 at the entry
+syscall copy at 3 (dst: &mut [u8], src: &[u8]) -> i64 {
+    dst.copy_from(src);
+    min(dst.len(), src.len()) as i64
+}
+
+syscall exit at 60 (code: i32) -> i64 {
+    count(1, 0);
+    critical {
+        put_str("[kernel] pid ");
+        put_int(task[task.current()].pid as i64);
+        put_str(" exit ");
+        print_int(code as i64);
+    }
+    task.exit();
+    0
+}
+
+critical fn fill_info(out: &mut Info) -> i64 {
+    let cur = task.current();
+    if let Some(t) = task.get(cur) {
+        out.pid = t.pid;
+        out.ticks = t.ticks;
+        out.uptime_ms = timer_now() / (timer_freq() / 1000);
+        return 0;
+    }
+    -3
+}
+
+trap user_fault(esr: u64, far: u64, pc: u64) {
+    count(0, 1);
+    critical {
+        put_str("[kernel] pid ");
+        put_int(task[task.current()].pid as i64);
+        put_str(" fault: class ");
+        put_hex(esr >> 26);
+        put_str(" at ");
+        put_hex(far);
+        put_str(" pc ");
+        put_hex(pc - USER_BASE);
+        print_str("");
+    }
+}
+
+// 見張りのカーネルタスク: ユーザータスクが全部終わったら結果を出して終了 / a kernel task: reports once every user task is gone
+fn reaper(n: u64) {
+    loop {
+        let mut done = false;
+        critical {
+            for id in stats {
+                if (stats[id].exited + stats[id].faults) as u64 >= n { done = true; }
+            }
+        }
+        if done { break; }
+        wait_irq();
+    }
+    critical {
+        for id in stats {
+            put_str("[kernel] user tasks done: exited ");
+            put_int(stats[id].exited as i64);
+            put_str(", faults ");
+            print_int(stats[id].faults as i64);
+            if stats[id].exited == 3 && stats[id].faults == 1 {
+                print_str("FASCON-USER-OK");
+            }
+        }
+    }
+    exit(0);
+}
+
+fn spawn_user(pid: u32, bad: bool) -> bool {
+    match task.start_user(Task { pid: pid, ticks: 0 }, USER_BASE, USER_BASE + USER_SIZE) {
+        Some(t) => {
+            let mut ok = false;
+            if let Some(m) = umem.of(t) {
+                if bad {
+                    if let Some(dst) = m.window_mut(0, 72) {
+                        dst.copy_from(&BAD);
+                        ok = true;
+                    }
+                } else {
+                    if let Some(dst) = m.window_mut(0, 16384) {
+                        dst.copy_from(&INIT);
+                        ok = true;
+                    }
+                }
+            }
+            ok
+        }
+        None => false,
+    }
+}
+
+fn main() {
+    print_str("[kernel] Fascon user space: 4 EL0 tasks");
+    stats.alloc(Stats { exited: 0, faults: 0 });
+    let mut n: u64 = 0;
+    for pid in 1..4 {
+        if spawn_user(pid as u32, false) { n += 1; }
+    }
+    if spawn_user(4, true) { n += 1; }
+    let r = task.start(Task { pid: 0, ticks: 0 }, reaper, n).unwrap();
+    timer_arm(ms(SLICE));
+    task.enter(r);
+}

@@ -1,0 +1,53 @@
+# QEMU virt RISC-V 64（M モード・OpenSBI なし）— 自前の start.S / bsp.c を持つボードのパッケージの見本（コンパイラは変えない）
+# QEMU virt RISC-V 64 (M-mode, no OpenSBI) — an example board package that carries its own start.S / bsp.c (the compiler
+# is not changed)
+#
+#   fascon build --board qemu-virt-riscv64 app.fsc      （clang --target=riscv64 + ld.lld でリンクまで確かめた。この環境に
+#   qemu-system-riscv64 は無く、起動は未確認 / linked with clang --target=riscv64 + ld.lld; boot not verified here)
+#   2 番目以降のハートは IPI（CLINT の msip）で起こす / secondary harts are woken by an IPI (CLINT msip)
+
+[board]
+name = "qemu-virt-riscv64"
+arch = "riscv64"
+cpus = 4
+
+[memory]
+ram_base = 0x8000_0000
+ram_size = 0x0800_0000
+
+[uart]
+kind = "ns16550"
+base = 0x1000_0000
+shift = 0
+
+[irq]
+kind = "none"
+
+[timer]
+kind = "clint"
+hz = 10_000_000
+
+[boot]
+load_addr = 0x8000_0000
+stack_size = 0x1_0000
+smp = "ipi"
+exit = "loop"
+entry_el = "m"
+
+[dma]
+coherent = true
+
+[toolchain]
+cc = "clang"
+ld = "ld.lld"
+cflags = ["--target=riscv64-unknown-elf", "-march=rv64imac_zicsr", "-mabi=lp64", "-mcmodel=medany", "-mno-relax"]
+
+[[device]]
+name = "uart0"
+base = 0x1000_0000
+size = 0x100
+
+[qemu]
+binary = "qemu-system-riscv64"
+machine = "virt"
+args = ["-bios", "none", "-smp", "4", "-m", "128M"]

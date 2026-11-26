@@ -1,0 +1,12 @@
+// expect: F2613
+// マルチコア: dma のリング（デバイスと共有する RAM）を 2 つのコアが保護なしで書くと、記述子が混ざる
+// multi-core: two cores writing a dma ring (RAM shared with a device) without protection mix up the descriptors
+#[wire(le)] struct Desc { addr: u64, len: u32, flags: u16, next: u16 }
+dma ring: [Desc; 8];
+fn worker() {
+    ring[0].len = 1;
+}
+fn main() {
+    spawn_on(1, worker);
+    ring[1].len = 2;
+}

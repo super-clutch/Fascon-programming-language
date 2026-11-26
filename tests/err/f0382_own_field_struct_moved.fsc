@@ -1,0 +1,10 @@
+// expect: F0382
+// own フィールドを持つ構造体まるごとの移動の後に、フィールドの own の中身へ書く（Use-After-Move = 解放済みへの書き込み）
+// writing into an own field's contents after the whole struct was moved (use after move = a write into freed memory)
+struct MyContext { buffer: own i32, size: i32 }
+fn consume(c: MyContext) -> i32 { *c.buffer + c.size }
+fn main() {
+    let mut c = MyContext { buffer: own 1, size: 4 };
+    print_int(consume(c) as i64);
+    *c.buffer = 5;
+}

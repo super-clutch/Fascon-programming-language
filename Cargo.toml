@@ -1,0 +1,23 @@
+[package]
+name = "fascon"
+version = "1.0.0"
+edition = "2021"
+description = "Fascon 1.0: Rust-like syntax without lifetime annotations -> readable, region-managed C (multi-arena generational ids, own T, fixed-address MMIO regions)"
+license = "MIT OR Apache-2.0"
+rust-version = "1.74"
+# examples/ は Fascon のソース（rust_style.rs はふつうの Rust 構文の Fascon）で、Cargo の例ではない
+# examples/ holds Fascon sources (rust_style.rs is Fascon in plain Rust syntax), not Cargo examples
+autoexamples = false
+
+[[bin]]
+name = "fascon"
+path = "src/main.rs"
+
+[dependencies]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

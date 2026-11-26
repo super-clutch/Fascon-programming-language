@@ -1,0 +1,108 @@
+// tsoa_bench.fsc.in — 完全列化（True SoA）の計測用プログラムのひな形（@CAP@ をタスク数に置き換える: bench/tsoa_bench.sh）
+// the template of the True-SoA benchmark program (@CAP@ becomes the task count: bench/tsoa_bench.sh)
+//
+// task_struct 風の Task（32 バイト）。読み出し: vruntime の総和（examples/vruntime_scan.fsc の集計）・実行可能なタスクの
+// vruntime の和・個数・vruntime が最小の実行可能なタスク。書き込み: 実行可能なタスクだけ vruntime += 1（条件付きの
+// 読み書き）・全タスク vruntime += 1（一括更新）・全タスク vruntime = x（一括上書き）
+// a task_struct-like Task (32 bytes). Reads: the sum of vruntime (the reduction of examples/vruntime_scan.fsc), the
+// vruntime sum, count and minimum over runnable tasks. Writes: vruntime += 1 for runnable tasks (a conditional
+// read-modify-write), vruntime += 1 for every task (a bulk update), vruntime = x for every task (a bulk overwrite)
+
+struct Task {
+    pid: u32,
+    prio: u32,
+    vruntime: u64,
+    parent: Option<Id<@task>>,
+    next: Option<Id<@task>>,
+    files: u32,
+    state: u32,
+}
+
+arena @task: Task[@CAP@];
+
+static N: u64 = @CAP@;
+static RUNNING: u32 = 1;
+
+fn build() -> u64 {
+    let mut k: u64 = 0;
+    let mut made: u64 = 0;
+    while k < N {
+        let st = ((k * 2654435761) >> 13) % 4;
+        if @task.alloc(Task { pid: k as u32, prio: (k % 40) as u32, vruntime: k * 3, parent: None, next: None, files: 0, state: st as u32 }).is_some() {
+            made += 1;
+        }
+        k += 1;
+    }
+    made
+}
+
+fn total_vruntime() -> u64 {
+    let mut total: u64 = 0;
+    for id in @task {
+        total += @task[id].vruntime;
+    }
+    total
+}
+
+fn load_running() -> u64 {
+    let mut s: u64 = 0;
+    for id in @task {
+        if @task[id].state == RUNNING {
+            s += @task[id].vruntime;
+        }
+    }
+    s
+}
+
+fn nr_running() -> u64 {
+    let mut n: u64 = 0;
+    for id in @task {
+        if @task[id].state == RUNNING {
+            n += 1;
+        }
+    }
+    n
+}
+
+fn pick_next() -> Option<Id<@task>> {
+    let mut best: u64 = 0xFFFF_FFFF_FFFF_FFFF;
+    let mut pick: Option<Id<@task>> = None;
+    for id in @task {
+        if @task[id].state == RUNNING && @task[id].vruntime < best {
+            best = @task[id].vruntime;
+            pick = Some(id);
+        }
+    }
+    pick
+}
+
+fn pick_next_pid() -> u64 {
+    match pick_next() {
+        Some(p) => @task[p].pid as u64,
+        None => 0xFFFF_FFFF_FFFF_FFFF,
+    }
+}
+
+fn charge_running() {
+    for id in @task {
+        if @task[id].state == RUNNING {
+            @task[id].vruntime += 1;
+        }
+    }
+}
+
+fn age_all() {
+    for id in @task {
+        @task[id].vruntime += 1;
+    }
+}
+
+fn reset_vruntime(x: u64) {
+    for id in @task {
+        @task[id].vruntime = x;
+    }
+}
+
+fn main() {
+    print_int(build() as i64);
+}

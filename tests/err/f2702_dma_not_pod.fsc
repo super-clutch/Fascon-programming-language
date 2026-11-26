@@ -1,0 +1,4 @@
+// expect: F2702
+struct Req { ok: bool }
+dma_arena @req: Req[4];
+fn main() { print_int(@req.len() as i64); }

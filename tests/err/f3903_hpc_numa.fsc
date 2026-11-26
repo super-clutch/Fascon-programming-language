@@ -1,0 +1,11 @@
+// expect: F3903
+// fascon-target: hpc
+// fascon-topology: cores=8 smt=2 numa=2
+// 計算ノードに無い NUMA ノード（ノードは 0〜1） / a NUMA node the compute node does not have (nodes are 0-1)
+struct Total { sum: u64 }
+#[numa_node(3)]
+shared arena totals: Total[1];
+fn main() {
+    totals.alloc(Total { sum: 1 });
+    print_int(totals.len() as i64);
+}

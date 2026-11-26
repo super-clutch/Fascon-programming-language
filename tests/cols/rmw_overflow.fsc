@@ -1,0 +1,34 @@
+// 条件付き一括更新の整数の加算があふれる: 走査関数はあふれる語の手前で止まり、その語から逐次のループで続けて、
+// --columns off（ふつうのループ）と同じ場所・同じ panic になる。あふれる前の語の更新は残る
+// an integer add of a masked RMW overflows: the scan stops before the overflowing word and the sequential loop continues
+// from it, panicking at the same place, the same way as --columns off (the plain loop); updates of earlier words remain
+
+struct Acc {
+    n: u32,
+    big: bool,
+}
+
+arena accs: Acc[1000];
+
+fn main() {
+    let mut i = 0u32;
+    while i < 1000u32 {
+        let start = if i == 700u32 { 4294967290u32 } else { i };
+        if accs.alloc(Acc { n: start, big: i % 3u32 != 0u32 || i == 700u32 }).is_none() {
+            panic("full");
+        }
+        i += 1u32;
+    }
+    let mut total = 0u64;
+    for id in accs {
+        total += accs[id].n as u64;
+    }
+    print_int(total as i64);
+    let step = 10u32;
+    for id in accs {
+        if accs[id].big {
+            accs[id].n += step;
+        }
+    }
+    print_int(0);
+}

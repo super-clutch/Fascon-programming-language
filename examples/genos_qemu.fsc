@@ -1,0 +1,89 @@
+// fascon-target: generic-os
+// QEMU virt AArch64 の generic-os BSP の総合試験: DTB から登録した装置の窓を高位の写しで読む（bind_mmio）、
+// 仮想番地を予約した共有アリーナが 2 MiB ずつ伸びる、2 つのコアがマガジンからロックフリーに確保する、
+// プロセスのページを Copy-on-Write し、そのプロセスを走らせているコアへだけ SGI で TLB の撃ち落としを頼む
+// an all-round test of the generic-os BSP on QEMU virt AArch64: read a DTB-registered device window through the high
+// mirror (bind_mmio), grow a VA-reserved shared arena 2 MiB at a time, allocate lock-free from per-core magazines on
+// two cores, Copy-on-Write a process page and ask only the core running that process for a TLB shootdown by SGI
+//
+//   fascon qemu examples/genos_qemu.fsc        (-cpu max: PAN, PAC, BTI; -smp 4)
+
+const PER_CORE: u32 = 40000;
+
+// PL031 の実時間時計（DTB の arm,pl031 の窓） / the PL031 real-time clock (the arm,pl031 window from the DTB)
+struct Rtc { dr: u32, mr: u32, lr: u32, cr: u32 }
+
+struct Blob { k: u64, a: u64, b: u64, c: u64 }
+struct Report { core: u32, sum: u64 }
+struct Proc { pid: u32 }
+
+shared arena blobs: Blob[100000];
+arena procs: Proc[8];
+chan done: own Report[4];
+
+fn filler(base: u64) {
+    let me = cpu_id();
+    let mut sum: u64 = 0;
+    for i in 0..PER_CORE {
+        match blobs.alloc(Blob { k: base + i as u64, a: 1, b: 2, c: 3 }) {
+            Some(id) => {
+                rcu_read {
+                    if let Some(p) = blobs.get(id) {
+                        sum += p.k;
+                    }
+                }
+            }
+            None => cpu_relax(),
+        }
+    }
+    done.send(own Report { core: me, sum: sum });
+}
+
+fn main() {
+    let rtc = bind_mmio(Rtc, 0x0901_0000);
+    let now = rtc.dr;
+    if now > 1600000000 {
+        print_str("rtc ok (through the MMIO mirror)");
+    }
+    spawn_on(1, filler, 0);
+    spawn_on(2, filler, 1000000);
+    let mut total: u64 = 0;
+    for k in 0..2 {
+        let r = done.recv_wait();
+        total += r.sum;
+    }
+    put_str("blobs sum ");
+    print_int(total);
+
+    let parent = procs.alloc(Proc { pid: 1 }).unwrap();
+    let child = procs.alloc(Proc { pid: 2 }).unwrap();
+    let mut pg = own_alloc([u8; 4096]);
+    for i in 0..4096 {
+        pg[i] = 7;
+    }
+    procs.map_page(parent, 0x4000, pg, true).unwrap();
+    procs.on_cpu(parent, 0);
+    procs.on_cpu(child, 1);
+    procs.share_page(parent, 0x4000, child).unwrap();
+    match procs.cow_copy(child, 0x4000) {
+        Some(mut fresh) => {
+            fresh[100] = 42;
+            match procs.map_page(child, 0x4000, fresh, true) {
+                Ok(_) => procs.tlb_flush(child, 0x4000),
+                Err(_) => print_str("map failed"),
+            }
+        }
+        None => print_str("not shared"),
+    }
+    print_int(procs.peek(child, 0x4000, 100));
+    print_int(procs.peek(parent, 0x4000, 100));
+    put_str("tlb local ");
+    print_int(procs.tlb_local_count());
+    put_str("tlb ipi ");
+    print_int(procs.tlb_ipi_count());
+    procs.free(child);
+    procs.free(parent);
+    if total == 40000 * 1000000 + 2 * (40000 * 39999 / 2) {
+        print_str("FASCON-GENOS-QEMU-OK");
+    }
+}

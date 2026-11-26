@@ -1,0 +1,122 @@
+// sched::hmp — 非対称マルチコア（性能コア／高効率コア）の配置・負荷分散と CPU ホットプラグ
+// sched::hmp — placement and load balancing on heterogeneous cores (performance / efficiency) and CPU hotplug
+//
+//   hmp::add_cpu(0, true)  // 性能コア / a big core
+//   hmp::add_cpu(1, false) // 高効率コア / a little core
+//   let c = hmp::place(util, prio)   // 重いタスク（util が閾値以上）か高い優先度 → 空いている性能コア、それ以外 → 高効率コア
+//   hmp::hotplug(c, false)           // そのコアのタスクを別のコアへ移す数を返す / returns how many tasks must migrate
+
+const HEAVY: u32 = 600;      // 利用率の閾値（0〜1024） / the utilisation threshold (0-1024)
+const RT_PRIO: u32 = 90;     // これ以上はいつも性能コア / at or above this, always a big core
+
+struct Cpu { num: u32, big: bool, online: bool, load: u32, tasks: u32 }
+arena cpus: Cpu[64];
+
+fn add_cpu(num: u32, big: bool) -> Option<Id<cpus>> {
+    cpus.alloc(Cpu { num: num, big: big, online: true, load: 0, tasks: 0 })
+}
+
+// クラス（性能 / 高効率）の中でいちばん空いているオンラインのコア / the least loaded online core of a class
+fn least_loaded(want_big: bool) -> Option<Id<cpus>> {
+    let mut best: Option<Id<cpus>> = None;
+    let mut best_load: u32 = 0xffff_ffff;
+    for id in cpus {
+        if cpus[id].online && cpus[id].big == want_big && cpus[id].load < best_load {
+            best_load = cpus[id].load;
+            best = Some(id);
+        }
+    }
+    best
+}
+
+fn place(util: u32, prio: u32) -> u32 {
+    let want_big = util >= HEAVY || prio >= RT_PRIO;
+    let c = match least_loaded(want_big) {
+        Some(c) => Some(c),
+        None => least_loaded(!want_big),
+    };
+    match c {
+        Some(id) => {
+            cpus[id].load += util;
+            cpus[id].tasks += 1;
+            cpus[id].num
+        }
+        None => 0xffff_ffff,
+    }
+}
+
+fn retire_load(num: u32, util: u32) {
+    for id in cpus {
+        if cpus[id].num == num {
+            cpus[id].load = cpus[id].load.saturating_sub(util);
+            cpus[id].tasks = cpus[id].tasks.saturating_sub(1);
+        }
+    }
+}
+
+// CPU ホットプラグ: 落とすコアのタスクの数を返し、その負荷を同じクラスのほかのコアへ配る
+// CPU hotplug: returns the number of tasks on the core going down and spreads its load over the same class
+fn hotplug(num: u32, online: bool) -> u32 {
+    let mut moved: u32 = 0;
+    let mut load: u32 = 0;
+    let mut big = false;
+    for id in cpus {
+        if cpus[id].num == num {
+            cpus[id].online = online;
+            if !online {
+                moved = cpus[id].tasks;
+                load = cpus[id].load;
+                big = cpus[id].big;
+                cpus[id].tasks = 0;
+                cpus[id].load = 0;
+            }
+        }
+    }
+    if moved > 0 {
+        let to = match least_loaded(big) {
+            Some(c) => Some(c),
+            None => least_loaded(!big),
+        };
+        if let Some(c) = to {
+            cpus[c].load += load;
+            cpus[c].tasks += moved;
+        }
+    }
+    moved
+}
+
+// 同じクラスの中で、いちばん重いコアからいちばん軽いコアへ差の半分を移す（移した量を返す）
+// within one class, move half the difference from the busiest to the idlest core (returns the amount moved)
+fn balance(big: bool) -> u32 {
+    let mut hi: Option<Id<cpus>> = None;
+    let mut hi_load: u32 = 0;
+    for id in cpus {
+        if cpus[id].online && cpus[id].big == big && cpus[id].load >= hi_load {
+            hi_load = cpus[id].load;
+            hi = Some(id);
+        }
+    }
+    let lo = least_loaded(big);
+    match hi {
+        Some(h) => match lo {
+            Some(l) => {
+                let d = (cpus[h].load - cpus[l].load) / 2;
+                cpus[h].load -= d;
+                cpus[l].load += d;
+                d
+            }
+            None => 0,
+        },
+        None => 0,
+    }
+}
+
+fn load_of(num: u32) -> u32 {
+    let mut l: u32 = 0;
+    for id in cpus {
+        if cpus[id].num == num {
+            l = cpus[id].load;
+        }
+    }
+    l
+}

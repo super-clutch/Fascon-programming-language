@@ -1,0 +1,11 @@
+// expect: F2601
+struct Stat { ticks: u64 }
+arena @stat: Stat[1];
+irq tick at 27 {
+    for id in @stat { @stat[id].ticks += 1; }
+}
+fn main() {
+    let s = @stat.alloc(Stat { ticks: 0 }).unwrap();
+    irq_open();
+    print_int(@stat[s].ticks as i64);
+}

@@ -1,0 +1,12 @@
+// expect: F3501
+// #[stable_abi] の構造体に Id<@a> は置けない（rtos は 32 ビット・generic-os は 64 ビット） / no Id<@a> in a #[stable_abi]
+// struct (32 bits under rtos, 64 bits under generic-os)
+struct Node { v: u64 }
+arena nodes: Node[8];
+
+#[stable_abi]
+struct Handle { tag: u32, node: Id<nodes> }
+
+fn main() {
+    let n = nodes.alloc(Node { v: 1 });
+}

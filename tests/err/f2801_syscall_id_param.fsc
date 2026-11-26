@@ -1,0 +1,11 @@
+// expect: F2801
+struct File { pos: u64 }
+struct Task { pid: u32 }
+arena file: File[8];
+task_arena task: Task[4] stack 16384;
+user_mem umem for task: 0x20_0000 at 0x1_0000_0000;
+// Id はユーザーが偽造できる: u32 で受けて validate を通す
+syscall seek at 3 (f: Id<file>, pos: u64) -> i64 {
+    0
+}
+fn main() {}

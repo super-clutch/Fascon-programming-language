@@ -1,0 +1,11 @@
+// expect: F0382
+// 関数ポインタの値渡しの引数へ、own フィールドを持つ構造体を 2 回移す（2 回目は二重解放になる）
+// moving a struct with an own field into a function pointer's by-value parameter twice (the second would double-free)
+struct MyContext { buffer: own i32, size: i32 }
+fn consume(c: MyContext) { print_int(*c.buffer as i64); }
+fn main() {
+    let c = MyContext { buffer: own 1, size: 4 };
+    let f = consume;
+    f(c);
+    f(c);
+}

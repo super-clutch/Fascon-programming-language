@@ -1,0 +1,8 @@
+// expect: F2803
+// 本体の無い syscall の宣言があるファイルはユーザープログラム（EL0）: 装置には触れない
+syscall write at 1 (fd: u32, buf: &[u8]) -> i64;
+mmio uart: [u32; 4] at 0x0900_0000;
+fn main() {
+    uart[0] = 65;
+    write(1, "x");
+}

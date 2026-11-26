@@ -1,0 +1,26 @@
+// fascon-target: hpc
+// io_noise.fsc — F3901（警告）: 計算コア 1 のルート `worker` から届く `note` が I/O ポートを書く。管理コア（main）の
+// gpu_dispatch は対象外。run_tests が `fascon check` の警告の場所を確かめる
+// F3901 (warning): `note`, reached from the core-1 root `worker`, writes an I/O port; the gpu_dispatch of the
+// management core (main) is not affected. run_tests checks where `fascon check` puts the warning
+struct A { x: f32 }
+gpu_arena @g: A[4];
+port_io post: u8 at_port 0x80;
+chan done: u64[4];
+critical fn note(n: u64) {
+    post = n as u8;
+}
+fn worker(k: u64) {
+    note(k);
+    done.send(k);
+}
+fn main() {
+    spawn_on(1, worker, 1);
+    print_int(done.recv_wait() as i64);
+    if let Some(h) = @g.alloc(A { x: 1.0 }) {
+        let f = @g.dispatch(1, 1, 1, h);
+        if let Some(b) = @g.reclaim_wait(f) {
+            @g.free(b);
+        }
+    }
+}

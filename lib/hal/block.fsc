@@ -1,0 +1,23 @@
+// hal::block — 標準 HAL: ブロック装置（512 バイトのセクタ単位。virtio-blk・SD・NVMe などのボード側の実装が埋める）
+// hal::block — standard HAL: a block device (512-byte sectors; filled in by board-side drivers such as virtio-blk, SD, NVMe)
+//
+//   sectors()               セクタ数 / number of sectors
+//   read(lba, buf)          1 セクタ読む（失敗は false）/ read one sector (false on failure)
+//   write(lba, buf)         1 セクタ書く / write one sector
+//   flush()                 装置のキャッシュを不揮発へ（電源断に耐える境界）/ push the device cache to stable storage
+struct BlockDevice { sectors: fn() -> u64, read: fn(u64, &mut [u8; 512]) -> bool, write: fn(u64, &[u8; 512]) -> bool, flush: fn() -> bool }
+
+// 範囲を検査してから読む（上位のファイルシステムの共通の入口）/ read after a range check (the shared entry of file systems)
+fn block_read_checked(d: &BlockDevice, lba: u64, buf: &mut [u8; 512]) -> bool {
+    if lba >= (d.sectors)() {
+        return false;
+    }
+    (d.read)(lba, buf)
+}
+
+fn block_write_checked(d: &BlockDevice, lba: u64, buf: &[u8; 512]) -> bool {
+    if lba >= (d.sectors)() {
+        return false;
+    }
+    (d.write)(lba, buf)
+}

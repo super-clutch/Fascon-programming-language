@@ -1,0 +1,12 @@
+// expect: F3201
+// atomic は 1 つのスロットの整数フィールドへの RMW 1 回だけ（2 つのフィールドは critical で）
+// atomic is exactly one RMW on an integer field of one slot (two fields go in critical)
+struct Pkt { len: u32, flags: u32 }
+arena pkts: Pkt[8];
+fn main() {
+    let a = pkts.alloc(Pkt { len: 1, flags: 0 }).unwrap();
+    atomic {
+        pkts[a].flags |= 1;
+        pkts[a].len += 1;
+    }
+}

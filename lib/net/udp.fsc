@@ -1,0 +1,135 @@
+// net::udp — ゼロコピーの UDP 受信: NIC の RX リングのバッファ（dma own）をパケット表へそのまま移し、ポートで
+// ソケットを rcu_read のロックフリーな検索で探して、所有権ごと受信キューへ渡す（コピーは 1 回もしない）
+// net::udp — zero-copy UDP receive: the NIC RX ring buffer (dma own) moves into the packet table as is, the socket is found
+// by port with a lock-free rcu_read lookup, and the buffer is handed to its receive queue with ownership (no copies)
+//
+//   let p = udp::rx_packet(buf, len).unwrap();   // RX リングから（buf: dma own [u8; 2048]）/ from the RX ring
+//   udp::deliver(p)                              // 宛先ポートのソケットへ / to the socket of the destination port
+//   udp::recv(sock)                              // Option<Id<pkts>>（中身は udp::payload_byte で読む）
+//
+// 解析の一時的な値は bump_arena に置き、deliver が戻るときに O(1) でまとめて捨てる
+// temporary parse nodes live in a bump_arena and are dropped at once, in O(1), when deliver returns
+import net::wire;
+
+struct PacketMeta { len: u32, flags: u32, sock: u32, next: Option<Id<pkts>>, payload: Option<dma own [u8; 2048]> }
+arena pkts: PacketMeta[256];
+
+struct Sock { port: u16, head: Option<Id<pkts>>, tail: Option<Id<pkts>>, queued: u32, drops: u32 }
+arena socks: Sock[64];
+
+struct Parse { off: u64, len: u64, dport: u16 }
+bump_arena scratch: Parse[16];
+
+const F_UDP: u32 = 1;
+
+fn bind(port: u16) -> Option<Id<socks>> {
+    socks.alloc(Sock { port: port, head: None, tail: None, queued: 0, drops: 0 })
+}
+
+// RX リングから受け取ったバッファを表へ（所有権が移る。以後 buf は使えない: F0382）
+// take a buffer from the RX ring into the table (ownership moves; buf cannot be used afterwards: F0382)
+fn rx_packet(buf: dma own [u8; 2048], len: u32) -> Option<Id<pkts>> {
+    pkts.alloc(PacketMeta { len: len, flags: 0, sock: 0, next: None, payload: Some(buf) })
+}
+
+// ソケットを rcu_read で探す（書き込み・解放・眠る呼び出しは区間の中で F3202 / F3203） / find the socket under rcu_read
+fn lookup(port: u16) -> Option<Id<socks>> {
+    let mut found: Option<Id<socks>> = None;
+    rcu_read {
+        for id in socks {
+            if socks[id].port == port {
+                found = Some(id);
+            }
+        }
+    }
+    found
+}
+
+// ヘッダを読み、宛先のソケットのキューへつなぐ。戻り値: 受け取ったソケットの添字 + 1（0 = 捨てた）
+// read the headers and chain the packet onto the destination socket's queue; returns the socket index + 1 (0 = dropped)
+fn deliver(p: Id<pkts>) -> u32 {
+    let mut dport: u16 = 0;
+    let mut ok = false;
+    if let Some(m) = pkts.get(p) {
+        match m.payload {
+            Some(b) => {
+                if let Some(eth) = b.read(wire::Eth, 0) {
+                    if eth.kind == wire::ETH_IPV4 && m.len >= 42 {
+                        if let Some(ip) = b.read(wire::Ipv4, 14) {
+                            let hl = wire::ihl_bytes(ip.vihl);
+                            if ip.proto == wire::PROTO_UDP && 14 + hl + 8 <= m.len as u64 {
+                                if let Some(u) = b.read(wire::Udp, 14 + hl) {
+                                    // 一時的な解析の結果（関数が戻るとまとめて捨てる） / a temporary parse result (dropped when we return)
+                                    if let Some(t) = scratch.alloc(Parse { off: 14 + hl + 8, len: u.len as u64, dport: u.dport }) {
+                                        dport = scratch[t].dport;
+                                    }
+                                    ok = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            None => {}
+        }
+    }
+    if !ok {
+        pkts.free(p);
+        return 0;
+    }
+    match lookup(dport) {
+        Some(s) => {
+            pkts[p].flags = F_UDP;
+            pkts[p].sock = s.index() + 1;
+            match socks[s].tail {
+                Some(t) => pkts[t].next = Some(p),
+                None => socks[s].head = Some(p),
+            }
+            socks[s].tail = Some(p);
+            socks[s].queued += 1;
+            s.index() + 1
+        }
+        None => {
+            pkts.free(p);
+            0
+        }
+    }
+}
+
+fn recv(s: Id<socks>) -> Option<Id<pkts>> {
+    match socks[s].head {
+        Some(p) => {
+            socks[s].head = pkts[p].next;
+            if socks[s].head.is_none() {
+                socks[s].tail = None;
+            }
+            socks[s].queued -= 1;
+            Some(p)
+        }
+        None => None,
+    }
+}
+
+// 受信データの i バイト目（UDP の本体の先頭から） / byte i of the payload (from the start of the UDP data)
+fn payload_byte(p: Id<pkts>, i: u64) -> u8 {
+    let mut v: u8 = 0;
+    if let Some(m) = pkts.get(p) {
+        match m.payload {
+            Some(b) => {
+                if let Some(ip) = b.read(wire::Ipv4, 14) {
+                    let at = 14 + wire::ihl_bytes(ip.vihl) + 8 + i;
+                    if at < 2048 {
+                        v = b[at];
+                    }
+                }
+            }
+            None => {}
+        }
+    }
+    v
+}
+
+// パケットを捨てる（dma own のバッファは DMA プールへ返る） / drop a packet (its dma own buffer returns to the DMA pool)
+fn release(p: Id<pkts>) {
+    pkts.free(p);
+}

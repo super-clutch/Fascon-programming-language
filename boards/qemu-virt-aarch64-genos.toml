@@ -1,0 +1,47 @@
+# QEMU virt（AArch64）を generic-os で: 仮想 0〜2 MiB の守り・高位の MMIO の写し・仮想番地を予約したアリーナ・PAN・PAC / BTI
+# QEMU virt (AArch64) as generic-os: a guard at virtual 0-2 MiB, a high MMIO mirror, VA-reserved arenas, PAN, PAC / BTI
+#   fascon qemu app.fsc --board boards/qemu-virt-aarch64-genos.toml     (QEMU -cpu max -smp 4)
+
+[board]
+name = "qemu-virt-aarch64-genos"
+arch = "aarch64"
+profile = "generic-os"
+cpus = 4
+
+[memory]
+ram_base = 0x4000_0000
+ram_size = 0x4000_0000
+
+[uart]
+kind = "pl011"
+base = 0x0900_0000
+
+[irq]
+kind = "gicv2"
+gicd = 0x0800_0000
+gicc = 0x0801_0000
+
+[timer]
+kind = "arm-generic"
+intid = 27
+
+[[device]]
+name = "pl011"
+base = 0x0900_0000
+size = 0x1000
+
+[[device]]
+name = "virtio-mmio"
+base = 0x0a00_0000
+size = 0x4000
+
+[vm]
+mmio_mirror = 0x60_0000_0000    # 物理 0〜1 GiB を仮想 384 GiB へ写す / physical 0-1 GiB mirrored at virtual 384 GiB
+arena_va_base = 0x40_0000_0000  # 共有アリーナの予約域（256 GiB から） / the reserved range of shared arenas (from 256 GiB)
+
+[cpu]
+big = [0, 1]                    # big.LITTLE の負荷分散の試験用（QEMU のコアはどれも同じ） / for big.LITTLE tests (QEMU cores are alike)
+
+[limits]
+user_str_max = 4096
+dma_pool_pages = 64

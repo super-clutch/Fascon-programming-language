@@ -1,0 +1,131 @@
+// pm::power — 電源管理: 電源ドメインの参照数、DVFS（利用率で動作点を選ぶ・ヒステリシス付き）、サスペンド / レジューム、
+// 所有権と連動するスリープ抑止トークン PowerGuard（#[on_drop] で必ず手放す: リークしない）
+// pm::power — power management: power-domain reference counts, DVFS (operating points chosen from utilisation, with
+// hysteresis), suspend / resume, and PowerGuard, a sleep-inhibit token tied to ownership (always released by #[on_drop]:
+// it cannot leak)
+
+struct Domain { refs: u32, on: bool, toggles: u32 }
+arena domains: Domain[16];
+
+struct Wake { reason: u32 }
+arena wakes: Wake[64];
+
+// 動作点（kHz・mV）。表は低い順 / operating points (kHz, mV), lowest first
+static OPP_KHZ: [u32; 4] = [408000, 816000, 1416000, 2016000];
+static OPP_MV: [u32; 4] = [800, 900, 1000, 1100];
+
+struct Gov { cur: u32, up: u32, down: u32, changes: u32 }
+arena govs: Gov[8];
+
+struct State { suspended: bool, resumes: u32 }
+arena pstate: State[1];
+
+fn st() -> Id<pstate> {
+    let mut s: Option<Id<pstate>> = None;
+    for id in pstate {
+        s = Some(id);
+    }
+    match s {
+        Some(x) => x,
+        None => pstate.alloc(State { suspended: false, resumes: 0 }).unwrap(),
+    }
+}
+
+// ───── スリープ抑止 / sleep inhibition ─────
+#[on_drop(release_guard)]
+struct PowerGuard { wake: Option<Id<wakes>> }
+
+fn release_guard(g: &mut PowerGuard) {
+    match g.wake {
+        Some(w) => {
+            wakes.free(w);
+        }
+        None => {}
+    }
+    g.wake = None;
+}
+
+// スリープを止めるトークン。値を手放す（スコープの終わり・drop・移動先の破棄）と自動で解除される
+// a token that inhibits sleep; it is released automatically when the value is dropped (scope end, drop, or wherever it moved)
+fn acquire(reason: u32) -> PowerGuard {
+    PowerGuard { wake: wakes.alloc(Wake { reason: reason }) }
+}
+
+fn guards() -> u32 {
+    wakes.len() as u32
+}
+
+fn can_suspend() -> bool {
+    wakes.len() == 0
+}
+
+// サスペンド: 抑止トークンが 1 つでもあれば断る。電源ドメインは参照の無いものだけ落とす
+// suspend: refuse while any inhibit token exists; only unreferenced power domains are switched off
+fn suspend() -> bool {
+    if !can_suspend() {
+        return false;
+    }
+    for id in domains {
+        if domains[id].refs == 0 && domains[id].on {
+            domains[id].on = false;
+            domains[id].toggles += 1;
+        }
+    }
+    let s = st();
+    pstate[s].suspended = true;
+    true
+}
+
+fn resume() {
+    let s = st();
+    pstate[s].suspended = false;
+    pstate[s].resumes += 1;
+}
+
+// ───── 電源ドメイン / power domains ─────
+fn domain() -> Option<Id<domains>> {
+    domains.alloc(Domain { refs: 0, on: false, toggles: 0 })
+}
+
+fn domain_get(d: Id<domains>) {
+    domains[d].refs += 1;
+    if !domains[d].on {
+        domains[d].on = true;
+        domains[d].toggles += 1;
+    }
+}
+
+fn domain_put(d: Id<domains>) {
+    domains[d].refs = domains[d].refs.saturating_sub(1);
+    if domains[d].refs == 0 && domains[d].on {
+        domains[d].on = false;
+        domains[d].toggles += 1;
+    }
+}
+
+fn domain_on(d: Id<domains>) -> bool {
+    domains[d].on
+}
+
+// ───── DVFS ─────
+fn governor(up: u32, down: u32) -> Option<Id<govs>> {
+    govs.alloc(Gov { cur: 0, up: up, down: down, changes: 0 })
+}
+
+// 利用率（0〜100）を受けて動作点を 1 段ずつ上げ下げする（up 以上で上げる・down 以下で下げる）。今の kHz を返す
+// move the operating point one step for a utilisation of 0-100 (up at or above `up`, down at or below `down`); returns kHz
+fn dvfs_step(g: Id<govs>, util: u32) -> u32 {
+    let c = govs[g].cur;
+    if util >= govs[g].up && c < 3 {
+        govs[g].cur = c + 1;
+        govs[g].changes += 1;
+    } else if util <= govs[g].down && c > 0 {
+        govs[g].cur = c - 1;
+        govs[g].changes += 1;
+    }
+    OPP_KHZ[govs[g].cur]
+}
+
+fn millivolts(g: Id<govs>) -> u32 {
+    OPP_MV[govs[g].cur]
+}

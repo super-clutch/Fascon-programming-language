@@ -1,0 +1,6 @@
+// expect: F2803
+struct Task { pid: u32 }
+task_arena task: Task[4] stack 16384;
+// カーネルの恒等マップ（0〜0x8000_0000）の中には置けない
+user_mem umem for task: 0x20_0000 at 0x4000_0000;
+fn main() {}

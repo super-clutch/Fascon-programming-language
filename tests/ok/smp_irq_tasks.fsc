@@ -1,0 +1,87 @@
+// マルチコア × 割り込み × タスク（F2614 の解除）: コア 1 と 2 がそれぞれ自分のタスクの表（コアごとの実体）に 2 つのタスクを
+// 作り、自分のタイマー（PPI 27）で切り替える。結果は chan で CPU0 へ。PC（コア = スレッド、仮想の時計）と QEMU（-smp 4）で同じ出力
+// multi-core × interrupts × tasks (F2614 lifted): cores 1 and 2 each create two tasks in their own task table (one
+// instance per core) and switch them with their own timer (PPI 27). Results go to CPU0 through a chan. The same output on
+// the PC (a core = a thread, a virtual clock) and on QEMU (-smp 4)
+const ROUNDS: u64 = 2000000;
+
+fn tick_len() -> u64 {
+    timer_freq() / 1000                           // 1 ms
+}
+
+struct Task { pid: u32, slices: u32 }
+struct Done { core: u32, pid: u32, sum: u64, preempted: u32 }
+
+task_arena task: Task[4] stack 32768;
+chan done: own Done[8];
+
+// このコアのタイマー: このコアの次のタスクへ / the timer of this core: on to the next task of this core
+irq tick at 27 {
+    timer_arm(tick_len());
+    let cur = task.current();
+    if let Some(t) = task.get_mut(cur) {
+        t.slices += 1;
+    }
+    let mut first: Option<Id<task>> = None;
+    let mut next: Option<Id<task>> = None;
+    let mut seen = false;
+    for id in task {
+        if first.is_none() { first = Some(id); }
+        if seen && next.is_none() { next = Some(id); }
+        if id == cur { seen = true; }
+    }
+    if next.is_none() { next = first; }
+    if let Some(n) = next {
+        task.resume(n);
+    }
+}
+
+fn work(k: u64) {
+    let mut sum: u64 = 0;
+    for i in 0..ROUNDS {
+        sum = sum.wrapping_add(i * k);
+        cpu_relax();                                // ここで割り込まれうる / may be interrupted here
+    }
+    let mut pid: u32 = 0;
+    let mut slices: u32 = 0;
+    critical {
+        let me = task.current();
+        if let Some(t) = task.get(me) {
+            pid = t.pid;
+            slices = t.slices;
+        }
+    }
+    done.send(own Done { core: cpu_id(), pid: pid, sum: sum, preempted: if slices > 0 { 1 } else { 0 } });
+}
+
+fn core_main(c: u64) {
+    let a = task.start(Task { pid: (c as u32) * 10 + 1, slices: 0 }, work, c * 10 + 1).unwrap();
+    task.start(Task { pid: (c as u32) * 10 + 2, slices: 0 }, work, c * 10 + 2);
+    timer_arm(tick_len());
+    task.enter(a);
+}
+
+fn main() {
+    spawn_on(1, core_main, 1);
+    spawn_on(2, core_main, 2);
+    let mut total: u64 = 0;
+    let mut pids: u32 = 0;
+    let mut pre: u32 = 0;
+    let mut right_core: u32 = 0;
+    for k in 0..4 {
+        let d = done.recv_wait();
+        total = total.wrapping_add(d.sum);
+        pids += d.pid;
+        pre += d.preempted;
+        if d.core == d.pid / 10 { right_core += 1; }
+    }
+    put_str("tasks done: 4, pid sum ");
+    print_int(pids as i64);
+    put_str("checksum ");
+    print_int(total as i64);
+    put_str("each task ran on the core that created it: ");
+    print_int(right_core as i64);
+    put_str("preempted by its own core timer: ");
+    print_int(pre as i64);
+    exit(0);
+}

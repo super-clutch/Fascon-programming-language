@@ -1,0 +1,17 @@
+// expect: F3902
+// fascon-target: hpc
+// 計算コアのルートから届く関数で own を確保する（計算中のページフォールトとジッタ） / an own allocation in a function
+// reached from a compute-core root (page faults and jitter during the compute phase)
+struct Buf { v: [u64; 8] }
+chan done: u64[4];
+fn step(k: u64) -> u64 {
+    let b = own Buf { v: [k; 8] };
+    b.v[3] + 1
+}
+fn worker(k: u64) {
+    done.send(step(k));
+}
+fn main() {
+    spawn_on(1, worker, 5);
+    print_int(done.recv_wait() as i64);
+}

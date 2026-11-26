@@ -1,0 +1,10 @@
+// expect: F2611
+struct Job { n: u64 }
+arena jobs: Job[16];
+fn worker(id: Id<jobs>) {
+    print_int(jobs[id].n as i64);
+}
+fn main() {
+    let id = jobs.alloc(Job { n: 1 }).unwrap();
+    spawn_on(1, worker, id);
+}

@@ -1,0 +1,7 @@
+// expect: F2703
+#[wire(le)] struct Req { kind: u32 }
+dma_arena @req: Req[4];
+fn main() {
+    let i: u32 = 1;
+    @req[i].kind = 1;
+}

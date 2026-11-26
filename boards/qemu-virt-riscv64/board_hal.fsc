@@ -1,0 +1,36 @@
+// board_hal（qemu-virt-riscv64）— 標準 HAL の Console を ns16550（0x1000_0000）で埋める。どのボードのパッケージも同じ名前の
+// board_hal を持つので、アプリは `import board_hal;` だけでボードを替えられる
+// board_hal (qemu-virt-riscv64) — fills the standard HAL Console with the ns16550 (0x1000_0000). Every board package carries a
+// board_hal of the same name, so an application switches boards with `import board_hal;` alone
+import hal::console;
+
+// ns16550: THR / RBR = +0、LSR = +5（bit 5 = 送れる、bit 0 = 受け取ったものがある） / THR / RBR = +0, LSR = +5
+struct Uart16550 { rbr_thr: u8, ier: u8, iir_fcr: u8, lcr: u8, mcr: u8, lsr: u8, msr: u8, scr: u8 }
+
+fn uart_putc(b: u8) {
+    let u = bind_mmio(Uart16550, 0x1000_0000);
+    while (u.lsr & 0x20) == 0 {
+        cpu_relax();
+    }
+    u.rbr_thr = b;
+}
+
+fn uart_getc() -> Option<u8> {
+    let u = bind_mmio(Uart16550, 0x1000_0000);
+    if (u.lsr & 0x01) == 0 {
+        None
+    } else {
+        Some(u.rbr_thr)
+    }
+}
+
+fn uart_flush() {
+    let u = bind_mmio(Uart16550, 0x1000_0000);
+    while (u.lsr & 0x40) == 0 {
+        cpu_relax();
+    }
+}
+
+fn console() -> console::Console {
+    console::Console { putc: uart_putc, getc: uart_getc, flush: uart_flush }
+}

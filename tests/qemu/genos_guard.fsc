@@ -1,0 +1,21 @@
+// fascon-target: generic-os
+// generic-os の守りページ: 深い再帰がカーネルスタックの一番下の 4 KiB（未マップ）に触れると、例外の入口が AT で見つけて
+// 非常用スタックへ移り「GUARD: kernel stack overflow」と報告して止まる（黙ってほかのメモリを壊さない）
+// generic-os guard pages: deep recursion that reaches the lowest 4 KiB of the kernel stack (unmapped) is caught by the
+// exception entry with AT, which moves to the emergency stack and reports "GUARD: kernel stack overflow" (no silent
+// corruption of other memory)
+fn deep(n: u64) -> u64 {
+    let mut pad: [u64; 16] = [0; 16];
+    pad[(n % 16) as usize] = n % 7;
+    if n == 0 {
+        return pad[0];
+    }
+    let r = deep(n - 1);
+    (r + pad[((n + 3) % 16) as usize]) % 1000
+}
+
+fn main() {
+    print_str("recursing");
+    print_int(deep(100000));
+    print_str("UNREACHABLE");
+}

@@ -1,0 +1,44 @@
+// 止まらない算術（wrapping / checked / saturating）、min / max、整数の配列の一致
+// non-stopping arithmetic (wrapping / checked / saturating), min / max, equality of integer arrays
+struct Mac { a: [u8; 6], b: [u8; 6] }
+
+fn show(o: Option<u32>) {
+    match o {
+        Some(v) => print_int(v as i64),
+        None => print_str("none"),
+    }
+}
+
+fn csum(a: u16, b: u16) -> u16 {
+    let mut s: u32 = (a as u32).wrapping_add(b as u32);
+    while (s >> 16) != 0 { s = (s & 0xffff) + (s >> 16); }
+    (s ^ 0xffff) as u16
+}
+
+fn main() {
+    let x: u32 = 0xffff_fff0;
+    print_int(x.wrapping_add(0x20) as i64);
+    let y: u8 = 3;
+    print_int(y.wrapping_sub(5) as i64);
+    let z: i32 = 2147483647;
+    print_int(z.wrapping_add(1) as i64);
+    print_int(z.wrapping_mul(2) as i64);
+    show(x.checked_add(0x20));
+    show(x.checked_add(0x0f));
+    show(x.checked_sub(1));
+    let small: u32 = 7;
+    show(small.checked_sub(8));
+    show(small.checked_mul(3));
+    print_int(y.saturating_add(254) as i64);
+    print_int(y.saturating_sub(9) as i64);
+    print_int(z.saturating_add(5) as i64);
+    let m: i32 = -2147483647;
+    print_int(m.saturating_sub(9) as i64);
+    print_int(min(x, small) as i64);
+    print_int(max(3i64, -8));
+    print_int(csum(0xffff, 0x0001) as i64);
+    let mut k = Mac { a: [1, 2, 3, 4, 5, 6], b: [1, 2, 3, 4, 5, 7] };
+    if k.a == k.b { print_str("same"); } else { print_str("differ"); }
+    k.b = k.a;
+    if k.a != k.b { print_str("differ"); } else { print_str("same"); }
+}

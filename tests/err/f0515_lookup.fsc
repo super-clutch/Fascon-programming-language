@@ -1,0 +1,8 @@
+// expect: F0515
+// ルックアップの結果（参照）を変数に束縛する / binding the result of a lookup (a reference) to a variable
+struct Task { pid: u32 }
+arena @task: Task[4];
+fn main() {
+    let t = @task.alloc(Task { pid: 1 }).unwrap();
+    let r = @task.get(t);
+}

@@ -1,0 +1,53 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 780 470' width='780' height='470' font-family='-apple-system, Segoe UI, Helvetica, Arial, sans-serif' font-size='12'>
+<rect width='780' height='470' fill='#ffffff'/>
+<text x='24' y='28' font-size='15' font-weight='600' fill='#1f2328'>On a scattered list, the Fascon Id chain beats raw pointers</text>
+<text x='24' y='50' font-size='11.5' fill='#59636e'>Time per task (ns, shorter is faster) - summing vruntime over 60,000 tasks - Fascon 1.0.0</text>
+<text x='24' y='68' font-size='11.5' fill='#1f2328'>Scattered: Fascon 1.2-2.8x faster.   Creation order: raw pointers 1.3-1.9x faster.   Table scan: under 1 ns.</text>
+<rect x='24' y='79' width='12' height='10' rx='2' fill='#2f6fdb'/><text x='42' y='88' font-size='11.5' fill='#59636e'>Fascon</text>
+<rect x='104' y='79' width='12' height='10' rx='2' fill='#9aa1aa'/><text x='122' y='88' font-size='11.5' fill='#59636e'>C with raw pointers</text>
+<rect x='262' y='79' width='12' height='10' rx='2' fill='#9aa1aa'/><text x='280' y='88' font-size='11.5' fill='#59636e'>dark = gcc 13.3</text>
+<rect x='406' y='79' width='12' height='10' rx='2' fill='#9aa1aa' fill-opacity='0.45'/><text x='424' y='88' font-size='11.5' fill='#59636e'>light = clang 18.1</text>
+<text x='24' y='118' font-weight='600' fill='#1f2328'>Linked in creation order</text>
+<text x='36' y='142' fill='#1f2328'>C, raw pointers (packed malloc)</text>
+<rect x='320' y='126' width='13.8' height='10' rx='2' fill='#9aa1aa' fill-opacity='1'/>
+<text x='339.8' y='135' font-size='11' fill='#59636e'>2.86 ns</text>
+<rect x='320' y='139' width='13.8' height='10' rx='2' fill='#9aa1aa' fill-opacity='0.45'/>
+<text x='339.8' y='148' font-size='11' fill='#59636e'>2.86 ns</text>
+<text x='36' y='180' fill='#1f2328'>Fascon, Id chain with get (branch)</text>
+<rect x='320' y='164' width='18.5' height='10' rx='2' fill='#2f6fdb' fill-opacity='1'/>
+<text x='344.5' y='173' font-size='11' fill='#59636e'>3.82 ns</text>
+<rect x='320' y='177' width='25.9' height='10' rx='2' fill='#2f6fdb' fill-opacity='0.45'/>
+<text x='351.9' y='186' font-size='11' fill='#59636e'>5.35 ns</text>
+<text x='36' y='218' fill='#1f2328'>Fascon, Id chain with @task[id] (latched)</text>
+<rect x='320' y='202' width='17.9' height='10' rx='2' fill='#2f6fdb' fill-opacity='1'/>
+<text x='343.9' y='211' font-size='11' fill='#59636e'>3.70 ns</text>
+<rect x='320' y='215' width='26.4' height='10' rx='2' fill='#2f6fdb' fill-opacity='0.45'/>
+<text x='352.4' y='224' font-size='11' fill='#59636e'>5.45 ns</text>
+<text x='24' y='254' font-weight='600' fill='#1f2328'>Linked in a scattered order</text>
+<text x='36' y='278' fill='#1f2328'>C, raw pointers (packed malloc)</text>
+<rect x='320' y='262' width='268.9' height='10' rx='2' fill='#9aa1aa' fill-opacity='1'/>
+<text x='594.9' y='271' font-size='11' fill='#59636e'>55.61 ns</text>
+<rect x='320' y='275' width='267.6' height='10' rx='2' fill='#9aa1aa' fill-opacity='0.45'/>
+<text x='593.6' y='284' font-size='11' fill='#59636e'>55.33 ns</text>
+<text x='36' y='316' fill='#1f2328'>C, raw pointers (fragmented malloc)</text>
+<rect x='320' y='300' width='380.0' height='10' rx='2' fill='#9aa1aa' fill-opacity='1'/>
+<text x='706.0' y='309' font-size='11' fill='#59636e'>78.58 ns</text>
+<rect x='320' y='313' width='368.6' height='10' rx='2' fill='#9aa1aa' fill-opacity='0.45'/>
+<text x='694.6' y='322' font-size='11' fill='#59636e'>76.22 ns</text>
+<text x='36' y='354' fill='#1f2328'>Fascon, Id chain with get (branch)</text>
+<rect x='320' y='338' width='140.0' height='10' rx='2' fill='#2f6fdb' fill-opacity='1'/>
+<text x='466.0' y='347' font-size='11' fill='#59636e'>28.95 ns</text>
+<rect x='320' y='351' width='217.0' height='10' rx='2' fill='#2f6fdb' fill-opacity='0.45'/>
+<text x='543.0' y='360' font-size='11' fill='#59636e'>44.87 ns</text>
+<text x='36' y='392' fill='#1f2328'>Fascon, Id chain with @task[id] (latched)</text>
+<rect x='320' y='376' width='162.1' height='10' rx='2' fill='#2f6fdb' fill-opacity='1'/>
+<text x='488.1' y='385' font-size='11' fill='#59636e'>33.52 ns</text>
+<rect x='320' y='389' width='138.2' height='10' rx='2' fill='#2f6fdb' fill-opacity='0.45'/>
+<text x='464.2' y='398' font-size='11' fill='#59636e'>28.57 ns</text>
+<text x='24' y='428' font-weight='600' fill='#1f2328'>Scanning the table (independent of links)</text>
+<text x='36' y='452' fill='#1f2328'>Fascon, for id in @task (sum scan)</text>
+<rect x='320' y='436' width='4.5' height='10' rx='2' fill='#2f6fdb' fill-opacity='1'/>
+<text x='330.5' y='445' font-size='11' fill='#59636e'>0.94 ns</text>
+<rect x='320' y='449' width='4.4' height='10' rx='2' fill='#2f6fdb' fill-opacity='0.45'/>
+<text x='330.4' y='458' font-size='11' fill='#59636e'>0.91 ns</text>
+</svg>

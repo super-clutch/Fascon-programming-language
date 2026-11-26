@@ -1,0 +1,14 @@
+// expect: F2611
+// ふつうのアリーナはコアごとに 1 つの実体: その Id を別のコアへ送ると、向こうでは別の表を指してしまう
+struct Job { n: u64 }
+arena jobs: Job[16];
+chan work: Id<jobs>[8];
+fn worker() {
+    let id = work.recv_wait();
+    print_int(jobs[id].n as i64);
+}
+fn main() {
+    let id = jobs.alloc(Job { n: 1 }).unwrap();
+    spawn_on(1, worker);
+    work.send(id);
+}

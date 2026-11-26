@@ -1,0 +1,4 @@
+// expect: F3601
+// C との境界を渡れるのは整数・bool・Id・Option<Id>・FaultError / types that cross the C boundary
+extern "C" fn c_log(msg: Str) -> u32;
+fn main() {}

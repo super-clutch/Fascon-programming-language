@@ -1,0 +1,102 @@
+// fascon-target: generic-os
+// 共有の gc_arena と own の根（マルチコア）: 2 つのコアが、リストの先頭の Id を Id の変数ではなくローカルの own Holder
+// （Option<own Holder>・値渡しの仮引数・戻り値・移動）に入れたまま、満杯になるたびに gc_collect する。もう一方のコアは
+// 安全点で止まり、その鎖（own の先まで）が根として読まれる。旧版では own の中の先頭が回収され、リストが途中で切れた
+// a shared gc_arena with own roots (multi-core): two cores keep the head Id of a list not in an Id variable but in a local
+// own Holder (an Option<own Holder>, a by-value parameter, a return value, moves) and call gc_collect whenever the arena
+// fills up. The other core parks at a safepoint and its chain is read as a root, behind own too. Before this change the
+// head inside the own was collected and the list broke off
+struct Node { v: u64, next: Option<Id<nodes>> }
+struct Holder { head: Option<Id<nodes>>, count: u64 }
+struct Report { core: u32, len: u64, sum: u64, count: u64 }
+
+shared gc_arena nodes: Node[2048];
+chan done: own Report[4];
+
+// 値渡しの own を受け取り、移動して、own を返す（途中で回収しうる） / takes an own by value, moves it and returns an own
+// (it may collect in between)
+fn push(h: own Holder, v: u64) -> own Holder {
+    let mut h2 = h;
+    loop {
+        match nodes.alloc(Node { v: v, next: h2.head }) {
+            Some(id) => {
+                h2.head = Some(id);
+                h2.count += 1;
+                break;
+            }
+            None => {
+                gc_collect(nodes);
+            }
+        }
+    }
+    h2
+}
+
+fn garbage(v: u64) {
+    match nodes.alloc(Node { v: v, next: None }) {
+        Some(_) => {}
+        None => {
+            gc_collect(nodes);
+        }
+    }
+}
+
+fn worker(seed: u64) {
+    let me = cpu_id();
+    let mut slot: Option<own Holder> = Some(own Holder { head: None, count: 0 });
+    let mut i: u64 = 0;
+    while i < 3000 {
+        let h = slot.take().unwrap();
+        if i % 3 == 0 {
+            slot = Some(push(h, seed + i));
+        } else {
+            slot = Some(h);
+            garbage(seed + i);
+        }
+        i += 1;
+    }
+    let mut len: u64 = 0;
+    let mut sum: u64 = 0;
+    let mut count: u64 = 0;
+    if let Some(h) = slot {
+        count = h.count;
+        let mut cur = h.head;
+        loop {
+            match cur {
+                Some(id) => {
+                    len += 1;
+                    let mut nx: Option<Id<nodes>> = None;
+                    rcu_read {
+                        if let Some(n) = nodes.get(id) {
+                            sum += n.v - seed;
+                            nx = n.next;
+                        }
+                    }
+                    cur = nx;
+                }
+                None => break,
+            }
+        }
+    }
+    done.send(own Report { core: me, len: len, sum: sum, count: count });
+}
+
+fn main() {
+    spawn_on(1, worker, 0);
+    spawn_on(2, worker, 1000000);
+    for k in 0..2 {
+        let r = done.recv_wait();
+        put_str("len ");
+        print_int(r.len);
+        put_str("count ");
+        print_int(r.count);
+        put_str("sum ");
+        print_int(r.sum);
+    }
+    gc_collect(nodes);
+    let mut n: u64 = 0;
+    critical {
+        n = nodes.len() as u64;
+    }
+    print_int(n);
+}

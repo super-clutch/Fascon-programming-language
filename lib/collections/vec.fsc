@@ -1,0 +1,101 @@
+// collections::vec — アリーナのチャンクで伸びる可変長配列（u64。ジェネリクスなし・参照を保存しない）
+// collections::vec — a growable array built from arena chunks (u64; no generics, no stored references)
+//
+//   let mut v = vec::empty();
+//   vec::push(&mut v, 7);
+//   vec::at(&v, 0)          // Option<u64>
+//   vec::clear(&mut v);     // チャンクを表へ返す / give the chunks back
+
+const CHUNK: u32 = 16;
+
+struct Chunk { items: [u64; 16], next: Option<Id<chunks>> }
+arena chunks: Chunk[4096];
+
+struct VecU64 { head: Option<Id<chunks>>, tail: Option<Id<chunks>>, len: u32 }
+
+fn empty() -> VecU64 {
+    VecU64 { head: None, tail: None, len: 0 }
+}
+
+fn push(v: &mut VecU64, x: u64) -> bool {
+    let k = v.len % CHUNK;
+    if k == 0 {
+        match chunks.alloc(Chunk { items: [0; 16], next: None }) {
+            Some(c) => {
+                match v.tail {
+                    Some(t) => chunks[t].next = Some(c),
+                    None => v.head = Some(c),
+                }
+                v.tail = Some(c);
+            }
+            None => return false,
+        }
+    }
+    match v.tail {
+        Some(t) => chunks[t].items[k] = x,
+        None => return false,
+    }
+    v.len += 1;
+    true
+}
+
+fn size(v: &VecU64) -> u32 {
+    v.len
+}
+
+fn at(v: &VecU64, i: u32) -> Option<u64> {
+    if i >= v.len {
+        return None;
+    }
+    let mut cur = v.head;
+    let mut skip = i / CHUNK;
+    loop {
+        match cur {
+            Some(c) => {
+                if skip == 0 {
+                    return Some(chunks[c].items[i % CHUNK]);
+                }
+                skip -= 1;
+                cur = chunks[c].next;
+            }
+            None => return None,
+        }
+    }
+}
+
+fn total(v: &VecU64) -> u64 {
+    let mut s: u64 = 0;
+    let mut cur = v.head;
+    let mut left = v.len;
+    loop {
+        match cur {
+            Some(c) => {
+                let n = min(left, CHUNK);
+                for k in 0..n {
+                    s += chunks[c].items[k];
+                }
+                left -= n;
+                cur = chunks[c].next;
+            }
+            None => break,
+        }
+    }
+    s
+}
+
+fn clear(v: &mut VecU64) {
+    let mut cur = v.head;
+    loop {
+        match cur {
+            Some(c) => {
+                let nx = chunks[c].next;
+                chunks.free(c);
+                cur = nx;
+            }
+            None => break,
+        }
+    }
+    v.head = None;
+    v.tail = None;
+    v.len = 0;
+}

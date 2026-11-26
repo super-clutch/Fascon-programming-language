@@ -1,0 +1,44 @@
+// vruntime_scan.fsc — `for id in @task` による全アクティブタスクの vruntime 集計
+//                     summing vruntime over every live task with `for id in @task`
+//
+// 容量 65,536 なので K = 16: Id = [世代 16 ビット | 添字 16 ビット]。1 スロット 65,535 世代 × 65,536 スロット
+// = アリーナ全体で 4,294,901,760 回の確保まで。ソースには上限も型注釈も書かない（すべてコンパイラが決める）。
+// capacity 65,536, so K = 16: Id = [generation 16 bits | index 16 bits]; 65,535 generations × 65,536 slots
+// = 4,294,901,760 allocations over the arena's life. The source states no limit and no annotation.
+//
+//   fascon build examples/vruntime_scan.fsc     → build/vruntime_scan.fascon.c（fsc_reduce_task_1 を見てください）
+//   fascon run examples/vruntime_scan.fsc       → 1497000 / 1494003
+
+struct Task {
+    pid: u32,
+    prio: u32,
+    vruntime: u64,
+}
+
+arena @task: Task[65536];
+
+fn total_vruntime() -> u64 {
+    let mut total: u64 = 0;
+    for id in @task {
+        total += @task[id].vruntime;
+    }
+    total
+}
+
+fn main() {
+    let mut k: u64 = 0;
+    while k < 1000 {
+        let id = @task.alloc(Task { pid: k as u32, prio: 1, vruntime: k * 3 }).unwrap();
+        if k == 500 {
+            @task.free(id);
+        }
+        k += 1;
+    }
+    print_int(total_vruntime() as i64);
+    for id in @task {
+        if @task[id].pid == 999 {
+            @task.free(id);
+        }
+    }
+    print_int(total_vruntime() as i64);
+}

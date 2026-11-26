@@ -1,0 +1,9 @@
+// expect: F2623
+// env: FASCON_GC=off
+// --gc=off（完全決定論のビルド）では gc_arena を使えない / gc_arena is rejected by --gc=off (fully deterministic builds)
+struct Node { v: u64, next: Option<Id<nodes>> }
+gc_arena nodes: Node[16];
+
+fn main() {
+    let a = nodes.alloc(Node { v: 1, next: None });
+}

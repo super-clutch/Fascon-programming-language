@@ -1,0 +1,104 @@
+// フレームリージョンのテスト: どこへも移動しない `let x = own T { .. }` はヒープではなくフレームに置かれ、
+// スコープの終わり（ループの各周回・break・continue・return を含む）に印まで戻る
+// frame-region test: a `let x = own T { .. }` that is never moved lives in the frame instead of the heap, and is popped
+// back to its mark at the end of its scope (each loop iteration, break, continue and return included)
+struct Big { a: u64, b: u64, c: u64, d: u64, e: u64, f: u64, g: u64, h: u64, i: u64, j: u64, k: u64, l: u64, m: u64, n: u64, o: u64, p: u64 }
+struct Btn { label: Str, x: i32 }
+struct Win { title: Str, ok: own Btn, cancel: own Btn, note: Option<own Btn> }
+
+fn total(b: &Big) -> u64 {
+    b.a + b.b + b.c + b.d + b.e + b.f + b.g + b.h + b.i + b.j + b.k + b.l + b.m + b.n + b.o + b.p
+}
+
+fn big(v: u64) -> Big {
+    Big { a: v, b: v, c: v, d: v, e: v, f: v, g: v, h: v, i: v, j: v, k: v, l: v, m: v, n: v, o: v, p: v }
+}
+
+// 関数の中で閉じる own（フレーム） / an own that stays inside the function (frame)
+fn local_only(v: u64) -> u64 {
+    let x = own Big { a: v, b: 1, c: 2, d: 3, e: 4, f: 5, g: 6, h: 7, i: 8, j: 9, k: 10, l: 11, m: 12, n: 13, o: 14, p: 15 };
+    let inner = heap_live_blocks();
+    if inner != 0 {
+        print_str("frame miss in local_only");
+    }
+    total(&x)
+}
+
+// 返す own（エスケープ → ヒープ） / an own that is returned (escapes → heap)
+fn escapes(v: u64) -> own Big {
+    let x = own Big { a: v, b: 0, c: 0, d: 0, e: 0, f: 0, g: 0, h: 0, i: 0, j: 0, k: 0, l: 0, m: 0, n: 0, o: 0, p: 0 };
+    x
+}
+
+// 詰めた子ごとフレームに 1 個（子の Option<own> はヒープ） / one frame block with packed children (Option<own> children are heap)
+fn window_sum() -> i32 {
+    let mut w = own Win { title: "w", ok: own Btn { label: "OK", x: 3 }, cancel: own Btn { label: "Cancel", x: 4 }, note: None };
+    w.note = Some(own Btn { label: "note", x: 5 });
+    let heap_now = heap_live_blocks();
+    let mut s = w.ok.x + w.cancel.x;
+    if let Some(n) = w.note {
+        s = s + n.x;
+    }
+    s + (heap_now as i32) * 100
+}
+
+// ループの中: 周回ごとに戻すのでフレームは伸びない（256 B × 2000 周 > 既定の 64 KiB）
+// inside a loop: popped every iteration, so the frame does not grow (256 B × 2000 iterations > the default 64 KiB)
+fn loop_frames(n: u64) -> u64 {
+    let mut s: u64 = 0;
+    let mut misses: u64 = 0;
+    let mut k: u64 = 0;
+    while k < n {
+        k += 1;
+        let x = own Big { a: k, b: 0, c: 0, d: 0, e: 0, f: 0, g: 0, h: 0, i: 0, j: 0, k: 0, l: 0, m: 0, n: 0, o: 0, p: 0 };
+        if heap_live_blocks() != 0 {
+            misses += 1;
+        }
+        if k % 7 == 0 {
+            continue;
+        }
+        if k > n - 3 {
+            break;
+        }
+        s += x.a;
+    }
+    misses * 1000000000 + s
+}
+
+// for の中で return（フレームを戻してから返る） / return from inside a for (the frame is popped before returning)
+fn find_first(lim: u64) -> u64 {
+    for i in 0..100 {
+        let x = own Big { a: i as u64, b: 0, c: 0, d: 0, e: 0, f: 0, g: 0, h: 0, i: 0, j: 0, k: 0, l: 0, m: 0, n: 0, o: 0, p: 0 };
+        if x.a * x.a > lim {
+            return x.a;
+        }
+    }
+    0
+}
+
+// 入れ子の呼び出し（呼び出し先のフレームは戻ってから使える） / nested calls (a callee's frame is popped when it returns)
+fn nested(depth: u32) -> u64 {
+    let x = own Big { a: depth as u64, b: 0, c: 0, d: 0, e: 0, f: 0, g: 0, h: 0, i: 0, j: 0, k: 0, l: 0, m: 0, n: 0, o: 0, p: 0 };
+    if depth == 0 {
+        return x.a;
+    }
+    let below = nested(depth - 1);
+    x.a + below
+}
+
+fn main() {
+    print_int(local_only(100) as i64);
+    print_int(heap_live_blocks());
+    let e = escapes(7);
+    put_str("escaped own on the heap: ");
+    print_int(heap_live_blocks());
+    print_int(e.a as i64);
+    drop(e);
+    print_int(window_sum() as i64);
+    print_int(heap_live_blocks());
+    print_int(loop_frames(2000) as i64);
+    print_int(find_first(50) as i64);
+    print_int(nested(20) as i64);
+    print_int(total(&big(2)) as i64);
+    print_int(heap_live_blocks());
+}

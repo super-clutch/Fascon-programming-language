@@ -1,0 +1,398 @@
+[
+ {
+  "code": "F0001",
+  "math": {
+   "en": "Fascon 1.0 has no `'` token. Lifetime annotations cannot be written and are never needed (references are second-class).",
+   "ja": "Fascon 1.0 の字句には ' が存在しない。ライフタイム注釈は書けず、必要もない（参照は第二級）。"
+  },
+  "title": {
+   "en": "syntax error",
+   "ja": "構文エラー"
+  }
+ },
+ {
+  "code": "F0382",
+  "math": {
+   "en": "Owned values (structs, own T) are affine: at each move point p, Moved(p) ∩ R⁺(p) = ∅ must hold (R⁺(p) = variables needed after p). own T denotes the unique owner, so a second use would duplicate ownership (a potential double free) and is rejected.",
+   "ja": "所有値（構造体・own T）はアフィン: 各移動点 p で Moved(p) ∩ R⁺(p) = ∅（R⁺(p) は p 以降に必要な変数）でなければならない。own T は唯一の所有者を表すので、2 回目の使用は所有権の二重化＝二重解放の可能性になり拒否される。"
+  },
+  "title": {
+   "en": "use after move",
+   "ja": "移動後使用"
+  }
+ },
+ {
+  "code": "F0499",
+  "math": {
+   "en": "Mutable access to overlapping places (paths where one is a prefix of the other; an arena always overlaps itself because two Ids may be equal) is rejected among the arguments of one call and against live bound references.",
+   "ja": "同じ呼び出しの引数どうし、および有効な束縛参照と、重なる場所（同じ根から始まる接頭辞関係のパス。アリーナは Id が同じかもしれないので常に重なる）への可変アクセスを禁止する。"
+  },
+  "title": {
+   "en": "borrow conflict",
+   "ja": "借用の衝突"
+  }
+ },
+ {
+  "code": "F0502",
+  "math": {
+   "en": "Mutable access to overlapping places (paths where one is a prefix of the other; an arena always overlaps itself because two Ids may be equal) is rejected among the arguments of one call and against live bound references.",
+   "ja": "同じ呼び出しの引数どうし、および有効な束縛参照と、重なる場所（同じ根から始まる接頭辞関係のパス。アリーナは Id が同じかもしれないので常に重なる）への可変アクセスを禁止する。"
+  },
+  "title": {
+   "en": "borrow conflict",
+   "ja": "借用の衝突"
+  }
+ },
+ {
+  "code": "F0505",
+  "math": {
+   "en": "Mutable access to overlapping places (paths where one is a prefix of the other; an arena always overlaps itself because two Ids may be equal) is rejected among the arguments of one call and against live bound references.",
+   "ja": "同じ呼び出しの引数どうし、および有効な束縛参照と、重なる場所（同じ根から始まる接頭辞関係のパス。アリーナは Id が同じかもしれないので常に重なる）への可変アクセスを禁止する。"
+  },
+  "title": {
+   "en": "borrow conflict",
+   "ja": "借用の衝突"
+  }
+ },
+ {
+  "code": "F0507",
+  "math": {
+   "en": "Moving an owned value out of a field, a reference or an arena slot would leave an owner without contents. To keep the invariant that own fields are always initialized (which drop glue relies on), detachable children use Option<own T> and .take(), which leaves None behind. A binding of an own place (match / if let) is, like `&mut w.ok`, a reference to the contents of the own, not to the place holding it, so the own cannot be replaced through it; a replacement is written as an assignment to the place (which frees the old own and stores the new one).",
+   "ja": "フィールド・参照先・アリーナのスロットから所有値を取り出すと、元の場所が「中身の無い所有者」になる。own フィールドは常に初期化済みという不変条件（解放処理の前提）を守るため、取り外せる子は Option<own T> にして .take() で None を残す。own の場所の束縛（match / if let）は `&mut w.ok` と同じく own の中身を指す参照で、own を収めた場所そのものは指さないので、それを通した own の差し替えは書けない。差し替えは元の場所への代入で書く（古い own を解放してから新しい own を置く）。"
+  },
+  "title": {
+   "en": "move out of a place",
+   "ja": "場所からの移動"
+  }
+ },
+ {
+  "code": "F0515",
+  "math": {
+   "en": "A reference type &T only appears as a parameter or an if-let / match binding. The grammar of value types has no references, so an expression storing a reference in a struct, a return value, an Option or an arena has no type. Every reference therefore lives within the syntactic block that created it (no lifetime annotations needed).",
+   "ja": "参照型 &T は関数の引数と if let / match の束縛にしか現れない。値の型の文法に参照が無いので、参照を構造体・戻り値・Option・アリーナに入れる式は型を持たない。よって全ての参照の寿命は、それを作った構文ブロックに含まれる（ライフタイム注釈は不要）。"
+  },
+  "title": {
+   "en": "second-class reference violation",
+   "ja": "第二級参照の制約違反"
+  }
+ },
+ {
+  "code": "F0520",
+  "math": {
+   "en": "When a higher-order function h calls its parameter f: fn(&mut T) as f(&mut p), the reference r it passes lives exactly for the one call [call, ret]. When a function g is used as a value (becomes a callback), each reference parameter x of g gets an escape summary Esc(g, x), computed as a least fixpoint over the call graph: Esc(g, x) ≠ ∅ ⇔ x (including references made from x, values wrapping x and locals bound to it) flows into the return value, into a place that outlives the call L = {arena, static, MMIO, port, the target of another reference}, into an own region, into a by-value parameter, or into a reference parameter whose Esc ≠ ∅. stack_only(g) ⇔ ∀x. Esc(g, x) = ∅ is required; a violation is F0520 (the timeline is that flow). Function-pointer values only come from function names, so every indirect call reaches a stack_only function and r is never used outside [call, ret]. No lifetime variable is involved.",
+   "ja": "高階関数 h が引数 f: fn(&mut T) を f(&mut p) と呼ぶとき、渡す参照 r の寿命は呼び出し 1 回の区間 [call, ret] そのものである。関数 g が値として使われる（コールバックになる）とき、g の参照引数 x ごとに逃げ道の要約 Esc(g, x) を呼び出しグラフ上の最小不動点として求める: Esc(g, x) ≠ ∅ ⇔ x（x から作った参照・x を包んだ値・x を束縛したローカルを含む）が、戻り値・呼び出しより長く生きる場所 L = {アリーナ, static, MMIO, ポート, 別の参照の先}・own の所有リージョン・値渡しの引数・Esc ≠ ∅ の参照引数のどれかへ流れる。stack_only(g) ⇔ ∀x. Esc(g, x) = ∅ を要求し、破れれば F0520（タイムライン = その流れ）。関数ポインタの値は関数の名前からしか生まれないので、間接呼び出しの行き先はすべて stack_only な関数であり、r が区間 [call, ret] の外で参照されることはない。ライフタイム変数は一切使わない。"
+  },
+  "title": {
+   "en": "reference escape constraint violated (callback)",
+   "ja": "参照のエスケープ制約違反（コールバック）"
+  }
+ },
+ {
+  "code": "F2030",
+  "math": {
+   "en": "In 1.0 plain structs are inline (they are C structs), so containing yourself by value makes sizeof infinite. Break the recursion with own (a unique owning pointer): Option<own T>.",
+   "ja": "1.0 では値型の構造体はインライン（C の構造体そのもの）なので、値として自分を含むと sizeof が無限になる。再帰は own（唯一の所有ポインタ）で切る: Option<own T>。"
+  },
+  "title": {
+   "en": "infinitely sized type",
+   "ja": "無限の大きさの型"
+  }
+ },
+ {
+  "code": "F2101",
+  "math": {
+   "en": "Typing rule (T-Index): Γ ⊢ e : Id<@a> and @a : T[N] ⊢ @a[e] : T. Id<@a> and Id<@b> are distinct nominal types for a ≠ b and can be neither assigned nor compared, so an Id of @b can never denote a slot of @a; the run-time check only has to compare generations.",
+   "ja": "型規則 (T-Index): Γ ⊢ e : Id<@a> かつ @a : T[N] ⊢ @a[e] : T。Id<@a> と Id<@b> は a ≠ b なら別の名目型で、互いに代入も比較もできない。したがって @b の Id が @a のスロットを指すことは型の段階で起こり得ず、実行時の検査は世代の一致だけで済む。"
+  },
+  "title": {
+   "en": "arena colour mismatch",
+   "ja": "アリーナの色の不一致"
+  }
+ },
+ {
+  "code": "F2102",
+  "math": {
+   "en": "type FileId<@a: File> = Id<@a> quantifies only over arenas whose element type is File; for @x : T[N] with T ≠ File, FileId<@x> is ill-formed (a kind check).",
+   "ja": "type FileId<@a: File> = Id<@a> は「要素型が File のアリーナ」に限る量化。@x : T[N] で T ≠ File なら FileId<@x> は整形式でない（kind 検査）。"
+  },
+  "title": {
+   "en": "kind bound violated",
+   "ja": "種別境界の違反"
+  }
+ },
+ {
+  "code": "F2201",
+  "math": {
+   "en": "mmio @r: [T; N] at A types exactly the interval [A, A + N·sizeof T). If the range of an index i is proven within [0, N) the check is removed; a constant outside it is rejected at compile time; otherwise it is checked at run time.",
+   "ja": "mmio @r: [T; N] at A は区間 [A, A + N·sizeof T) だけを型として持つ。添字 i の値域が [0, N) に含まれると証明できれば検査を消し、定数が範囲外ならコンパイル時に拒否する。どちらでもなければ実行時に検査する。"
+  },
+  "title": {
+   "en": "fixed-address region out of bounds",
+   "ja": "固定番地リージョンの範囲外"
+  }
+ },
+ {
+  "code": "F2203",
+  "math": {
+   "en": "Two regions [A1, B1) and [A2, B2) overlap iff A1 < B2 ∧ A2 < B1. Overlap would make the same physical memory writable under two names and two types, breaking alias-free type safety, so it is rejected.",
+   "ja": "2 つのリージョン [A1, B1) と [A2, B2) は A1 < B2 ∧ A2 < B1 なら重なる。重なると同じ物理メモリが 2 つの型・2 つの名前で書けてしまい、別名の無い型安全性が崩れるので拒否する。"
+  },
+  "title": {
+   "en": "overlapping MMIO regions",
+   "ja": "MMIO リージョンの重なり"
+  }
+ },
+ {
+  "code": "F2502",
+  "math": {
+   "en": "Each function f gets an effect E(f) = (R, W, F) (the arenas it reads, writes, frees), computed as the least fixpoint over the call graph. While a mutable reference &mut @a[_] is live, calling g with a ∈ E(g) is rejected; while a shared reference is live, calling g with a ∈ W(g) ∪ F(g) is rejected. References are second-class (their extent is the syntax nesting itself), so this is decidable without any lifetime variable.",
+   "ja": "各関数 f に効果 E(f) = (R, W, F)（読む・書く・解放するアリーナの集合）を、呼び出しグラフの最小不動点として割り当てる。可変参照 &mut @a[_] が生きている区間で E(g) ∋ a となる g を呼ぶこと、共有参照の区間で W(g) ∪ F(g) ∋ a となる g を呼ぶことを禁止する。参照は第二級（区間は構文の入れ子そのもの）なので、ライフタイム変数なしにこの検査は決定可能である。"
+  },
+  "title": {
+   "en": "arena effect conflict",
+   "ja": "アリーナ効果の衝突"
+  }
+ },
+ {
+  "code": "F3001",
+  "title": {
+   "ja": "rtos の再帰",
+   "en": "recursion under rtos"
+  },
+  "math": {
+   "ja": "スタックの最大消費量 S(f) = frame(f) + max_{g ∈ callees(f)} S(g) は、呼び出しグラフ G（関数ポインタの呼び出しは、そこへ渡りうる全関数への辺）が非巡回のときだけ有限の最小不動点を持つ。G の強連結成分に閉路があると S は上に有界でなく、静的な証明ができない。",
+   "en": "The maximum stack use S(f) = frame(f) + max_{g ∈ callees(f)} S(g) has a finite least fixpoint only when the call graph G (an indirect call is an edge to every function that may reach it) is acyclic. A cycle in a strongly connected component of G leaves S unbounded, so no static proof exists."
+  }
+ },
+ {
+  "code": "F3101",
+  "title": {
+   "ja": "ユーザーメモリの 2 回読み（TOCTOU）",
+   "en": "user memory read twice (TOCTOU)"
+  },
+  "math": {
+   "ja": "user T の値 u は線形: 消費 c(u) は copy_from_user だけで、実行経路の上で c(u) ≤ 1 を要求する（移動の解析と同じ格子）。直接の読み出しは型 user T に添字・フィールドの演算が無いので型を持たない。よって検査した値（写し）と使う値が同じであることが型で保証され、別のコアが間で書き換えても影響しない。",
+   "en": "A user T value u is linear: its only consumption c(u) is copy_from_user, and c(u) ≤ 1 is required along every path (the same lattice as move analysis). Direct reads have no type because user T has no index or field operations. Hence the checked value (the copy) is the used value by typing, and another core writing in between has no effect."
+  }
+ },
+ {
+  "code": "F3202",
+  "title": {
+   "ja": "rcu_read の中の書き込み",
+   "en": "a write inside rcu_read"
+  },
+  "math": {
+   "ja": "区間 R = rcu_read { .. } に対し E(R) ⊆ R(Arenas)（読み取りの効果だけ）を要求する。書き手は free を猶予期間 GP の後にしか回収しないので、読み手が持つスロット s について「R の間 s は再利用されない」が成り立つ。W(R) ∪ F(R) ∪ A(R) ≠ ∅ は読み手の区間で書き手になることなので拒否する。",
+   "en": "For a section R = rcu_read { .. } we require E(R) ⊆ R(Arenas) (read effects only). Writers reclaim frees only after a grace period GP, so for a slot s a reader holds, \"s is not reused during R\" holds. W(R) ∪ F(R) ∪ A(R) ≠ ∅ would make the reader a writer, so it is rejected."
+  }
+ },
+ {
+  "code": "F3203",
+  "title": {
+   "ja": "Sleep 効果の呼び出し",
+   "en": "a call with the Sleep effect"
+  },
+  "math": {
+   "ja": "Sleep(f) は呼び出しグラフ上の最小不動点（schedule・sleep_ticks・rcu_synchronize・#[sleep]・待つ操作から伝わる）。rcu_read の読み手は猶予期間を止めているので眠るとデッドロック、atomic と #[trap] は割り込み・例外の文脈なので眠れない。第二級参照 r が生きている間に眠ると、ほかのタスクの E(g) が r の根を解放しうる。どれも Sleep(callee) = 真 の呼び出しを禁止して防ぐ。",
+   "en": "Sleep(f) is a least fixpoint over the call graph (propagated from schedule, sleep_ticks, rcu_synchronize, #[sleep] and blocking operations). An rcu_read reader holds back the grace period, so sleeping there deadlocks; atomic and #[trap] run in interrupt / exception context and cannot sleep. Sleeping while a second-class reference r is live lets another task's E(g) free r's root. Each is prevented by rejecting calls with Sleep(callee) = true."
+  }
+ },
+ {
+  "code": "F3301",
+  "title": {
+   "ja": "秘密の値の複製・出力",
+   "en": "a secret copied or output"
+  },
+  "math": {
+   "ja": "秘密の格子 L = {Public ⊑ Secret} で、#[secret] の場所は Secret。代入・値渡し・出力は情報の流れ l₁ → l₂ を作り、l₁ ⊑ l₂ を要求する（Secret → Public は不可）。ct_eq の結果だけが宣言された分類解除（declassification）で、その bool は Public。",
+   "en": "In the secrecy lattice L = {Public ⊑ Secret}, #[secret] places are Secret. Assignments, by-value passing and output create flows l₁ → l₂ that require l₁ ⊑ l₂ (Secret → Public is rejected). Only ct_eq is a declared declassification; its bool is Public."
+  }
+ },
+ {
+  "code": "F3302",
+  "title": {
+   "ja": "秘密に依存する分岐",
+   "en": "a secret-dependent branch"
+  },
+  "math": {
+   "ja": "定数時間性: 実行時間 T(p, s) が秘密 s に依存しないこと。分岐・短絡評価・早期リターン・添字（キャッシュの当たり外れ）は s によって実行される命令列かアクセスする番地を変えるので、条件・添字に Secret の式を置くことを型で禁じる（制御の依存も Secret に昇格する標準的な非干渉性の型付け）。",
+   "en": "Constant time: the running time T(p, s) must not depend on the secret s. Branches, short-circuit evaluation, early returns and indices (cache hits and misses) change the executed instructions or the accessed addresses depending on s, so typing forbids Secret expressions in conditions and indices (the standard non-interference typing that raises control dependence to Secret)."
+  }
+ },
+ {
+  "code": "F3401",
+  "title": {
+   "ja": "貸し出し中の DMA バッファの使用",
+   "en": "a DMA buffer used while lent"
+  },
+  "math": {
+   "ja": "dma own は線形資源で、submit_dma(b) は b の所有権をデバイスへ移す（以後 b は Moved）。CPU が戻るのは complete_dma が返した新しい値だけなので、「デバイスが書いている間に CPU が読む・書く・解放する」経路は型付けできない。キャッシュの掃き出し（DC CVAC）と無効化（DC IVAC）はこの所有権の移動の点に必ず置かれる。",
+   "en": "dma own is a linear resource: submit_dma(b) moves b's ownership to the device (b is Moved afterwards). The CPU only gets back the new value returned by complete_dma, so no path where the CPU reads, writes or frees while the device writes can be typed. Cache cleaning (DC CVAC) and invalidation (DC IVAC) are always placed at these ownership transfers."
+  }
+ },
+ {
+  "code": "F3402",
+  "title": {
+   "ja": "dma own のフィールド",
+   "en": "a dma own field"
+  },
+  "math": {
+   "ja": "構造体のフィールドは「いつも初期化済み」が不変条件（解放処理の前提）。dma own はデバイスへ貸すときに外す必要があるので、外した後の状態を型に持つ Option<dma own T> にする（.take() が None を残す）。",
+   "en": "A struct field is always initialized (the invariant drop glue relies on). A dma own must be detached to be lent to a device, so it is an Option<dma own T>, whose type has a state after detaching (.take() leaves None)."
+  }
+ },
+ {
+  "code": "F3701",
+  "title": {
+   "ja": "モジュールが見つからない",
+   "en": "module not found"
+  },
+  "math": {
+   "ja": "import a::b は検索パス P = [このフォルダ, fsc_modules*, FASCON_PATH, lib/, 埋め込み] の最初に見つかった a/b.fsc に決まる。名前の付け替え a_b__x は単射なので、モジュールをまたいで名前は衝突しない。",
+   "en": "import a::b resolves to the first a/b.fsc on the search path P = [this folder, fsc_modules*, FASCON_PATH, lib/, embedded]. The renaming a_b__x is injective, so names never clash across modules."
+  }
+ },
+ {
+  "code": "*",
+  "math": {
+   "en": "See the corresponding typing rule in the specification (docs/SPEC-1.0.md).",
+   "ja": "詳しくは仕様書（docs/SPEC-1.0.ja.md）の該当する型規則を参照してください。"
+  },
+  "title": {
+   "en": "a Fascon 1.0 check",
+   "ja": "Fascon 1.0 の検査"
+  }
+ },
+ {
+  "code": "F2621",
+  "math": {
+   "ja": "解放は fascon-gc の仕事: 根から届かなくなったスロットだけが gc_collect で回収される（届くものを手で解放すると、生きている Id が古くなる）。",
+   "en": "freeing is fascon-gc's job: only slots unreachable from the roots are reclaimed by gc_collect (freeing a reachable one by hand would make live Ids stale)."
+  },
+  "title": {
+   "ja": "gc_arena に手動の free / remove",
+   "en": "manual free / remove on a gc_arena"
+  }
+ },
+ {
+  "code": "F2616",
+  "math": {
+   "ja": "コアごとの実体は TLS の固定の位置で引くので、Id の意味は「作ったコアの表の中の番号」になる。共有の周辺の割り込み（INTID 32 以上）は CPU0 にだけ届くので、そのハンドラが触るコアごとの表は常に CPU0 のもの。ほかのコアで作った Id がそこへ来ると、世代の検査は別の表の世代と比べてしまう。E_env（そのハンドラの環境効果）からコアごとの実体を除けるのは、そのハンドラが自分のコアの実体だけに触れるとき（コアごとの割り込み 16〜31）に限る。",
+   "en": "Per-core instances are looked up at fixed TLS offsets, so an Id means a number in the table of the core that made it. Shared peripheral interrupts (INTID 32 and up) reach CPU0 only, so the per-core table their handler touches is always the one of CPU0; an Id made on another core would be checked against the generations of a different table. Per-core instances may be left out of the environment effect E_env of a handler only when the handler touches the instances of its own core (per-core interrupts 16 to 31)."
+  },
+  "title": {
+   "ja": "共有の割り込みとコアごとのアリーナ",
+   "en": "Shared interrupts and per-core arenas"
+  }
+ },
+ {
+  "code": "F2622",
+  "math": {
+   "ja": "回収の時間は生きているオブジェクトの数に比例して読めない。区間の中で止まったコアを回収が待つと、猶予期間・例外の処理と互いに待って行き詰まる。critical（ロックを持つ）と irq のハンドラ（割り込みを止めている）の中も同じで、そこから呼ぶ関数の確保・回収も E(f) で見つけて拒む。共有の gc_arena の安全点の待ち合わせは、ロックを 1 つも持たない開いた区間でだけ起きる。",
+   "en": "collection time grows with the live objects and is unbounded; a collector waiting for a core parked inside such a section and that section waiting for the collector would deadlock. The same holds inside critical (holding the lock) and irq handlers (interrupts masked); allocation and collection in functions called from there are found through E(f) and rejected. The safepoint rendezvous of a shared gc_arena happens only in open sections that hold no lock."
+  },
+  "title": {
+   "ja": "#[trap]・rcu_read・atomic・critical・irq の中の GC",
+   "en": "GC inside #[trap], rcu_read, atomic, critical or irq"
+  }
+ },
+ {
+  "code": "F2623",
+  "math": {
+   "ja": "完全決定論のビルドでは GC のランタイムを 1 バイトもリンクしない: gc_arena そのものを拒否して保証する。",
+   "en": "a fully deterministic build links not a single byte of the GC runtime: it is guaranteed by rejecting gc_arena itself."
+  },
+  "title": {
+   "ja": "--gc=off で gc_arena",
+   "en": "gc_arena with --gc=off"
+  }
+ },
+ {
+  "code": "F2624",
+  "math": {
+   "ja": "装置が書いている最中のバッファを、CPU 側の到達性だけで判断する GC が回収すると、解放後のメモリへ DMA が書き込む。",
+   "en": "a GC judging reachability only from the CPU side could reclaim a buffer a device is still writing; DMA would then write into freed memory."
+  },
+  "title": {
+   "ja": "gc_arena の要素に dma own",
+   "en": "dma own in a gc_arena element"
+  }
+ },
+ {
+  "code": "F2625",
+  "math": {
+   "ja": "共有の gc_arena を回収するコアは、ほかのコアの TLS のアリーナを読めない: そこにだけある Id を根として見落とす。",
+   "en": "the core collecting a shared gc_arena cannot read other cores' TLS arenas: Ids kept only there would be missed as roots."
+  },
+  "title": {
+   "ja": "コアごとのアリーナに共有の gc_arena の Id",
+   "en": "Ids of a shared gc_arena in a per-core arena"
+  }
+ },
+ {
+  "code": "F2705",
+  "math": {
+   "ja": "装置が書きうるビット列の集合を B とすると、要素の型 T は ∀b ∈ B: valid_T(b) でなければならない。整数・浮動小数点数とその配列・構造体だけがこれを満たす（own・Id・Str・参照・関数ポインタはほかの領域を指し、bool・Option は無効なビット列を持つ）。",
+   "en": "Let B be every bit pattern the device may write; the element type T must satisfy ∀b ∈ B: valid_T(b). Only integers, floats and arrays / structs of them do (own, Id, Str, references and function pointers point into other regions; bool and Option have invalid bit patterns)."
+  },
+  "title": {
+   "ja": "gpu_arena の要素が POD でない",
+   "en": "non-POD gpu_arena element"
+  }
+ },
+ {
+  "code": "F2706",
+  "math": {
+   "ja": "ハンドルと引換券は表ごとの型: h : GpuBuf⟨g⟩、f : GpuFence⟨g⟩ は g の操作にだけ渡せる（g ≠ g′ なら GpuBuf⟨g⟩ ≢ GpuBuf⟨g′⟩）。装置にあるスロットが存在しうるので、表の全体を回す操作（for・Id による参照）は型として無い。",
+   "en": "Handles and tickets are typed per table: h : GpuBuf⟨g⟩ and f : GpuFence⟨g⟩ may only be passed to operations of g (GpuBuf⟨g⟩ ≢ GpuBuf⟨g′⟩ for g ≠ g′). Since slots may be on the device, whole-table operations (for, lookups by Id) do not exist in the type."
+  },
+  "title": {
+   "ja": "gpu_arena のハンドル・引換券の誤用",
+   "en": "misused gpu_arena handle or ticket"
+  }
+ },
+ {
+  "code": "F2707",
+  "math": {
+   "ja": "--gpu=off のとき dispatch(k, g, b, h) ≡ kernel_k(&slot[h], g, b); f := 完了済み。意味（スロットに対するカーネルの効果と所有権の移動）は同じで、実行の場所だけが呼んだコアになる。",
+   "en": "With --gpu=off, dispatch(k, g, b, h) ≡ kernel_k(&slot[h], g, b); f := complete. The meaning (the kernel effect on the slot and the ownership moves) is unchanged; only the place of execution becomes the calling core."
+  },
+  "title": {
+   "ja": "--gpu=off の gpu_arena（警告）",
+   "en": "gpu_arena under --gpu=off (warning)"
+  }
+ },
+ {
+  "code": "F3901",
+  "math": {
+   "ja": "計算コアのルートの集合 R = { f | spawn_on(k, f), k ≠ 0 }、到達 Reach(R) は呼び出しグラフの推移閉包。IO(f) ≠ ∅ かつ f ∈ Reach(R) かつ allow(hpc_io) ∉ attrs(f) ∪ attrs(r) なら警告。",
+   "en": "Compute roots R = { f | spawn_on(k, f), k ≠ 0 }; Reach(R) is the transitive closure of the call graph. Warn when IO(f) ≠ ∅, f ∈ Reach(R) and allow(hpc_io) ∉ attrs(f) ∪ attrs(r)."
+  },
+  "title": {
+   "ja": "計算コアへの I/O の雑音",
+   "en": "I/O noise on a compute core"
+  }
+ },
+ {
+  "code": "F3902",
+  "math": {
+   "ja": "f ∈ Reach(R) なら Alloc(f) = ∅（own・own_alloc・gc・dma_alloc なし）でなければならず、また for id in @a の本体の書き込み集合 W と写しの列が読むフィールドの集合 M について W ∩ M = ∅ でなければならない（写しの表ごとの作り直し O(N) を計算中に起こさない）。",
+   "en": "For f ∈ Reach(R), Alloc(f) = ∅ must hold (no own, own_alloc, gc or dma_alloc), and for the write set W of a for id in @a body and the set M of fields read by mirror columns, W ∩ M = ∅ (no O(N) table-wide mirror rebuild during the compute phase)."
+  },
+  "title": {
+   "ja": "計算コアの動的な確保・写しの作り直し",
+   "en": "dynamic allocation or mirror rebuild on a compute core"
+  }
+ },
+ {
+  "code": "F3903",
+  "math": {
+   "ja": "形 T = (cores, smt, numa) について、定数のコア c は 0 ≤ c < cores、numa_node(n) は 0 ≤ n < numa。#[no_smt] では、使うコアの写像 phys(c) = c mod (cores / smt)（adjacent なら c / smt）が単射でなければならない。",
+   "en": "For the shape T = (cores, smt, numa), a constant core c needs 0 ≤ c < cores and numa_node(n) needs 0 ≤ n < numa. With #[no_smt], the map phys(c) = c mod (cores / smt) (c / smt when adjacent) over the used cores must be injective."
+  },
+  "title": {
+   "ja": "計算ノードの形の違反",
+   "en": "compute node shape violation"
+  }
+ }
+]

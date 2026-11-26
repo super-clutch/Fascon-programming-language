@@ -1,0 +1,111 @@
+// 構造体のフィールドに own を持つ: 中身は構造体でなくてもよい（own i32 / own [u8; N] / own Str / Option<own i32>）。
+// own フィールドを持つ構造体は Move 専用で、移動・スコープの終わり・上書き・drop のたびに中の own も連動して解放される。
+// own fields in structs: the contents need not be a struct (own i32 / own [u8; N] / own Str / Option<own i32>). A struct
+// with own fields is move-only; every move, scope end, overwrite and drop frees the owns inside along with it.
+struct MyContext {
+    buffer: own i32,
+    size: i32,
+}
+struct Packet {
+    data: own [u8; 16],
+    name: own Str,
+    extra: Option<own i32>,
+    ctx: MyContext,
+}
+struct Pair { a: own i64, b: own i64 }
+struct Slots { vals: [own i32; 3], tag: u8 }
+struct Job { prio: own u32, ctx: MyContext }
+arena jobs: Job[4];
+
+fn bump(c: &mut MyContext) {
+    *c.buffer += c.size;
+}
+fn make(n: i32) -> MyContext {
+    MyContext { buffer: own n, size: 1 }
+}
+fn consume(c: MyContext) -> i32 {
+    *c.buffer + c.size
+}
+fn total(p: &Packet) -> i64 {
+    let mut s = 0;
+    for i in 0..16 {
+        s += p.data[i] as i64;
+    }
+    s + *p.ctx.buffer as i64
+}
+fn fill(buf: &mut [u8; 16], v: u8) {
+    for i in 0..16 {
+        buf[i] = v;
+    }
+}
+fn read_only(x: &i32) -> i32 { *x }
+fn boxed(v: i64) -> own i64 { own v }
+fn live(base: usize) -> i64 { (heap_live_blocks() - base) as i64 }
+
+fn main() {
+    let base = heap_live_blocks();
+    // 1. own i32 のフィールド: `*` で中身を読み書き / an own i32 field: read and write the contents with `*`
+    let mut c = MyContext { buffer: own 40, size: 2 };
+    bump(&mut c);
+    print_int(*c.buffer as i64);
+    *c.buffer = 7;
+    *c.buffer *= 3;
+    print_int(*c.buffer as i64);
+    print_int(read_only(&c.buffer) as i64);
+    // 2. own ごとの差し替え: 古い own はその場で解放 / replacing the whole own: the old one is freed on the spot
+    c.buffer = own 100;
+    print_int(*c.buffer as i64);
+    print_int(live(base));
+    // 3. 構造体まるごとの移動: 移動元は空になり、二重解放は起きない / moving the whole struct: the source is emptied, no double free
+    let d = c;
+    print_int(consume(d) as i64);
+    print_int(live(base));
+    // 4. 関数から返す・複製（深いコピー） / returning from a function, cloning (a deep copy)
+    let m = make(5);
+    let mut m2 = m.clone();
+    *m2.buffer = 6;
+    print_int((*m.buffer + *m2.buffer) as i64);
+    print_int(live(base));
+    // 5. own [u8; 16]・own Str・Option<own i32> と、入れ子の構造体 / own [u8; 16], own Str, Option<own i32> and a nested struct
+    let mut p = Packet { data: own [1u8; 16], name: own "pkt", extra: None, ctx: make(9) };
+    fill(&mut p.data, 2);
+    p.data[3] = 10;
+    print_int(total(&p));
+    print_str(*p.name);
+    p.extra = Some(own 77);
+    if let Some(x) = p.extra {
+        print_int(*x as i64);
+    }
+    print_int(live(base));
+    let taken = p.extra.take();
+    print_int(if p.extra.is_none() { 1 } else { 0 });
+    drop(taken);
+    print_int(live(base));
+    // 6. own_alloc: own の子（own i32 も）を 0 で作って同じブロックに詰める / own_alloc: own children (own i32 too) are created
+    // zero-filled and packed into the same block
+    let z = own_alloc(Packet);
+    print_int(*z.ctx.buffer as i64 + z.data[0] as i64);
+    let s = own_alloc(Slots);
+    print_int(*s.vals[2] as i64 + s.tag as i64);
+    let pair = own Pair { a: boxed(20), b: own 22 };
+    print_int(*pair.a + *pair.b);
+    // 7. own の中身へ `*` で書く / write into the contents with `*`
+    let mut lone = own 1u8;
+    *lone += 4;
+    print_int(*lone as i64);
+    let mut buf = own_alloc([u8; 8]);
+    buf[7] = 9;
+    print_int(buf[7] as i64 + buf.len() as i64);
+    // 8. アリーナの要素が own フィールドを持つ構造体: free で中の own も解放 / arena elements with own fields: free releases them too
+    let id = jobs.alloc(Job { prio: own 3, ctx: make(4) }).unwrap();
+    *jobs[id].prio += 1;
+    print_int(*jobs[id].prio as i64 + *jobs[id].ctx.buffer as i64);
+    let before = live(base);
+    jobs.free(id);
+    print_int(before - live(base));
+    drop(p);
+    drop(m);
+    drop(m2);
+    drop(pair);
+    print_int(live(base));
+}

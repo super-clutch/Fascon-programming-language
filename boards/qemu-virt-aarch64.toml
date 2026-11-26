@@ -1,0 +1,45 @@
+# QEMU virt（AArch64）— Fascon 1.0 の既定のボード（確かめたもの） / the default Fascon 1.0 board (verified)
+#   fascon qemu app.fsc --board boards/qemu-virt-aarch64.toml
+
+[board]
+name = "qemu-virt-aarch64"
+arch = "aarch64"
+cpus = 4
+
+[memory]
+ram_base = 0x4000_0000
+ram_size = 0x4000_0000          # 1 GiB
+
+[uart]
+kind = "pl011"
+base = 0x0900_0000
+
+[irq]
+kind = "gicv2"
+gicd = 0x0800_0000
+gicc = 0x0801_0000
+
+[timer]
+kind = "arm-generic"
+intid = 27                      # EL1 仮想タイマー / the EL1 virtual timer
+
+# bind_mmio が受け付ける装置の窓（バス列挙の代わり。DTB / PCIe の列挙はこれに足す）
+# device windows bind_mmio accepts (instead of bus enumeration; DTB / PCIe enumeration adds to them)
+[[device]]
+name = "pl011"
+base = 0x0900_0000
+size = 0x1000
+
+[[device]]
+name = "virtio-mmio"
+base = 0x0a00_0000
+size = 0x4000
+
+[[device]]
+name = "pcie-mmio"
+base = 0x1000_0000
+size = 0x2eff_0000
+
+[limits]
+user_str_max = 4096
+dma_pool_pages = 64

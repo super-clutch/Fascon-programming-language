@@ -1,0 +1,93 @@
+// fascon-target: hpc
+// fascon-topology: cores=8 smt=2 numa=2
+// hpc_compute.fsc — --target hpc: 管理コア（コア 0）が仕事を配り、計算コア 1・2 がコアごとのアリーナで計算して、
+// 結果を NUMA ノード 1 に固定した共有の表へ書く。計算コアは確保（own）も I/O もしない（F3901 / F3902）。
+// `#[no_smt]`: コア 0・1・2 は別々の物理コア（この形では兄弟は c と c + 4）
+// --target hpc: the management core (core 0) hands out work, compute cores 1 and 2 compute in their per-core arenas and
+// write the results into a shared table bound to NUMA node 1. Compute cores neither allocate (own) nor do I/O (F3901 /
+// F3902). `#[no_smt]`: cores 0, 1 and 2 are distinct physical cores (siblings are c and c + 4 in this shape)
+
+struct Job { lo: u64, hi: u64 }
+struct Part { v: u64 }
+struct Total { sum: u64, parts: u32 }
+
+arena part: Part[64];
+#[numa_node(1)]
+shared arena totals: Total[1];
+chan jobs: own Job[4];
+chan acks: u64[4];
+port_io post: u8 at_port 0x80;
+
+// 計算コアの関数（ルート） / the compute-core function (the root)
+fn worker(k: u64) {
+    let mut done: u64 = 0;
+    loop {
+        let j = jobs.recv_wait();
+        if j.hi == 0 {
+            break;
+        }
+        let mut x = j.lo;
+        while x < j.hi {
+            if part.alloc(Part { v: x * k }).is_none() {
+                // 表が満ちたら畳む（確保ではなく、コアごとの表の中での付け替え） / fold when the table fills up (no
+                // allocation, just reuse inside the per-core table)
+                let mut s: u64 = 0;
+                for id in part {
+                    s += part[id].v;
+                }
+                for id in part {
+                    part.free(id);
+                }
+                part.alloc(Part { v: s });
+                part.alloc(Part { v: x * k });
+            }
+            x += 1;
+        }
+        done += 1;
+    }
+    let mut sum: u64 = 0;
+    for id in part {
+        sum += part[id].v;
+    }
+    critical {
+        for id in totals {
+            totals[id].sum += sum;
+            totals[id].parts += 1;
+        }
+    }
+    beacon(done);
+    acks.send(sum);
+}
+
+// 計算コアから呼ぶが、わざと I/O する（`#[allow(hpc_io)]` で F3901 を外す） / called from compute cores but doing I/O on
+// purpose (`#[allow(hpc_io)]` lifts F3901)
+#[allow(hpc_io)]
+critical fn beacon(n: u64) {
+    post = (n as u8) + 48u8;
+}
+
+#[no_smt]
+fn main() {
+    totals.alloc(Total { sum: 0, parts: 0 });
+    spawn_on(1, worker, 1);
+    spawn_on(2, worker, 2);
+    let mut lo: u64 = 0;
+    while lo < 400 {
+        jobs.send(own Job { lo: lo, hi: lo + 100 });
+        lo += 100;
+    }
+    jobs.send(own Job { lo: 0, hi: 0 });
+    jobs.send(own Job { lo: 0, hi: 0 });
+    let a = acks.recv_wait();
+    let b = acks.recv_wait();
+    critical {
+        for id in totals {
+            print_int(totals[id].parts as i64);
+            // どちらのコアがどの仕事を取ったかで和は変わるが、和の和は決まっている / which core took which job changes the
+            // parts, not their total
+            print_int(if totals[id].sum == a + b { 1 } else { 0 });
+        }
+    }
+    print_int(if a + b >= 79800 && a + b <= 159600 { 1 } else { 0 });
+    print_str("hpc ok");
+}

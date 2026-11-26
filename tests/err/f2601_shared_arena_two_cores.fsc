@@ -1,0 +1,16 @@
+// expect: F2601
+// 共有アリーナは critical（か par()）の中でだけ触れる
+struct Counter { n: u64 }
+shared arena counters: Counter[1];
+fn worker() {
+    for id in counters {
+        counters[id].n += 1;
+    }
+}
+fn main() {
+    counters.alloc(Counter { n: 0 });
+    spawn_on(1, worker);
+    critical {
+        for id in counters { counters[id].n += 1; }
+    }
+}

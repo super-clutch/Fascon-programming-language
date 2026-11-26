@@ -1,0 +1,47 @@
+// 閉じた区間（critical）: ブロック・関数・式の位置、入れ子、早い return / break / continue、文脈依存の語が名前として使えること
+// closed sections: block, function and expression forms, nesting, early return / break / continue, and the contextual
+// words still usable as names
+struct Cell { v: i64 }
+arena @cells: Cell[8];
+
+critical fn bump(id: Id<@cells>, by: i64) -> i64 {
+    if by == 0 { return -1; }
+    @cells[id].v += by;
+    @cells[id].v
+}
+
+fn sum_until(limit: i64) -> i64 {
+    let mut total: i64 = 0;
+    for id in @cells {
+        critical {
+            if @cells[id].v > limit { break; }
+            if @cells[id].v == 0 { continue; }
+            total += @cells[id].v;
+        }
+    }
+    total
+}
+
+fn irq(critical: i64) -> i64 {
+    let dma = critical + 1;
+    let task_arena = dma * 2;
+    if critical > 0 { task_arena } else { 0 }
+}
+
+fn main() {
+    let a = @cells.alloc(Cell { v: 1 }).unwrap();
+    let b = @cells.alloc(Cell { v: 0 }).unwrap();
+    let c = @cells.alloc(Cell { v: 5 }).unwrap();
+    let d = @cells.alloc(Cell { v: 100 }).unwrap();
+    print_int(bump(a, 2));
+    print_int(bump(a, 0));
+    let x = critical { @cells[c].v + 1 };
+    print_int(x);
+    critical {
+        critical { @cells[b].v = 0; }
+        @cells[c].v += 1;
+    }
+    print_int(sum_until(50));
+    print_int(irq(4));
+    print_int(timer_freq() as i64);
+}

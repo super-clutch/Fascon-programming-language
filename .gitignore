@@ -1,0 +1,7 @@
+/target/
+build/
+/dist/
+*.ppm
+.fascon-cache/
+/bench/tsoa-build/
+/bench/fsimd-build/

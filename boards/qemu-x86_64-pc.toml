@@ -1,0 +1,23 @@
+# QEMU pc（x86_64・Fascon の仮想 BIOS）— rtos / 1 コア / x86_64 / the Fascon virtual BIOS, single core
+#   fascon qemu app.fsc --target x86_64 --board boards/qemu-x86_64-pc.toml
+
+[board]
+name = "qemu-x86_64-pc"
+arch = "x86_64"
+profile = "rtos"
+cpus = 1
+
+[memory]
+ram_base = 0x0010_0000
+ram_size = 0x0700_0000
+
+[uart]
+kind = "ns16550-pio"            # I/O ポート 0x3f8（COM1） / I/O port 0x3f8 (COM1)
+base = 0x3f8
+
+[irq]
+kind = "none"
+
+[timer]
+kind = "pit"
+intid = 0

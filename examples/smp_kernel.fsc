@@ -1,0 +1,197 @@
+// Fascon 1.0 の SMP 拡張: 4 つのコアで動くカーネル。fascon qemu examples/smp_kernel.fsc --headless
+// The SMP extension of Fascon 1.0: a kernel on four cores. fascon qemu examples/smp_kernel.fsc --headless
+//
+// - arena（ふつうのアリーナ）はコアごとに 1 つの実体。各コアは自分の表を、1 コアのときと同じコード（ロックなし・アトミック
+//   命令なし）で読み書きする
+//   a plain arena has one instance per core; each core works on its own table with the single-core code (no locks, no
+//   atomic instructions)
+// - chan はコア間のロックフリーなチャネル。own TaskPacket を送ると所有権ごと移る（送った変数はもう使えない: F0382）。
+//   埋め込みの子（own の配列）を持っていても、渡るのは根のポインタ 1 つ
+//   chan is a lock-free channel between cores; sending an own TaskPacket moves its ownership (the sent variable is gone:
+//   F0382). Embedded children travel with the one root pointer
+// - shared arena は全コアで 1 つ。触るのは critical（書き手）か par()（読み手。ほかのコアの走査と同時に進む）の中だけ
+//   a shared arena has one instance for every core; it is touched only inside critical (a writer) or par() (a reader
+//   that runs alongside the scans of other cores)
+
+const WORKERS: u32 = 3;
+const JOBS: u32 = 48;                         // 仕事の総数 / jobs in total
+const STOP: u32 = 0xffff_ffff;
+
+struct TaskPacket {
+    id: u32,
+    from: u32,
+    data: own [u64; 8],                       // 埋め込みの子: 根と一緒に 1 回で確保・解放される / an embedded child
+}
+
+struct Proc { pid: u32, state: u8, done_on: u32, sum: u64 }
+struct Stat { jobs: u32, cores_done: u32, checksum: u64 }
+struct Local { id: u32, sum: u64, mix: u64 }            // コアごとの作業用の表の要素 / an element of the per-core scratch table
+
+arena scratch: Local[64];                     // コアごとに 1 つ / one instance per core
+shared arena procs: Proc[64];                 // 全コア共有 / shared by every core
+shared arena stats: Stat[1];
+
+chan work: own TaskPacket[8];                 // CPU0 → ワーカー / CPU0 to the workers
+chan done: own TaskPacket[16];                // ワーカー → CPU0（仕事ごとに 1 つ + ワーカーごとの終了の知らせ）
+
+fn make_packet(id: u32) -> own TaskPacket {
+    let mut d: [u64; 8] = [0; 8];
+    for i in 0..8 {
+        d[i] = (id as u64 + 1) * (i as u64 + 1);
+    }
+    own TaskPacket { id: id, from: cpu_id(), data: own d }
+}
+
+// ワーカー: 自分のコアの scratch に記録を積み（ロックなし）、共有のプロセス表を critical の中で更新して、パケットを返す
+// a worker: records into the scratch table of its own core (no locks), updates the shared process table inside critical
+// and sends the packet back
+fn worker(first: Id<procs>) {
+    let me = cpu_id();
+    let mut handled: u32 = 0;
+    loop {
+        let mut p = work.recv_wait();
+        if p.id == STOP {
+            p.from = me;
+            done.send(p);
+            break;
+        }
+        // 返事は、このコアで確保した新しいパケット。受け取ったほう（CPU0 が確保した）はここで解放される:
+        // 別のコアが確保したブロックなので、CPU0 の返却リストへ積まれ、CPU0 が次の確保のときに引き取る
+        // the reply is a new packet allocated on this core. The received one (allocated by CPU0) is freed here: being
+        // a block of another core, it goes on the return list of CPU0 and CPU0 collects it at its next allocation
+        let mut sum: u64 = 0;
+        let mut d: [u64; 8] = [0; 8];
+        for i in 0..8 {
+            sum += p.data[i];
+            d[i] = p.data[i] * 2;
+        }
+        let mut spin: u64 = sum;
+        for i in 0..300000 {                  // 仕事の重さ（ほかのコアにも回るように） / the weight of a job
+            spin = spin.wrapping_mul(6364136223846793005).wrapping_add(i);
+        }
+        let reply = own TaskPacket { id: p.id, from: me, data: own d };
+        scratch.alloc(Local { id: p.id, sum: sum, mix: spin });
+        handled += 1;
+        critical {
+            for id in procs {
+                if procs[id].pid == p.id {
+                    procs[id].state = 2;
+                    procs[id].done_on = me;
+                    procs[id].sum = sum;
+                }
+            }
+        }
+        done.send(reply);
+    }
+    // このコアの scratch を走査する（ほかのコアの scratch は見えないし、見る必要もない）
+    // scan the scratch table of this core (other cores cannot see it, and need not)
+    let mut local: u64 = 0;
+    let mut n: u32 = 0;
+    for id in scratch {
+        local += scratch[id].sum;
+        n += 1;
+    }
+    // 並列走査: 3 つのワーカーが同時に読み手として入れる / a parallel scan: the three workers may read at the same time
+    let mut mine: u64 = 0;
+    for id in procs.par() {
+        if procs[id].done_on == me && procs[id].state == 2 {
+            mine += procs[id].sum;
+        }
+    }
+    critical {
+        for id in stats {
+            stats[id].jobs += n;
+            stats[id].cores_done += 1;
+            if local == mine && n == handled {
+                stats[id].checksum += local;
+            }
+        }
+        put_str("[core ");
+        put_int(me as i64);
+        put_str("] handled ");
+        put_int(handled as i64);
+        put_str(" packets, scratch sum ");
+        put_int(local as i64);
+        put_str(if procs.contains(first) { ", shared table visible" } else { ", shared table missing" });
+        print_str("");
+    }
+}
+
+fn main() {
+    put_str("[core 0] cores online: ");
+    print_int(cpu_count() as i64);
+    let mut first: Option<Id<procs>> = None;
+    // spawn_on より前は 1 コアだけなので、共有アリーナも保護なしで触れる / before spawn_on only one core runs
+    stats.alloc(Stat { jobs: 0, cores_done: 0, checksum: 0 });
+    for i in 0..JOBS {
+        let id = procs.alloc(Proc { pid: i, state: 1, done_on: 0, sum: 0 }).unwrap();
+        if first.is_none() { first = Some(id); }
+    }
+    let f = first.unwrap();
+    for c in 0..WORKERS {
+        spawn_on(c + 1, worker, f);
+    }
+    // 仕事を配りながら、戻ってきたパケットを受け取る（チャネルはどちらも止まらずに回る）
+    // hand out the jobs while collecting the packets that come back
+    let mut sent: u32 = 0;
+    let mut back: u32 = 0;
+    let mut stops: u32 = 0;
+    let mut expect: u64 = 0;
+    let mut doubled_ok: u32 = 0;
+    while back < JOBS || stops < WORKERS {
+        if sent < JOBS {
+            let p = make_packet(sent);
+            for i in 0..8 {
+                expect += p.data[i];
+            }
+            work.send(p);                      // p はここで移動した / p has moved
+            sent += 1;
+        } else if sent < JOBS + WORKERS {
+            work.send(own TaskPacket { id: STOP, from: 0, data: own [0; 8] });
+            sent += 1;
+        }
+        loop {
+            match done.recv() {
+                Some(p) => {
+                    if p.id == STOP {
+                        stops += 1;
+                    } else {
+                        back += 1;
+                        if p.data[7] == (p.id as u64 + 1) * 16 { doubled_ok += 1; }
+                    }
+                    // p はここで解放される: 確保したのは CPU0、最後に触ったのは別のコア / freed here
+                }
+                None => { break; }
+            }
+        }
+    }
+    // ワーカーが集計を書き終えるのを待つ（終了の知らせは、集計より前に届く） / wait until every worker has written its totals
+    loop {
+        let mut finished: u32 = 0;
+        critical {
+            for id in stats { finished = stats[id].cores_done; }
+        }
+        if finished == WORKERS { break; }
+        cpu_relax();
+    }
+    let mut ok = false;
+    critical {
+        for id in stats {
+            put_str("[core 0] jobs ");
+            put_int(stats[id].jobs as i64);
+            put_str(", workers done ");
+            put_int(stats[id].cores_done as i64);
+            put_str(", checksum ");
+            put_int(stats[id].checksum as i64);
+            put_str(" (expected ");
+            put_int(expect as i64);
+            print_str(")");
+            ok = stats[id].jobs == JOBS && stats[id].cores_done == WORKERS && stats[id].checksum == expect && doubled_ok == JOBS;
+        }
+    }
+    put_str("[core 0] own blocks still live: ");
+    print_int(heap_live_blocks() as i64);
+    if ok {
+        print_str("FASCON-SMP-OK");
+    }
+}

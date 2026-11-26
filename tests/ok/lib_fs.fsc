@@ -1,0 +1,38 @@
+// 標準ライブラリ: fs::pagecache（dma own のゼロコピー転送）と fs::cowfs（CoW のジャーナリング・電源断からの回復）
+// the standard library: fs::pagecache (zero-copy transfers with dma own) and fs::cowfs (CoW journaling, power-loss recovery)
+import fs::pagecache;
+import fs::cowfs;
+
+fn main() {
+    pagecache::format_disk();
+    let p = pagecache::get_page(3).unwrap();
+    pagecache::write_byte(p, 10, 77);
+    print_int(pagecache::writeback());
+    print_int(pagecache::evict_clean());
+    let q = pagecache::get_page(3).unwrap();
+    print_int(pagecache::read_byte(q, 10));
+    let q2 = pagecache::get_page(3).unwrap();
+    print_int(pagecache::read_byte(q2, 10));
+    print_int(pagecache::device_reads());
+    print_int(pagecache::cache_hits());
+
+    let root = cowfs::create(None, 1).unwrap();
+    let nm: [u8; 8] = [0x61, 0x2e, 0x74, 0x78, 0x74, 0, 0, 0];
+    let f = cowfs::create(Some(root), cowfs::name8(&nm)).unwrap();
+    let mut data: [u8; 64] = [0; 64];
+    data[0] = 11;
+    cowfs::write(f, &data, 5);
+    print_int(cowfs::commit());
+    data[0] = 22;
+    cowfs::write(f, &data, 9);
+    print_int(cowfs::read(f, 0));
+    let g = cowfs::create(Some(root), 2).unwrap();
+    cowfs::write(g, &data, 1);
+    // 電源断: 2 回目の書き込みと新しいファイルは消え、1 回目の commit の状態に戻る
+    // power loss: the second write and the new file are gone; the state of the first commit comes back
+    print_int(cowfs::crash());
+    print_int(cowfs::read(f, 0));
+    print_int(cowfs::size(f));
+    print_int(match cowfs::lookup(Some(root), 2) { Some(_) => 1, None => 0 });
+    print_int(cowfs::txn());
+}

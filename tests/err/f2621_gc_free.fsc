@@ -1,0 +1,9 @@
+// expect: F2621
+// gc_arena は手で free / remove できない（解放は fascon-gc の仕事） / a gc_arena cannot be freed by hand (fascon-gc frees)
+struct Node { v: u64, next: Option<Id<nodes>> }
+gc_arena nodes: Node[16];
+
+fn main() {
+    let a = nodes.alloc(Node { v: 1, next: None }).unwrap();
+    nodes.free(a);
+}

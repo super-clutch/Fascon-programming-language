@@ -1,0 +1,68 @@
+#[wire(le)] struct Desc { addr: u64, len: u32, flags: u16, next: u16 }
+#[wire(le)] struct Req { kind: u32, sector: u64, data: [u8; 16], status: u8 }
+struct Slot { busy: bool, buf: Option<Dma<@req>> }
+
+dma @ring: [Desc; 4];
+dma @avail: [u16; 6];
+dma_arena @req: Req[4];
+arena @cache: Slot[4];
+
+fn submit(h: Dma<@req>) -> u32 {
+    let i = h.index();
+    @ring[i].addr = h.phys();
+    @ring[i].len = 29;
+    @ring[i].flags = 2;
+    @avail[1] = @avail[1].wrapping_add(1);
+    @req.lend(h);
+    i
+}
+
+fn keep(h: Dma<@req>) -> bool {
+    match @cache.alloc(Slot { busy: false, buf: Some(h) }) {
+        Some(s) => true,
+        None => false,
+    }
+}
+
+fn main() {
+    let mut idx: u32 = 0;
+    if let Some(h) = @req.alloc(Req { kind: 0, sector: 7, data: [0; 16], status: 255 }) {
+        @req[h].data[3] = 9;
+        idx = submit(h);
+    }
+    print_int(@ring[idx].len as i64);
+    print_int(@avail[1] as i64);
+    if @ring[idx].addr == 0 { print_str("no address"); } else { print_str("address set"); }
+    print_int(@req.len() as i64);
+    match @req.reclaim(idx + 1) {
+        Some(h) => print_str("wrong slot reclaimed"),
+        None => print_str("not lent: none"),
+    }
+    match @req.reclaim(999) {
+        Some(h) => print_str("out of range reclaimed"),
+        None => print_str("out of range: none"),
+    }
+    if let Some(h) = @req.reclaim(idx) {
+        print_int(@req[h].sector as i64);
+        print_int(@req[h].data[3] as i64);
+        @req[h].status = 0;
+        if keep(h) { print_str("kept in the cache"); }
+    }
+    match @req.reclaim(idx) {
+        Some(h) => print_str("reclaimed twice"),
+        None => print_str("second completion: none"),
+    }
+    print_int(@req.len() as i64);
+    for s in @cache {
+        if let Some(h) = @cache[s].buf.take() {
+            print_int(@req[h].status as i64);
+            @req.free(h);
+        }
+    }
+    print_int(@req.len() as i64);
+    if let Some(h) = @req.alloc(Req { kind: 1, sector: 1, data: [0; 16], status: 0 }) {
+        print_int(@req.len() as i64);
+    }
+    print_int(@req.len() as i64);
+    print_int(@ring.len() as i64);
+}

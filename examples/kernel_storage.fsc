@@ -1,0 +1,553 @@
+// Fascon 1.0 カーネル拡張 Step 2: 永続ストレージ（virtio-blk・ブロックキャッシュ・ファイル）
+// Fascon 1.0 kernel extensions, step 2: persistent storage (virtio-blk, a block cache, files)
+//
+//   fascon qemu examples/kernel_storage.fsc --disk disk.img     QEMU virt（AArch64）。disk.img は 64 セクタ以上の生の像
+//                                                               QEMU virt (AArch64); disk.img is a raw image of 64 sectors or more
+//   1 回目は「formatted a new disk ... boots=1」、同じ像での 2 回目は「mounted ... boots=2」になる（電源を切っても残る）
+//   the first run prints "formatted a new disk ... boots=1", a second run on the same image "mounted ... boots=2"
+//
+// - ワイヤ構造体（#[wire(le)]）: 記述子・要求・ディスク上の構造を、詰め物なしの POD としてバイト列に重ねる
+//   wire structs: descriptors, requests and on-disk structures are padding-free plain old data laid over bytes
+// - dma: デバイスと共有するリング（常に volatile）。dma_arena: 要求のバッファ。ハンドル Dma<req> は移動専用で、
+//   lend でデバイスへ渡すと消え、reclaim（デバイスが返した添字の検証付き）でしか戻らない
+//   dma: rings shared with the device (always volatile). dma_arena: request buffers; the handle Dma<req> is move-only,
+//   consumed by lend and returned only by reclaim, which validates the index the device gave back
+// - ブロックキャッシュの項目は Option<Dma<req>> を持つ。入出力中は None なので、入出力中のブロックは読めない
+//   a cache entry holds an Option<Dma<req>>; it is None during I/O, so a block under I/O cannot be read
+// - キャッシュと要求の表は割り込みハンドラも触るので、タスク側は critical fn の中から触る（無ければ F2601）
+//   the cache and request tables are touched by the interrupt handler too, so the task side uses critical fns (F2601 otherwise)
+
+const SLOT: u64 = 31;                 // fascon qemu --disk が virtio-blk を置く窓（0x0a003e00、INTID 79）
+const R_MAGIC: u64 = 0;
+const R_VERSION: u64 = 1;
+const R_DEVICE_ID: u64 = 2;
+const R_DRV_FEATURES: u64 = 8;
+const R_DRV_FEATURES_SEL: u64 = 9;
+const R_QUEUE_SEL: u64 = 12;
+const R_QUEUE_NUM_MAX: u64 = 13;
+const R_QUEUE_NUM: u64 = 14;
+const R_QUEUE_READY: u64 = 17;
+const R_QUEUE_NOTIFY: u64 = 20;
+const R_INT_STATUS: u64 = 24;
+const R_INT_ACK: u64 = 25;
+const R_STATUS: u64 = 28;
+const R_DESC_LO: u64 = 32;
+const R_DESC_HI: u64 = 33;
+const R_DRIVER_LO: u64 = 36;
+const R_DRIVER_HI: u64 = 37;
+const R_DEVICE_LO: u64 = 40;
+const R_DEVICE_HI: u64 = 41;
+const R_CAPACITY: u64 = 64;
+
+const QSIZE: u16 = 16;
+const NONE_LBA: u64 = 0xffff_ffff_ffff_ffff;
+const FS_MAGIC: u32 = 0x3143_5346;    // "FSC1"
+const DIR_LBA: u64 = 1;
+const ENTRIES: u64 = 14;              // 14 × 36 バイト = 504 バイト（1 セクタ） / 14 × 36 bytes in one sector
+
+#[wire(le)] struct VqDesc { addr: u64, len: u32, flags: u16, next: u16 }
+#[wire(le)] struct VqAvail { flags: u16, idx: u16, ring: [u16; 16], used_event: u16 }
+#[wire(le)] struct VqUsedElem { id: u32, len: u32 }
+#[wire(le)] struct VqUsed { flags: u16, idx: u16, ring: [VqUsedElem; 16], avail_event: u16 }
+#[wire(le)] struct BlkReq { kind: u32, reserved: u32, sector: u64, data: [u8; 512], status: u8 }
+#[wire(le)] struct SuperBlock { magic: u32, nfiles: u32, next: u32, reserved: u32 }
+#[wire(le)] struct DirEnt { name: [u8; 28], start: u32, len: u32 }
+
+mmio @virtio: [[u32; 128]; 32] at 0x0a00_0000;
+
+dma @vq_desc: [VqDesc; 16];
+dma @vq_avail: [VqAvail; 1];
+dma @vq_used: [VqUsed; 1];
+dma_arena @req: BlkReq[4];
+
+struct Buf { lba: u64, valid: bool, data: Option<Dma<@req>> }
+struct Disk { avail: u16, seen: u16, hand: u32, errors: u32, done: u32 }
+
+arena @bcache: Buf[4];
+arena @disk: Disk[1];
+
+// ───── virtio-blk ─────
+
+// 要求 1 つ = 記述子 3 つ（ヘッダ 16 バイト・データ 512 バイト・状態 1 バイト）。閉じた区間からだけ呼ぶ
+// one request = three descriptors (16-byte header, 512 bytes of data, 1 status byte); called from closed sections only
+fn submit(h: Dma<@req>, write: bool) {
+    let d = (h.index() * 3) as u64;
+    let base = h.phys();
+    @vq_desc[d].addr = base;
+    @vq_desc[d].len = 16;
+    @vq_desc[d].flags = 1;                              // NEXT
+    @vq_desc[d].next = (d + 1) as u16;
+    @vq_desc[d + 1].addr = base + 16;
+    @vq_desc[d + 1].len = 512;
+    @vq_desc[d + 1].flags = if write { 1 } else { 3 };  // NEXT、読み込みならデバイスが書く（WRITE）
+    @vq_desc[d + 1].next = (d + 2) as u16;
+    @vq_desc[d + 2].addr = base + 528;
+    @vq_desc[d + 2].len = 1;
+    @vq_desc[d + 2].flags = 2;                          // WRITE
+    @vq_desc[d + 2].next = 0;
+    @req.lend(h);                                       // 所有権がデバイスへ移る。h はここで消える
+    for k in @disk {
+        let slot = (@disk[k].avail % QSIZE) as u64;
+        @vq_avail[0].ring[slot] = d as u16;
+        @disk[k].avail = @disk[k].avail.wrapping_add(1);
+        @vq_avail[0].idx = @disk[k].avail;
+    }
+    @virtio[SLOT][R_QUEUE_NOTIFY] = 0;
+}
+
+fn slot_waiting(lba: u64) -> Option<Id<@bcache>> {
+    for b in @bcache {
+        if @bcache[b].lba == lba {
+            if @bcache[b].data.is_none() { return Some(b); }
+        }
+    }
+    None
+}
+
+// 完了した要求のバッファを、待っているキャッシュの項目へ戻す / hand the buffer of a completed request back to its cache entry
+fn complete(h: Dma<@req>) {
+    let lba = @req[h].sector;
+    let ok = @req[h].status == 0;
+    match slot_waiting(lba) {
+        Some(b) => {
+            @bcache[b].valid = ok;
+            @bcache[b].data = Some(h);
+        }
+        None => {
+            @req.free(h);
+        }
+    }
+    for k in @disk {
+        @disk[k].done += 1;
+        if !ok { @disk[k].errors += 1; }
+    }
+}
+
+irq blk_done at 79 {
+    let st = @virtio[SLOT][R_INT_STATUS];
+    @virtio[SLOT][R_INT_ACK] = st;                      // 書かずに戻ると、レベル割り込みが上がり続ける
+    let mut budget: u32 = 0;
+    while budget < 16 {
+        budget += 1;
+        let mut raw: u32 = 0xffff_ffff;
+        for k in @disk {
+            if @disk[k].seen != @vq_used[0].idx {
+                let e = (@disk[k].seen % QSIZE) as u64;
+                raw = @vq_used[0].ring[e].id;           // デバイスが書いた値: 信頼できない / written by the device: untrusted
+                @disk[k].seen = @disk[k].seen.wrapping_add(1);
+            }
+        }
+        if raw == 0xffff_ffff { break; }
+        match @req.reclaim(raw / 3) {                   // 範囲内かつ貸し出し中のときだけハンドルが戻る
+            Some(h) => complete(h),
+            None => {}
+        }
+    }
+}
+
+fn blk_init() -> u64 {
+    if @virtio[SLOT][R_MAGIC] != 0x7472_6976 { panic("virtio-mmio: no device at the expected transport"); }
+    if @virtio[SLOT][R_VERSION] != 2 { panic("virtio-mmio: version 2 is required (force-legacy=false)"); }
+    if @virtio[SLOT][R_DEVICE_ID] != 2 { panic("virtio-mmio: the device is not a virtio-blk"); }
+    @virtio[SLOT][R_STATUS] = 0;                        // リセット / reset
+    @virtio[SLOT][R_STATUS] = 1;                        // ACKNOWLEDGE
+    @virtio[SLOT][R_STATUS] = 3;                        // + DRIVER
+    @virtio[SLOT][R_DRV_FEATURES_SEL] = 0;
+    @virtio[SLOT][R_DRV_FEATURES] = 0;
+    @virtio[SLOT][R_DRV_FEATURES_SEL] = 1;
+    @virtio[SLOT][R_DRV_FEATURES] = 1;                  // VIRTIO_F_VERSION_1 だけ / only VIRTIO_F_VERSION_1
+    @virtio[SLOT][R_STATUS] = 11;                       // + FEATURES_OK
+    if (@virtio[SLOT][R_STATUS] & 8) == 0 { panic("virtio-blk: the device rejected the features"); }
+    @virtio[SLOT][R_QUEUE_SEL] = 0;
+    if @virtio[SLOT][R_QUEUE_NUM_MAX] < 16 { panic("virtio-blk: the queue is too small"); }
+    @virtio[SLOT][R_QUEUE_NUM] = 16;
+    let d = @vq_desc.phys();
+    let a = @vq_avail.phys();
+    let u = @vq_used.phys();
+    @virtio[SLOT][R_DESC_LO] = (d & 0xffff_ffff) as u32;
+    @virtio[SLOT][R_DESC_HI] = (d >> 32) as u32;
+    @virtio[SLOT][R_DRIVER_LO] = (a & 0xffff_ffff) as u32;
+    @virtio[SLOT][R_DRIVER_HI] = (a >> 32) as u32;
+    @virtio[SLOT][R_DEVICE_LO] = (u & 0xffff_ffff) as u32;
+    @virtio[SLOT][R_DEVICE_HI] = (u >> 32) as u32;
+    @virtio[SLOT][R_QUEUE_READY] = 1;
+    @virtio[SLOT][R_STATUS] = 15;                       // + DRIVER_OK
+    let lo = @virtio[SLOT][R_CAPACITY] as u64;
+    let hi = @virtio[SLOT][R_CAPACITY + 1] as u64;
+    lo | (hi << 32)
+}
+
+// ───── ブロックキャッシュ / the block cache ─────
+
+fn find(lba: u64) -> Option<Id<@bcache>> {
+    for b in @bcache {
+        if @bcache[b].lba == lba {
+            if @bcache[b].valid {
+                if @bcache[b].data.is_some() { return Some(b); }
+            }
+        }
+    }
+    None
+}
+
+critical fn cached(lba: u64) -> bool {
+    find(lba).is_some()
+}
+
+// 完了を待つ。確認と待ちを 1 つの閉じた区間に入れるので、その間に来た割り込みを取りこぼさない（wait_irq() は
+// 待っている間だけ割り込みを受け取る）
+// waits for completion. The check and the wait sit in one closed section, so an interrupt arriving in between is not
+// lost (wait_irq() takes interrupts only while it waits)
+fn wait_settled(lba: u64) {
+    loop {
+        critical {
+            if slot_waiting(lba).is_none() { break; }
+            wait_irq();
+        }
+    }
+}
+
+// 入出力中でない項目を順番に選ぶ / pick the next entry that is not under I/O
+fn victim() -> Option<Id<@bcache>> {
+    let mut hand: u32 = 0;
+    for k in @disk {
+        hand = @disk[k].hand;
+        @disk[k].hand = (hand + 1) % 4;
+    }
+    let mut n: u32 = 0;
+    let mut pick = None;
+    for b in @bcache {
+        if @bcache[b].data.is_some() {
+            if n >= hand {
+                if pick.is_none() { pick = Some(b); }
+            }
+        }
+        n += 1;
+    }
+    if pick.is_none() {
+        for b in @bcache {
+            if @bcache[b].data.is_some() {
+                if pick.is_none() { pick = Some(b); }
+            }
+        }
+    }
+    pick
+}
+
+critical fn start_read(lba: u64) -> bool {
+    match victim() {
+        Some(b) => {
+            match @bcache[b].data.take() {              // 入出力中は None / None while under I/O
+                Some(h) => {
+                    @bcache[b].lba = lba;
+                    @bcache[b].valid = false;
+                    @req[h].kind = 0;                   // VIRTIO_BLK_T_IN
+                    @req[h].reserved = 0;
+                    @req[h].sector = lba;
+                    @req[h].status = 255;
+                    submit(h, false);
+                    true
+                }
+                None => false,
+            }
+        }
+        None => false,
+    }
+}
+
+critical fn start_write(lba: u64) -> bool {
+    match find(lba) {
+        Some(b) => {
+            match @bcache[b].data.take() {
+                Some(h) => {
+                    @req[h].kind = 1;                   // VIRTIO_BLK_T_OUT
+                    @req[h].sector = lba;
+                    @req[h].status = 255;
+                    submit(h, true);
+                    true
+                }
+                None => false,
+            }
+        }
+        None => false,
+    }
+}
+
+// ブロックをキャッシュへ読み込む（完了まで待つ） / read a block into the cache (waits for completion)
+fn load(lba: u64) -> bool {
+    if cached(lba) { return true; }
+    if !start_read(lba) { return false; }
+    wait_settled(lba);
+    cached(lba)
+}
+
+// キャッシュのブロックをディスクへ書く（完了まで待つ） / write a cached block to the disk (waits for completion)
+fn sync(lba: u64) -> bool {
+    if !start_write(lba) { return false; }
+    wait_settled(lba);
+    cached(lba)
+}
+
+critical fn blk_copy_out(lba: u64, off: u64, out: &mut [u8]) -> bool {
+    match find(lba) {
+        Some(b) => {
+            if let Some(h) = @bcache[b].data {
+                if let Some(w) = @req[h].data.window(off, out.len()) {
+                    out.copy_from(w);
+                    return true;
+                }
+            }
+            false
+        }
+        None => false,
+    }
+}
+
+critical fn blk_copy_in(lba: u64, off: u64, src: &[u8]) -> bool {
+    match find(lba) {
+        Some(b) => {
+            if let Some(h) = @bcache[b].data {
+                if let Some(w) = @req[h].data.window_mut(off, src.len()) {
+                    w.copy_from(src);
+                    return true;
+                }
+            }
+            false
+        }
+        None => false,
+    }
+}
+
+fn read_block(lba: u64, out: &mut [u8]) -> bool {
+    if !load(lba) { return false; }
+    blk_copy_out(lba, 0, out)
+}
+
+fn write_block(lba: u64, src: &[u8]) -> bool {
+    if !load(lba) { return false; }
+    if !blk_copy_in(lba, 0, src) { return false; }
+    sync(lba)
+}
+
+// ───── ファイル（固定長の表: スーパーブロック + 1 セクタのディレクトリ + 連続したデータ）
+//       files (fixed tables: a superblock, a one-sector directory and contiguous data) ─────
+
+fn fs_mount() -> bool {
+    let mut sec: [u8; 512] = [0; 512];
+    if !read_block(0, &mut sec) { return false; }
+    match sec.read(SuperBlock, 0) {
+        Some(sb) => sb.magic == FS_MAGIC,
+        None => false,
+    }
+}
+
+fn fs_format() -> bool {
+    let mut sec: [u8; 512] = [0; 512];
+    if !write_block(DIR_LBA, &sec) { return false; }
+    if let Some(sb) = sec.view_mut(SuperBlock, 0) {
+        sb.magic = FS_MAGIC;
+        sb.nfiles = 0;
+        sb.next = 2;
+        sb.reserved = 0;
+    }
+    write_block(0, &sec)
+}
+
+fn name_is(e: &DirEnt, name: &[u8]) -> bool {
+    if name.len() >= 28 { return false; }
+    if e.name[name.len()] != 0 { return false; }
+    let mut same = false;
+    if let Some(n) = e.name.window(0, name.len()) {
+        same = n == name;
+    }
+    same
+}
+
+// ディレクトリの中の位置（バイト）/ the byte offset of the entry in the directory
+fn dir_find(dir: &[u8], name: &[u8]) -> Option<u64> {
+    let mut i: u64 = 0;
+    while i < ENTRIES {
+        let mut hit = false;
+        if let Some(e) = dir.view(DirEnt, i * 36) {
+            hit = name_is(e, name);
+        }
+        if hit { return Some(i * 36); }
+        i += 1;
+    }
+    None
+}
+
+fn dir_free(dir: &[u8]) -> Option<u64> {
+    let mut i: u64 = 0;
+    while i < ENTRIES {
+        let mut free = false;
+        if let Some(e) = dir.view(DirEnt, i * 36) {
+            free = e.name[0] == 0;
+        }
+        if free { return Some(i * 36); }
+        i += 1;
+    }
+    None
+}
+
+fn fs_read(name: &[u8], out: &mut [u8]) -> u64 {
+    let mut dir: [u8; 512] = [0; 512];
+    if !read_block(DIR_LBA, &mut dir) { return 0; }
+    let mut start: u64 = 0;
+    let mut len: u64 = 0;
+    match dir_find(&dir, name) {
+        Some(off) => {
+            if let Some(e) = dir.view(DirEnt, off) {
+                start = e.start as u64;
+                len = min(e.len as u64, out.len());      // ディスク上の長さは信頼しない / the on-disk length is not trusted
+            }
+        }
+        None => { return 0; }
+    }
+    let mut sec: [u8; 512] = [0; 512];
+    let mut done: u64 = 0;
+    while done < len {
+        if !read_block(start + done / 512, &mut sec) { return done; }
+        let n = min(512, len - done);
+        if let Some(dst) = out.window_mut(done, n) {
+            dst.copy_from(&sec);
+        }
+        done += n;
+    }
+    len
+}
+
+fn fs_write(name: &[u8], data: &[u8]) -> bool {
+    if name.len() == 0 { return false; }
+    if name.len() >= 28 { return false; }
+    let mut sbs: [u8; 512] = [0; 512];
+    let mut dir: [u8; 512] = [0; 512];
+    if !read_block(0, &mut sbs) { return false; }
+    if !read_block(DIR_LBA, &mut dir) { return false; }
+    let need = (data.len() + 511) / 512;
+    let mut start: u64 = 0;
+    let mut created = false;
+    match dir_find(&dir, name) {
+        Some(off) => {
+            // 上書き: 確保済みのセクタに収まるときだけ / overwrite: only when it fits in the sectors already allocated
+            if let Some(e) = dir.view_mut(DirEnt, off) {
+                let have = ((e.len as u64) + 511) / 512;
+                if need > have { return false; }
+                start = e.start as u64;
+                e.len = data.len() as u32;
+            }
+        }
+        None => {
+            let mut next: u64 = 0;
+            if let Some(sb) = sbs.view(SuperBlock, 0) { next = sb.next as u64; }
+            match dir_free(&dir) {
+                Some(off) => {
+                    if let Some(e) = dir.view_mut(DirEnt, off) {
+                        if let Some(dst) = e.name.window_mut(0, name.len()) {
+                            dst.copy_from(name);
+                        }
+                        e.start = next as u32;
+                        e.len = data.len() as u32;
+                    }
+                }
+                None => { return false; }
+            }
+            start = next;
+            created = true;
+            if let Some(sb) = sbs.view_mut(SuperBlock, 0) {
+                sb.next = (next + max(need, 1)) as u32;
+                sb.nfiles += 1;
+            }
+        }
+    }
+    let mut sec: [u8; 512] = [0; 512];
+    let mut done: u64 = 0;
+    while done < data.len() {
+        let n = min(512, data.len() - done);
+        if let Some(part) = data.window(done, n) {
+            sec.copy_from(part);
+        }
+        if !write_block(start + done / 512, &sec) { return false; }
+        done += n;
+    }
+    if !write_block(DIR_LBA, &dir) { return false; }
+    if created {
+        if !write_block(0, &sbs) { return false; }
+    }
+    true
+}
+
+fn fs_count() -> u32 {
+    let mut sec: [u8; 512] = [0; 512];
+    if !read_block(0, &mut sec) { return 0; }
+    match sec.read(SuperBlock, 0) {
+        Some(sb) => sb.nfiles,
+        None => 0,
+    }
+}
+
+critical fn io_stats() {
+    for k in @disk {
+        put_str("requests completed: "); put(@disk[k].done); put_str(", errors: "); put(@disk[k].errors); print_str("");
+    }
+}
+
+fn main() {
+    // 起動時の文脈（割り込み禁止）: critical は要らない / the boot context (interrupts masked): no critical needed
+    let sectors = blk_init();
+    put_str("virtio-blk: "); put(sectors); print_str(" sectors");
+    let k = @disk.alloc(Disk { avail: 0, seen: 0, hand: 0, errors: 0, done: 0 }).unwrap();
+    let mut made: u32 = 0;
+    while made < 4 {
+        match @req.alloc(BlkReq { kind: 0, reserved: 0, sector: 0, data: [0; 512], status: 0 }) {
+            Some(h) => {
+                let b = @bcache.alloc(Buf { lba: NONE_LBA, valid: false, data: Some(h) }).unwrap();
+            }
+            None => {}
+        }
+        made += 1;
+    }
+    irq_open();
+
+    if fs_mount() {
+        put_str("mounted: files="); put(fs_count()); print_str("");
+    } else {
+        if !fs_format() { panic("format failed"); }
+        print_str("formatted a new disk");
+    }
+
+    // 起動回数をファイルに持つ（電源を切っても残る） / the boot count lives in a file (it survives power-off)
+    let mut text: [u8; 8] = [0; 8];
+    let n = fs_read("boots", &mut text);
+    let mut count: u8 = 0;
+    if n >= 1 {
+        if text[0] >= 48 {
+            if text[0] <= 56 { count = text[0] - 48; }
+        }
+    }
+    count += 1;
+    text[0] = 48 + count;
+    if !fs_write("boots", &text) { panic("cannot write the boot count"); }
+    put_str("boots="); put(count); print_str("");
+
+    // 2 セクタにまたがるファイルを書いて読み直す / write a file spanning two sectors and read it back
+    let mut big: [u8; 700] = [0; 700];
+    let mut i: u64 = 0;
+    while i < 700 {
+        big[i] = ((i * 7 + count as u64) % 251) as u8;
+        i += 1;
+    }
+    if !fs_write("pattern.bin", &big) { panic("cannot write pattern.bin"); }
+    let mut back: [u8; 700] = [0; 700];
+    let got = fs_read("pattern.bin", &mut back);
+    let mut same = got == 700;
+    i = 0;
+    while i < 700 {
+        if back[i] != big[i] { same = false; }
+        i += 1;
+    }
+    if same { print_str("pattern.bin: 700 bytes written and read back"); } else { print_str("pattern.bin: MISMATCH"); }
+    put_str("files="); put(fs_count()); print_str("");
+    io_stats();
+    exit(0);
+}

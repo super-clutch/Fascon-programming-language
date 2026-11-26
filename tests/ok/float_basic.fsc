@@ -1,0 +1,130 @@
+// f32 / f64: リテラル・四則・比較・飽和する as・往復できる最短の出力・NaN と -0.0・to_bits / from_bits・構造体とアリーナ
+// f32 / f64: literals, arithmetic, comparisons, saturating as, shortest round-trip output, NaN and -0.0, to_bits /
+// from_bits, structs and arenas
+
+struct Body {
+    x: f32,
+    v: f32,
+    mass: f64,
+    id: u32,
+}
+
+arena bodies: Body[64];
+
+fn line(label: Str, v: f64) {
+    put(label);
+    put(" ");
+    put(v);
+    put("\n");
+}
+
+fn linef(label: Str, v: f32) {
+    put(label);
+    put(" ");
+    put(v);
+    put("\n");
+}
+
+fn half(x: f64) -> f64 {
+    x * 0.5
+}
+
+fn main() {
+    // 出力の形 / the output shape
+    line("one", 1.0);
+    line("tenth", 0.1);
+    line("third", 1.0 / 3.0);
+    line("big", 1e16);
+    line("almost-big", 9999999999999998.0);
+    line("small", 0.0001);
+    line("tiny", 0.00001);
+    line("neg", -2.5);
+    line("max", f64::MAX);
+    line("minpos", f64::MIN_POSITIVE);
+    line("subnormal", f64::from_bits(1u64));
+    linef("tenth32", 0.1f32);
+    linef("third32", 1.0f32 / 3.0f32);
+    linef("max32", f32::MAX);
+    linef("sub32", f32::from_bits(1u32));
+    // 推論: 書いていないリテラルは f64、f32 の相手からは f32 / inference: an unannotated literal is f64, f32 next to an f32
+    let a: f32 = 1.5;
+    let b = a * 2.0;
+    linef("f32-infer", b);
+    let c = 2.0 * 0.25;
+    line("f64-default", c);
+    line("call", half(3.0));
+    // 特別な値 / special values
+    let z = 0.0;
+    let nan = z / z;
+    let inf = 1.0 / z;
+    let nz = -z;
+    line("nan", nan);
+    line("inf", inf);
+    line("ninf", -inf);
+    line("negzero", nz);
+    put(nan == nan);
+    put(" ");
+    put(nan != nan);
+    put(" ");
+    put(nan < 1.0);
+    put(" ");
+    put(nz == z);
+    put(" ");
+    put(nan.is_nan());
+    put(" ");
+    put(inf.is_finite());
+    put(" ");
+    put(c.is_finite());
+    put("\n");
+    put_hex(nz.to_bits());
+    put(" ");
+    put_hex((-1.0f32).to_bits());
+    put(" ");
+    put_hex(f32::NAN.to_bits() & 0x7FC00000u32);
+    put("\n");
+    line("abs", (-7.25).abs());
+    linef("abs32", nz.abs() as f32);
+    // as: 飽和・NaN は 0・切り捨て / as: saturation, NaN to 0, truncation
+    print_int(nan as i32 as i64);
+    print_int(inf as i32 as i64);
+    print_int((-inf) as i64);
+    print_int(1e20 as u64 as i64);
+    print_int((-3.9) as i32 as i64);
+    print_int(3.9 as u8 as i64);
+    print_int(300.0 as u8 as i64);
+    print_int((-1.0) as u32 as i64);
+    print_int(2147483647.9 as i32 as i64);
+    print_int(16777217 as f32 as i64);
+    line("from-int", 7 as f64);
+    linef("narrow", 0.1 as f32);
+    line("widen", 0.1f32 as f64);
+    // 構造体とアリーナ（ふつうのループ = 書いた順の足し算） / structs and an arena (a plain loop = additions in order)
+    let mut k = 0u32;
+    while k < 10u32 {
+        let fk = k as f32;
+        if bodies.alloc(Body { x: fk * 0.5, v: 1.0 - fk, mass: 0.1 * (k as f64), id: k }).is_none() {
+            panic("full");
+        }
+        k += 1u32;
+    }
+    let mut sx: f32 = 0.0;
+    let mut sm = 0.0;
+    let mut heavy: Option<Id<bodies>> = None;
+    let mut best = -1.0;
+    for id in bodies {
+        sx += bodies[id].x;
+        sm = sm + bodies[id].mass;
+        if bodies[id].mass > best {
+            best = bodies[id].mass;
+            heavy = Some(id);
+        }
+    }
+    linef("sum-x", sx);
+    line("sum-mass", sm);
+    line("best", best);
+    if let Some(h) = heavy {
+        print_int(bodies[h].id as i64);
+        bodies[h].v -= 0.5;
+        linef("v", bodies[h].v);
+    }
+}

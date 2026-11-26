@@ -1,0 +1,34 @@
+// ボードに依存しないアプリ: 標準 HAL と、どのボードのパッケージにもある board_hal だけを使う。同じソースが
+// `--board raspberrypi3b`（スピンテーブル）でも `--board qemu-virt-generic`（PSCI）でも動く
+// a board-independent application: only the standard HAL and the board_hal every board package carries; the same source
+// runs with `--board raspberrypi3b` (spin table) and `--board qemu-virt-generic` (PSCI)
+import hal::console;
+import board_hal;
+
+struct Part { core: u32, sum: u64 }
+chan parts: own Part[4];
+
+fn work(k: u64) {
+    let mut s: u64 = 0;
+    for i in 0..1000 {
+        s += i * k;
+    }
+    parts.send(own Part { core: cpu_id(), sum: s });
+}
+
+fn main() {
+    let con = board_hal::console();
+    console::console_put_dec(&con, cpu_count() as u64);
+    (con.putc)(10);
+    for c in 1..cpu_count() {
+        spawn_on(c, work, c as u64);
+    }
+    let mut total: u64 = 0;
+    for k in 1..cpu_count() {
+        let p = parts.recv_wait();
+        total += p.sum;
+    }
+    console::console_put_dec(&con, total);
+    (con.putc)(10);
+    print_str("FASCON-BOARD-OK");
+}

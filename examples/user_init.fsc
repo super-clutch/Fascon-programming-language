@@ -1,0 +1,87 @@
+// fascon-abi: kernel_user.fsc
+// Fascon 1.0 のユーザープログラム（EL0）。上の行で、システムコールの宣言（write / info / copy / exit）とワイヤ構造体 Info を
+// カーネルのソースから読みます。作り方: fascon build examples/user_init.fsc --out examples/user_init.bin
+// A Fascon 1.0 user program (EL0). The line above takes the system call declarations (write / info / copy / exit) and the
+// wire struct Info from the kernel source. Build: fascon build examples/user_init.fsc --out examples/user_init.bin
+
+struct Node { value: u64, next: Option<Id<node>> }
+arena node: Node[64];
+
+// ユーザープログラムの中でも、アリーナ・own・検査付きの算術はカーネルと同じように使える
+// arenas, own and checked arithmetic work in a user program exactly as in the kernel
+fn sum_list(n: u64) -> u64 {
+    let mut head: Option<Id<node>> = None;
+    for i in 0..n {
+        head = node.alloc(Node { value: i + 1, next: head });
+    }
+    let mut total: u64 = 0;
+    let mut cur = head;
+    loop {
+        match cur {
+            Some(id) => {
+                total += node[id].value;
+                cur = node[id].next;
+            }
+            None => { break; }
+        }
+    }
+    total
+}
+
+fn busy(rounds: u64) -> u64 {
+    let mut x: u64 = 1;
+    for i in 0..rounds {
+        x = x.wrapping_mul(6364136223846793005).wrapping_add(i);
+    }
+    x
+}
+
+fn main() {
+    let mut me = Info { pid: 0, ticks: 0, uptime_ms: 0 };
+    info(&mut me);
+    put_str("[user ");
+    put_int(me.pid as i64);
+    put_str("] hello from EL0, list sum = ");
+    print_int(sum_list(50) as i64);
+
+    // 2 つの窓を渡す。同じ配列を &mut と & の両方で渡すことは、借用の規則（F0502）でそもそも書けない
+    // two windows; passing one array as both &mut and & is already impossible under the borrow rules (F0502)
+    let mut buf: [u8; 16] = [0; 16];
+    let n = copy(&mut buf, "0123456789abcdef");
+    put_str("[user ");
+    put_int(me.pid as i64);
+    put_str("] copy = ");
+    put_int(n);
+    put_str(", wrong fd = ");
+    print_int(write(7, "x"));
+
+    let x = busy(20000000 * me.pid as u64);           // タイマー割り込みで切り替わる / preempted by the timer
+    info(&mut me);
+    put_str("[user ");
+    put_int(me.pid as i64);
+    put_str("] busy = ");
+    put_hex(x);
+    put_str(", preempted ");
+    put_int(me.ticks as i64);
+    print_str(" times");
+
+    if me.pid == 3 {
+        let mut bad: Option<Id<node>> = None;
+        for id in node { bad = Some(id); }
+        if let Some(id) = bad {
+            node.free(id);
+            put_int(node[id].value as i64);  // 古い Id: ユーザープログラムのパニック → exit(70)。カーネルは止まらない
+        }
+    }
+    if me.pid == 2 {
+        halt_by_fault();
+    }
+    exit(0);
+}
+
+// 0 で割る: ユーザープログラムのパニック。pid 2 はこれで終わる（exit 70）。カーネルは止まらない
+// a division by zero: a panic of the user program; pid 2 ends here (exit 70) and the kernel keeps running
+fn halt_by_fault() {
+    let z: u64 = busy(1) - busy(1);
+    put_int((10 / z) as i64);
+}

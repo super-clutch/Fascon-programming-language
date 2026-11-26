@@ -1,0 +1,9 @@
+// expect: F3105
+// `?` は Result にだけ使える / `?` only applies to a Result
+fn half(x: u32) -> Result<u32, FaultError> {
+    let v = Some(x)?;
+    Ok(v / 2)
+}
+fn main() {
+    print_int(half(4).unwrap_or(0));
+}

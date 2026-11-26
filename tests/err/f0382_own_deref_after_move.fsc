@@ -1,0 +1,8 @@
+// expect: F0382
+// own を移動した後に `*b` で中身を読む / reading `*b` after the own was moved
+fn main() {
+    let b = own 5;
+    let c = b;
+    print_int(*b as i64);
+    print_int(*c as i64);
+}

@@ -1,0 +1,163 @@
+// fs::pagecache — dma own [u8; 4096] を使うゼロコピーのブロック転送と、世代タグ付きのページキャッシュ
+// fs::pagecache — zero-copy block transfers with dma own [u8; 4096] and a generation-tagged page cache
+//
+// ブロック装置は NVMe / UFS / eMMC のドライバが受け持つ（ここでは RAM ディスクの装置で同じ手順を踏む: dma_alloc →
+// submit_dma（キャッシュの掃き出し・IOMMU の IOVA）→ 完了 → complete_dma で所有権が戻る）。キャッシュのページは Id で
+// 指すので、追い出した後の古い Id は None になる（use-after-free にならない）
+// block devices are the NVMe / UFS / eMMC drivers' job (here a RAM-disk device goes through the same steps: dma_alloc →
+// submit_dma (cache clean, IOMMU IOVA) → completion → complete_dma returns the ownership). Cache pages are named by Ids, so
+// a stale Id after eviction is None (never a use after free)
+
+const BLOCKS: u64 = 64;
+
+// 装置の中身（RAM ディスク）/ the device contents (a RAM disk)
+struct DiskBlock { data: [u8; 4096] }
+arena disk: DiskBlock[64];
+
+struct Page { block: u64, dirty: bool, data: Option<dma own [u8; 4096]> }
+arena pages: Page[32];
+
+struct Stats { reads: u64, writes: u64, hits: u64 }
+arena stats: Stats[1];
+
+fn stat() -> Id<stats> {
+    let mut s: Option<Id<stats>> = None;
+    for id in stats {
+        s = Some(id);
+    }
+    match s {
+        Some(x) => x,
+        None => stats.alloc(Stats { reads: 0, writes: 0, hits: 0 }).unwrap(),
+    }
+}
+
+fn format_disk() {
+    for b in 0..BLOCKS {
+        disk.alloc(DiskBlock { data: [0; 4096] });
+    }
+}
+
+fn disk_block(b: u64) -> Option<Id<disk>> {
+    let mut found: Option<Id<disk>> = None;
+    let mut k: u64 = 0;
+    for id in disk {
+        if k == b {
+            found = Some(id);
+        }
+        k += 1;
+    }
+    found
+}
+
+// 装置の読み出し（DMA）: バッファを装置へ貸し、完了で所有権を取り戻す / a device read (DMA): lend, take back on completion
+fn device_read(b: u64) -> Option<dma own [u8; 4096]> {
+    let buf = dma_alloc([u8; 4096]);
+    let iova = submit_dma(buf);
+    // ここで装置が書く（RAM ディスクの装置: 完了の割り込みの後で中身を写す） / the device writes here (RAM disk: copied at completion)
+    match complete_dma([u8; 4096], iova) {
+        Some(mut back) => {
+            if let Some(d) = disk_block(b) {
+                for i in 0..4096 {
+                    back[i] = disk[d].data[i];
+                }
+            }
+            let s = stat();
+            stats[s].reads += 1;
+            Some(back)
+        }
+        None => None,
+    }
+}
+
+// ページを引く（無ければ装置から読む） / look a page up (read it from the device when absent)
+fn get_page(b: u64) -> Option<Id<pages>> {
+    for id in pages {
+        if pages[id].block == b {
+            let s = stat();
+            stats[s].hits += 1;
+            return Some(id);
+        }
+    }
+    match device_read(b) {
+        Some(buf) => pages.alloc(Page { block: b, dirty: false, data: Some(buf) }),
+        None => None,
+    }
+}
+
+fn read_byte(p: Id<pages>, off: u64) -> u8 {
+    let mut v: u8 = 0;
+    if let Some(pg) = pages.get(p) {
+        match pg.data {
+            Some(d) => v = d[off % 4096],
+            None => {}
+        }
+    }
+    v
+}
+
+fn write_byte(p: Id<pages>, off: u64, v: u8) {
+    if let Some(pg) = pages.get_mut(p) {
+        match pg.data {
+            Some(d) => {
+                d[off % 4096] = v;
+                pg.dirty = true;
+            }
+            None => {}
+        }
+    }
+}
+
+// 汚れたページを書き戻す: ページから外して装置へ貸し、完了で取り戻して戻す（ゼロコピー）
+// write back dirty pages: detach from the page, lend to the device, take back on completion and reattach (zero copy)
+fn writeback() -> u32 {
+    let mut n: u32 = 0;
+    for id in pages {
+        if pages[id].dirty {
+            let blk = pages[id].block;
+            match pages[id].data.take() {
+                Some(buf) => {
+                    let iova = submit_dma(buf);
+                    match complete_dma([u8; 4096], iova) {
+                        Some(back) => {
+                            if let Some(d) = disk_block(blk) {
+                                for i in 0..4096 {
+                                    disk[d].data[i] = back[i];
+                                }
+                            }
+                            pages[id].data = Some(back);
+                            pages[id].dirty = false;
+                            let s = stat();
+                            stats[s].writes += 1;
+                            n += 1;
+                        }
+                        None => {}
+                    }
+                }
+                None => {}
+            }
+        }
+    }
+    n
+}
+
+// きれいなページを追い出す（汚れたページは残す） / evict clean pages (dirty ones stay)
+fn evict_clean() -> u32 {
+    let mut n: u32 = 0;
+    for id in pages {
+        if !pages[id].dirty {
+            pages.free(id);
+            n += 1;
+        }
+    }
+    n
+}
+
+fn device_reads() -> u64 {
+    let s = stat();
+    stats[s].reads
+}
+
+fn cache_hits() -> u64 {
+    let s = stat();
+    stats[s].hits
+}

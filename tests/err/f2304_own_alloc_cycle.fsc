@@ -1,0 +1,7 @@
+// expect: F2304
+// own_alloc は own の子を 0 で作るので、終わりのない own の鎖は作れない / own_alloc cannot build an endless own chain
+struct A { b: own B }
+struct B { a: own A }
+fn main() {
+    let x = own_alloc(A);
+}

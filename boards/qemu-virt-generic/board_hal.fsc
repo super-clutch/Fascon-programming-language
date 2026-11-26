@@ -1,0 +1,35 @@
+// board_hal（qemu-virt-generic）— 標準 HAL の Console を PL011（0x0900_0000）で埋める。どのボードのパッケージも同じ名前の
+// board_hal を持つので、アプリは `import board_hal;` だけでボードを替えられる
+// board_hal (qemu-virt-generic) — fills the standard HAL Console with the PL011 (0x0900_0000). Every board package carries a
+// board_hal of the same name, so an application switches boards with `import board_hal;` alone
+import hal::console;
+
+struct Pl011 { dr: u32, rsrecr: u32, _r0: [u32; 4], fr: u32, _r1: u32, ilpr: u32, ibrd: u32, fbrd: u32, lcrh: u32, cr: u32 }
+
+fn pl011_putc(b: u8) {
+    let u = bind_mmio(Pl011, 0x0900_0000);
+    while (u.fr & 0x20) != 0 {
+        cpu_relax();
+    }
+    u.dr = b as u32;
+}
+
+fn pl011_getc() -> Option<u8> {
+    let u = bind_mmio(Pl011, 0x0900_0000);
+    if (u.fr & 0x10) != 0 {
+        None
+    } else {
+        Some((u.dr & 0xff) as u8)
+    }
+}
+
+fn pl011_flush() {
+    let u = bind_mmio(Pl011, 0x0900_0000);
+    while (u.fr & 0x08) != 0 {
+        cpu_relax();
+    }
+}
+
+fn console() -> console::Console {
+    console::Console { putc: pl011_putc, getc: pl011_getc, flush: pl011_flush }
+}

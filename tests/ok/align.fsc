@@ -1,0 +1,32 @@
+// #[repr(align(N))] のテスト: アリーナのスロットと値が N バイト境界になる（生成 C の _Static_assert が確かめる）
+// #[repr(align(N))] test: arena slots and values get an N-byte boundary (checked by _Static_assert in the generated C)
+#[repr(align(64))]
+struct PerCpu { ticks: u64, runnable: u32 }
+
+#[repr(align(128))]
+struct Isolated { hits: u64 }
+
+struct Pair { a: PerCpu, b: PerCpu }
+
+arena @cpu: PerCpu[4];
+arena @iso: Isolated[2];
+
+fn main() {
+    let mut total: u64 = 0;
+    let mut k: u64 = 0;
+    while k < 4 {
+        let id = @cpu.alloc(PerCpu { ticks: k * 10, runnable: 1 }).unwrap();
+        total += @cpu[id].ticks;
+        k += 1;
+    }
+    let i = @iso.alloc(Isolated { hits: 5 }).unwrap();
+    let p = Pair { a: PerCpu { ticks: 1, runnable: 0 }, b: PerCpu { ticks: 2, runnable: 0 } };
+    print_int(total as i64);
+    print_int(@iso[i].hits as i64);
+    print_int((p.a.ticks + p.b.ticks) as i64);
+    let mut n: u64 = 0;
+    for id in @cpu {
+        n += @cpu[id].runnable as u64;
+    }
+    print_int(n as i64);
+}

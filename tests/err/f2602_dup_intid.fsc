@@ -1,0 +1,4 @@
+// expect: F2602
+irq a at 27 { timer_arm(1000); }
+irq b at 27 { timer_arm(1000); }
+fn main() { irq_open(); }

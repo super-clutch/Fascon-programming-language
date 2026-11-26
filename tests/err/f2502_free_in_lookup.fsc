@@ -1,0 +1,13 @@
+// expect: F2502
+// ルックアップの参照が生きている間に、同じアリーナを解放する関数を呼ぶ（呼び出し先の効果で検出）
+// calling a function that frees slots of the same arena while a lookup reference is live (found through callee effects)
+struct Task { pid: u32, parent: Option<Id<@task>> }
+arena @task: Task[4];
+fn kill(t: Id<@task>) { @task.free(t); }
+fn main() {
+    let a = @task.alloc(Task { pid: 1, parent: None }).unwrap();
+    if let Some(p) = @task.get_mut(a) {
+        kill(a);
+        p.pid = 2;
+    }
+}

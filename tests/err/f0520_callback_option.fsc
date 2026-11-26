@@ -1,0 +1,16 @@
+// expect: F0520
+// 参照を Some で包んでローカルに入れ、それをアリーナへ保存しようとする（包んだ値・ローカルを通る流れも追う）
+// the reference is wrapped in Some, kept in a local, then stored into an arena (flows through wrappers and locals are followed)
+struct Holder { v: i32 }
+struct Saved { p: Option<Holder> }
+arena keep: Saved[4];
+fn cb(x: &mut Holder) {
+    let mut slot = None;
+    slot = Some(x);
+    keep.alloc(Saved { p: slot });
+}
+fn visit(h: &mut Holder, f: fn(&mut Holder)) { f(h); }
+fn main() {
+    let mut h = Holder { v: 1 };
+    visit(&mut h, cb);
+}

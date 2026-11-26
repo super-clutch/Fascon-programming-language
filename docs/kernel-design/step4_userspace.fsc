@@ -1,0 +1,94 @@
+// Fascon 1.0 カーネル拡張 Step 4: ユーザー空間とシステムコール（構文イメージ）
+// 実装済み: 同梱の 1.0 コンパイラで通ります（fascon check / fascon qemu）。仕様: docs/SPEC-1.0-KERNEL.ja.md 4.4 節
+// 動く全体の例は examples/kernel_user.fsc と examples/user_init.fsc です。
+// Implemented: accepted by the bundled 1.0 compiler. Step 4 (EL0 isolation and the system call boundary); the full
+// running example is examples/kernel_user.fsc with examples/user_init.fsc.
+
+const READY: u8 = 1;
+const USER_BASE: u64 = 0x1_0000_0000;
+const USER_SIZE: u64 = 0x20_0000;
+
+struct Task { pid: u32, state: u8, vruntime: u64 }
+struct File { pos: u64, len: u64, owner: Id<@task> }
+
+task_arena @task: Task[64] stack 16384;
+arena @file: File[256];
+
+// タスクごとに 2 MiB のユーザーメモリ。どのタスクからも同じ仮想番地に見える
+// 2 MiB of user memory per task, seen at the same virtual address by every task
+user_mem @umem for @task: 0x20_0000 at 0x1_0000_0000;
+
+// fascon build step4_init.fsc --out step4_init.bin で作った像（同梱済み） / the image built from step4_init.fsc (bundled)
+static INIT: [u8; 4096] = embed("step4_init.bin");
+
+#[wire(le)] struct Stat { size: u64, pos: u64 }
+
+// ユーザーは (fd, 番地, 長さ) を x0..x2 に入れて svc。buf は境界で検証済みの窓として届く
+// the user passes (fd, address, length) in x0..x2; buf arrives as a window already validated at the boundary
+syscall write at 1 (fd: u32, buf: &[u8]) -> i64 {
+    if fd != 1 { return -9; }
+    put_bytes(buf);
+    buf.len() as i64
+}
+
+syscall read at 0 (fd: u32, buf: &mut [u8]) -> i64 {
+    match @file.validate(fd) {                // ユーザーの整数は偽造できる: validate で Option<Id<@file>> に
+        Some(f) => read_file(f, buf),         // 窓は第二級参照のまま渡せる。保存は F0515
+        None => -9,
+    }
+}
+
+// ワイヤ構造体への参照も境界で検証される。詰め物が無いのでカーネルの値は漏れない
+// a reference to a wire struct is validated too; no padding, so no kernel bytes leak
+syscall stat at 4 (fd: u32, out: &mut Stat) -> i64 {
+    match @file.validate(fd) {
+        Some(f) => stat_file(f, out),
+        None => -9,
+    }
+}
+
+syscall exit at 60 (code: i32) -> i64 {
+    @task.exit();
+    0
+}
+
+critical fn read_file(f: Id<@file>, buf: &mut [u8]) -> i64 {
+    let mut n: u64 = 0;
+    if let Some(file) = @file.get_mut(f) {
+        n = min(buf.len(), file.len - file.pos);      // ユーザーの長さは止まらない演算だけを通す（F2704）
+        for i in 0..n {
+            buf[i] = (file.pos + i) as u8;            // 実際は Step 2 のブロックキャッシュから写す
+        }
+        file.pos += n;
+    }
+    n as i64
+}
+
+critical fn stat_file(f: Id<@file>, out: &mut Stat) -> i64 {
+    if let Some(file) = @file.get(f) {
+        out.size = file.len;
+        out.pos = file.pos;
+        return 0;
+    }
+    -9
+}
+
+// EL0 の例外（不正アクセス・未定義命令）: そのタスクだけを終わらせる
+// EL0 exceptions end only the offending task
+trap user_fault(esr: u64, far: u64, pc: u64) {
+    put_str("user fault at "); put_hex(far); print_str("");
+    @task.exit();
+}
+
+fn main() {
+    let t = @task.start_user(Task { pid: 1, state: READY, vruntime: 0 }, USER_BASE, USER_BASE + USER_SIZE).unwrap();
+    if let Some(m) = @umem.of(t) {            // カーネルから見たそのタスクのユーザーメモリ（&mut [u8]）
+        if let Some(dst) = m.window_mut(0, 4096) {
+            dst.copy_from(&INIT);
+        }
+    }
+    @task.enter(t);
+}
+
+// ユーザー側は step4_init.fsc（先頭の `// fascon-abi: step4_userspace.fsc` で、ここの syscall の宣言を読む）
+// the user side is step4_init.fsc (its first line, `// fascon-abi: step4_userspace.fsc`, imports the syscalls declared here)

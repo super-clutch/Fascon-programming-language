@@ -1,0 +1,12 @@
+// expect: F0520
+// 参照を own の所有リージョンに入れようとする（own は移動・返却できるので呼び出しより長く生きうる）
+// trying to box the reference into an own region (an own can be moved or returned, so it can outlive the call)
+struct Holder { v: i32 }
+fn cb(x: &mut Holder) {
+    let b = own x;
+}
+fn visit(h: &mut Holder, f: fn(&mut Holder)) { f(h); }
+fn main() {
+    let mut h = Holder { v: 1 };
+    visit(&mut h, cb);
+}

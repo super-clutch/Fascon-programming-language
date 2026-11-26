@@ -1,0 +1,332 @@
+// Fascon 1.0 カーネル拡張 Step 3: ネットワーク（virtio-net・ゼロコピーの Ethernet / ARP / IPv4 / ICMP エコー応答）
+// Fascon 1.0 kernel extensions, step 3: networking (virtio-net, zero-copy Ethernet / ARP / IPv4 / ICMP echo reply)
+//
+//   fascon qemu examples/kernel_net.fsc --net udp:5601:5602    QEMU virt（AArch64）。生の Ethernet フレームを 127.0.0.1 の UDP で
+//                                                              やり取りする（相手役は tests/net_peer.py。root 権限は要らない）
+//                                                              QEMU virt (AArch64); raw Ethernet frames travel over UDP on
+//                                                              127.0.0.1 (tests/net_peer.py plays the peer; no root needed)
+//
+// - 新しい言語機能は無い（Step 2 のワイヤ構造体・ビュー・窓・dma_arena だけ）。回線のヘッダは #[wire(be)]
+//   no new language features (only the wire structs, views, windows and dma_arena of step 2); wire headers are #[wire(be)]
+// - 受信と送信で同じ表 pkt を使う。受信したバッファのヘッダをその場で書き換え、同じハンドルを送信リングへ貸す。
+//   フレームの複製は 1 バイトも無い
+//   receive and transmit share the table pkt: the headers of a received buffer are rewritten in place and the same handle
+//   is lent to the transmit ring; not one byte of a frame is copied
+// - 受信した長さ・回線の長さ・デバイスが返す添字は信頼しない: 止まらない演算（min・saturating_sub・window・reclaim）だけを通す
+//   received lengths, on-wire lengths and indices from the device are not trusted: they only pass through non-stopping
+//   operations (min, saturating_sub, window, reclaim)
+
+const SLOT: u64 = 30;                 // fascon qemu --net が virtio-net を置く窓（0x0a003c00、INTID 78）
+const R_MAGIC: u64 = 0;
+const R_VERSION: u64 = 1;
+const R_DEVICE_ID: u64 = 2;
+const R_DRV_FEATURES: u64 = 8;
+const R_DRV_FEATURES_SEL: u64 = 9;
+const R_QUEUE_SEL: u64 = 12;
+const R_QUEUE_NUM_MAX: u64 = 13;
+const R_QUEUE_NUM: u64 = 14;
+const R_QUEUE_READY: u64 = 17;
+const R_QUEUE_NOTIFY: u64 = 20;
+const R_INT_STATUS: u64 = 24;
+const R_INT_ACK: u64 = 25;
+const R_STATUS: u64 = 28;
+const R_DESC_LO: u64 = 32;
+const R_DESC_HI: u64 = 33;
+const R_DRIVER_LO: u64 = 36;
+const R_DRIVER_HI: u64 = 37;
+const R_DEVICE_LO: u64 = 40;
+const R_DEVICE_HI: u64 = 41;
+
+const QSIZE: u16 = 16;
+const NONE_ID: u32 = 0xffff_ffff;
+const MY_IP: u32 = 0x0a00_020f;       // 10.0.2.15
+const ECHO_GOAL: u32 = 3;             // これだけ応答したら統計を出して終わる / stop after this many echo replies
+static MY_MAC: [u8; 6] = [0x52, 0x54, 0x00, 0x12, 0x34, 0x56];
+
+#[wire(le)] struct VqDesc { addr: u64, len: u32, flags: u16, next: u16 }
+#[wire(le)] struct VqAvail { flags: u16, idx: u16, ring: [u16; 16], used_event: u16 }
+#[wire(le)] struct VqUsedElem { id: u32, len: u32 }
+#[wire(le)] struct VqUsed { flags: u16, idx: u16, ring: [VqUsedElem; 16], avail_event: u16 }
+#[wire(le)] struct Frame { vhdr: [u8; 12], data: [u8; 1514] }    // virtio-net ヘッダ + Ethernet フレーム
+
+#[wire(be)] struct Eth  { dst: [u8; 6], src: [u8; 6], kind: u16 }
+#[wire(be)] struct Arp  { htype: u16, ptype: u16, hlen: u8, plen: u8, op: u16, sha: [u8; 6], spa: u32, tha: [u8; 6], tpa: u32 }
+#[wire(be)] struct Ipv4 { vihl: u8, tos: u8, len: u16, id: u16, frag: u16, ttl: u8, proto: u8, csum: u16, src: u32, dst: u32 }
+#[wire(be)] struct Icmp { kind: u8, code: u8, csum: u16, id: u16, seq: u16 }
+
+mmio @virtio: [[u32; 128]; 32] at 0x0a00_0000;
+
+dma @rx_desc: [VqDesc; 16];
+dma @rx_avail: [VqAvail; 1];
+dma @rx_used: [VqUsed; 1];
+dma @tx_desc: [VqDesc; 16];
+dma @tx_avail: [VqAvail; 1];
+dma @tx_used: [VqUsed; 1];
+dma_arena @pkt: Frame[16];
+
+struct Nic { rx_avail: u16, rx_seen: u16, tx_avail: u16, tx_seen: u16, frames: u32, arp: u32, echo: u32, dropped: u32, sent: u32 }
+arena @nic: Nic[1];
+
+// ───── リング / the rings（どれも閉じた区間 = 割り込みハンドラか起動時から呼ぶ / all called from closed code）─────
+
+// 受信リングへ貸す（デバイスが書く） / lend to the receive ring (device-writable)
+fn rx_refill(h: Dma<@pkt>) {
+    let d = h.index() as u64;
+    @rx_desc[d].addr = h.phys();
+    @rx_desc[d].len = 1526;
+    @rx_desc[d].flags = 2;                              // WRITE
+    @rx_desc[d].next = 0;
+    @pkt.lend(h);
+    for k in @nic {
+        let slot = (@nic[k].rx_avail % QSIZE) as u64;
+        @rx_avail[0].ring[slot] = d as u16;
+        @nic[k].rx_avail = @nic[k].rx_avail.wrapping_add(1);
+        @rx_avail[0].idx = @nic[k].rx_avail;
+    }
+    @virtio[SLOT][R_QUEUE_NOTIFY] = 0;
+}
+
+// 送信リングへ貸す。n は Ethernet フレームの長さ / lend to the transmit ring; n is the Ethernet frame length
+fn tx_submit(h: Dma<@pkt>, n: u64) {
+    let d = h.index() as u64;
+    @pkt[h].vhdr = [0; 12];
+    @tx_desc[d].addr = h.phys();
+    @tx_desc[d].len = (12 + n) as u32;
+    @tx_desc[d].flags = 0;
+    @tx_desc[d].next = 0;
+    @pkt.lend(h);                                       // 受信したバッファそのものを送る（複製なし）
+    for k in @nic {
+        let slot = (@nic[k].tx_avail % QSIZE) as u64;
+        @tx_avail[0].ring[slot] = d as u16;
+        @nic[k].tx_avail = @nic[k].tx_avail.wrapping_add(1);
+        @tx_avail[0].idx = @nic[k].tx_avail;
+        @nic[k].sent += 1;
+    }
+    @virtio[SLOT][R_QUEUE_NOTIFY] = 1;
+}
+
+// ───── プロトコル / the protocols ─────
+
+// 1 の補数和（wrapping なので止まらない） / the ones-complement sum (wrapping: never stops)
+fn csum16(s: &[u8]) -> u16 {
+    let mut sum: u32 = 0;
+    let mut i: u64 = 0;
+    while i + 1 < s.len() {
+        sum = sum.wrapping_add(((s[i] as u32) << 8) | (s[i + 1] as u32));
+        i += 2;
+    }
+    if i < s.len() { sum = sum.wrapping_add((s[i] as u32) << 8); }
+    while (sum >> 16) != 0 { sum = (sum & 0xffff) + (sum >> 16); }
+    (sum ^ 0xffff) as u16
+}
+
+// ARP 要求（自分の IP 宛て）をその場で応答に書き換える。戻り値 = 送るフレームの長さ（0 = 送らない）
+// rewrites an ARP request for our IP into the reply, in place; returns the frame length to send (0 = nothing)
+fn arp_reply(f: &mut [u8], n: u64) -> u64 {
+    if n < 42 { return 0; }
+    let mut ok = false;
+    if let Some(a) = f.view_mut(Arp, 14) {
+        if a.op == 1 {
+            if a.tpa == MY_IP {
+                a.op = 2;
+                a.tha = a.sha;
+                a.tpa = a.spa;
+                a.sha = MY_MAC;
+                a.spa = MY_IP;
+                ok = true;
+            }
+        }
+    }
+    if ok { 42 } else { 0 }
+}
+
+// ICMP エコー要求をその場でエコー応答に書き換える。戻り値 = 送るフレームの長さ（0 = 送らない）
+// rewrites an ICMP echo request into the echo reply, in place; returns the frame length to send (0 = nothing)
+fn echo_reply(f: &mut [u8], n: u64) -> u64 {
+    let mut total: u64 = 0;
+    let mut ok = false;
+    if let Some(ip) = f.view_mut(Ipv4, 14) {
+        if ip.vihl == 0x45 {
+            if ip.proto == 1 {
+                if ip.dst == MY_IP {
+                    total = ip.len as u64;             // 回線の長さ: 信頼しない / the on-wire length: not trusted
+                    ip.dst = ip.src;
+                    ip.src = MY_IP;
+                    ip.ttl = 64;
+                    ip.csum = 0;
+                    ok = true;
+                }
+            }
+        }
+    }
+    if !ok { return 0; }
+    if total < 28 { return 0; }
+    if 14 + total > n { return 0; }                    // 受信した長さと照らす / checked against what was received
+    // 窓（読み出し）が生きている間は、同じバッファの書き込みのビューを取れない（F0502）。和を先に求めてから書く
+    // while a (read) window lives no writable view of the same buffer can be taken (F0502): sum first, then write
+    let mut c: u16 = 0;
+    if let Some(hdr) = f.window(14, 20) { c = csum16(hdr); }
+    if let Some(ip) = f.view_mut(Ipv4, 14) { ip.csum = c; }
+    let mut echo = false;
+    if let Some(ic) = f.view_mut(Icmp, 34) {
+        if ic.kind == 8 {
+            ic.kind = 0;
+            ic.csum = 0;
+            echo = true;
+        }
+    }
+    if !echo { return 0; }
+    if let Some(body) = f.window(34, total - 20) { c = csum16(body); }
+    if let Some(ic) = f.view_mut(Icmp, 34) { ic.csum = c; }
+    14 + total
+}
+
+// 受信リングから回収したハンドルを値で受け取る。len はデバイスが書いた長さ（信頼しない）
+// takes the handle reclaimed from the receive ring by value; len was written by the device (not trusted)
+fn on_frame(h: Dma<@pkt>, len: u32) {
+    let n = min(len.saturating_sub(12) as u64, 1514);
+    let mut kind: u16 = 0;
+    if n >= 14 {
+        if let Some(eth) = @pkt[h].data.view_mut(Eth, 0) {
+            kind = eth.kind;
+            eth.dst = eth.src;                          // その場で書き換える / rewritten in place
+            eth.src = MY_MAC;
+        }
+    }
+    let mut out: u64 = 0;
+    if kind == 0x0806 { out = arp_reply(&mut @pkt[h].data, n); }
+    if kind == 0x0800 { out = echo_reply(&mut @pkt[h].data, n); }
+    for k in @nic {
+        @nic[k].frames += 1;
+        if out == 0 { @nic[k].dropped += 1; }
+        if out != 0 {
+            if kind == 0x0806 { @nic[k].arp += 1; } else { @nic[k].echo += 1; }
+        }
+    }
+    if out != 0 {
+        tx_submit(h, out);                              // 同じバッファを送信リングへ / the same buffer goes to the transmit ring
+    } else {
+        rx_refill(h);
+    }
+}
+
+irq net_irq at 78 {
+    let st = @virtio[SLOT][R_INT_STATUS];
+    @virtio[SLOT][R_INT_ACK] = st;
+    let mut budget: u32 = 0;
+    while budget < 32 {
+        budget += 1;
+        // 受信の完了 / receive completions
+        let mut raw: u32 = NONE_ID;
+        let mut len: u32 = 0;
+        for k in @nic {
+            if @nic[k].rx_seen != @rx_used[0].idx {
+                let e = (@nic[k].rx_seen % QSIZE) as u64;
+                raw = @rx_used[0].ring[e].id;           // デバイスが書いた値: 信頼しない / untrusted
+                len = @rx_used[0].ring[e].len;
+                @nic[k].rx_seen = @nic[k].rx_seen.wrapping_add(1);
+            }
+        }
+        // 送信の完了: バッファを受信リングへ戻す / transmit completions: the buffer returns to the receive ring
+        let mut done: u32 = NONE_ID;
+        for k in @nic {
+            if @nic[k].tx_seen != @tx_used[0].idx {
+                let e = (@nic[k].tx_seen % QSIZE) as u64;
+                done = @tx_used[0].ring[e].id;
+                @nic[k].tx_seen = @nic[k].tx_seen.wrapping_add(1);
+            }
+        }
+        if raw == NONE_ID {
+            if done == NONE_ID { break; }
+        }
+        if raw != NONE_ID {
+            match @pkt.reclaim(raw) {
+                Some(h) => on_frame(h, len),
+                None => {}
+            }
+        }
+        if done != NONE_ID {
+            match @pkt.reclaim(done) {
+                Some(h) => rx_refill(h),
+                None => {}
+            }
+        }
+    }
+}
+
+fn queue_setup(q: u32, d: u64, a: u64, u: u64) {
+    @virtio[SLOT][R_QUEUE_SEL] = q;
+    if @virtio[SLOT][R_QUEUE_NUM_MAX] < 16 { panic("virtio-net: the queue is too small"); }
+    @virtio[SLOT][R_QUEUE_NUM] = 16;
+    @virtio[SLOT][R_DESC_LO] = (d & 0xffff_ffff) as u32;
+    @virtio[SLOT][R_DESC_HI] = (d >> 32) as u32;
+    @virtio[SLOT][R_DRIVER_LO] = (a & 0xffff_ffff) as u32;
+    @virtio[SLOT][R_DRIVER_HI] = (a >> 32) as u32;
+    @virtio[SLOT][R_DEVICE_LO] = (u & 0xffff_ffff) as u32;
+    @virtio[SLOT][R_DEVICE_HI] = (u >> 32) as u32;
+    @virtio[SLOT][R_QUEUE_READY] = 1;
+}
+
+fn net_init() {
+    if @virtio[SLOT][R_MAGIC] != 0x7472_6976 { panic("virtio-mmio: no device at the expected transport"); }
+    if @virtio[SLOT][R_VERSION] != 2 { panic("virtio-mmio: version 2 is required (force-legacy=false)"); }
+    if @virtio[SLOT][R_DEVICE_ID] != 1 { panic("virtio-mmio: the device is not a virtio-net (use --disk and --net together)"); }
+    @virtio[SLOT][R_STATUS] = 0;
+    @virtio[SLOT][R_STATUS] = 1;
+    @virtio[SLOT][R_STATUS] = 3;
+    @virtio[SLOT][R_DRV_FEATURES_SEL] = 0;
+    @virtio[SLOT][R_DRV_FEATURES] = 0;                  // オフロードも MRG_RXBUF も使わない / no offloads, no MRG_RXBUF
+    @virtio[SLOT][R_DRV_FEATURES_SEL] = 1;
+    @virtio[SLOT][R_DRV_FEATURES] = 1;                  // VIRTIO_F_VERSION_1（ヘッダは常に 12 バイト） / the header is always 12 bytes
+    @virtio[SLOT][R_STATUS] = 11;
+    if (@virtio[SLOT][R_STATUS] & 8) == 0 { panic("virtio-net: the device rejected the features"); }
+    queue_setup(0, @rx_desc.phys(), @rx_avail.phys(), @rx_used.phys());
+    queue_setup(1, @tx_desc.phys(), @tx_avail.phys(), @tx_used.phys());
+    @virtio[SLOT][R_STATUS] = 15;
+}
+
+critical fn finished() -> bool {
+    let mut done = false;
+    for k in @nic {
+        if @nic[k].echo >= ECHO_GOAL {
+            // 最後の応答が送信リングから戻るまで待つ / wait until the last reply has come back from the transmit ring
+            if @nic[k].tx_seen == @nic[k].tx_avail { done = true; }
+        }
+    }
+    done
+}
+
+critical fn report() {
+    for k in @nic {
+        put_str("frames="); put(@nic[k].frames);
+        put_str(" arp replies="); put(@nic[k].arp);
+        put_str(" echo replies="); put(@nic[k].echo);
+        put_str(" dropped="); put(@nic[k].dropped);
+        put_str(" sent="); put(@nic[k].sent);
+        print_str("");
+    }
+    put_str("buffers in the table: "); put(@pkt.len()); put_str(" (all lent to the receive ring, none copied)"); print_str("");
+}
+
+fn main() {
+    net_init();
+    let k = @nic.alloc(Nic { rx_avail: 0, rx_seen: 0, tx_avail: 0, tx_seen: 0, frames: 0, arp: 0, echo: 0, dropped: 0, sent: 0 }).unwrap();
+    let mut made: u32 = 0;
+    while made < 12 {
+        match @pkt.alloc(Frame { vhdr: [0; 12], data: [0; 1514] }) {
+            Some(h) => rx_refill(h),
+            None => {}
+        }
+        made += 1;
+    }
+    print_str("virtio-net: up, 10.0.2.15 at 52:54:00:12:34:56");
+    irq_open();
+    loop {
+        critical {
+            if finished() { break; }
+            wait_irq();
+        }
+    }
+    report();
+    exit(0);
+}

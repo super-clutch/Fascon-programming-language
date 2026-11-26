@@ -1,0 +1,87 @@
+// own T のテスト: 詰め込み・差し替え・取り外し・一括解放・リスト・複製
+// own T test: packing, replacement, detaching, bulk free, lists, cloning
+struct Label { text: Str, color: u32 }
+struct Button { label: Str, x: i32, y: i32, pressed: bool }
+struct Window { title: Str, ok: own Button, cancel: own Button, status: Option<own Label> }
+struct Node { v: i32, next: Option<own Node> }
+struct Desktop { win: Option<own Window>, count: u32 }
+
+fn make_window(t: Str) -> own Window {
+    own Window {
+        title: t,
+        ok: own Button { label: "OK", x: 10, y: 10, pressed: false },
+        cancel: own Button { label: "Cancel", x: 60, y: 10, pressed: false },
+        status: None,
+    }
+}
+
+fn press(b: &mut Button) { b.pressed = true; }
+
+fn describe(w: &Window) {
+    put_str(w.title);
+    put_str(": ");
+    put_str(w.ok.label);
+    put_str(" / ");
+    print_str(w.cancel.label);
+}
+
+fn sum_list(n: &Option<own Node>) -> i32 {
+    match n {
+        Some(node) => node.v + sum_list(&node.next),
+        None => 0,
+    }
+}
+
+fn push(list: &mut Option<own Node>, v: i32) {
+    let old = list.take();
+    *list = Some(own Node { v: v, next: old });
+}
+
+fn main() {
+    put_str("live blocks at start: ");
+    print_int(heap_live_blocks());
+    let mut w = make_window("Main");
+    put_str("after make_window (packed window + 2 buttons): ");
+    print_int(heap_live_blocks());
+    describe(&w);
+    press(&mut w.ok);
+    print_int(w.ok.pressed as i32);
+    w.status = Some(own Label { text: "ready", color: 0xffffff });
+    put_str("with status label: ");
+    print_int(heap_live_blocks());
+    w.cancel = own Button { label: "Close", x: 60, y: 10, pressed: false };
+    put_str("after replacing cancel: ");
+    print_int(heap_live_blocks());
+    describe(&w);
+    let mut d = Desktop { win: Some(w), count: 1 };
+    if let Some(win) = d.win.take() {
+        describe(&win);
+        put_str("window closing, live blocks before: ");
+        print_int(heap_live_blocks());
+    }
+    put_str("after closing (bulk free): ");
+    print_int(heap_live_blocks());
+    let mut head: Option<own Node> = None;
+    for i in 0..5 {
+        head = Some(own Node { v: i, next: head.take() });
+    }
+    push(&mut head, 100);
+    put_str("list of 6: ");
+    print_int(heap_live_blocks());
+    print_int(sum_list(&head));
+    drop(head);
+    put_str("after drop(list): ");
+    print_int(heap_live_blocks());
+    let w1 = make_window("A");
+    let w2 = w1.clone();
+    put_str("original (1 packed block) + deep clone (3 blocks): ");
+    print_int(heap_live_blocks());
+    describe(&w2);
+    d.count = d.count + 1;
+    print_int(d.count);
+    if let Some(x) = d.win {
+        describe(&x);
+    } else {
+        print_str("desktop is empty");
+    }
+}

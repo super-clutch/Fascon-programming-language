@@ -1,0 +1,7 @@
+// expect: F0515
+#[wire(le)] struct Hdr { magic: u32 }
+fn main() {
+    let mut b: [u8; 8] = [0; 8];
+    let v = b.view(Hdr, 0);
+    print_int(1);
+}

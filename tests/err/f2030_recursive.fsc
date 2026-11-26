@@ -1,0 +1,4 @@
+// expect: F2030
+// 自分自身を値として含む構造体（1.0 では Option<own Node> と書く） / a struct containing itself by value
+struct Node { v: i64, next: Option<Node> }
+fn main() { }

@@ -1,0 +1,21 @@
+// hal::timer — 標準 HAL: 単調なクロックと 1 回だけのタイマー / standard HAL: a monotonic clock and a one-shot timer
+//
+//   now_ns()          起動からのナノ秒（単調増加）/ nanoseconds since boot (monotonic)
+//   freq_hz()         元のカウンタの周波数 / the frequency of the underlying counter
+//   arm_oneshot(ns)   now_ns() が ns を越えたら割り込みを 1 回（設定できなければ false）/ one interrupt when now_ns() passes
+//                     ns (false if it cannot be set)
+//   cancel()          取り消す / cancel it
+struct Timer { now_ns: fn() -> u64, freq_hz: fn() -> u64, arm_oneshot: fn(u64) -> bool, cancel: fn() }
+
+// 期限まで回って待つ（眠らない: Sleep 効果を持たないので割り込み・rcu_read の中でも使える）
+// spin until a deadline (never sleeps: no Sleep effect, usable inside interrupts and rcu_read)
+fn timer_spin_until(t: &Timer, deadline_ns: u64) {
+    while (t.now_ns)() < deadline_ns {
+        cpu_relax();
+    }
+}
+
+fn timer_elapsed_ns(t: &Timer, since_ns: u64) -> u64 {
+    let now = (t.now_ns)();
+    if now > since_ns { now - since_ns } else { 0 }
+}
