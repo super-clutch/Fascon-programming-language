@@ -80,6 +80,8 @@ A struct with own fields is move-only: moves, scope ends, overwrites, `drop` and
 
 ## Quick start
 
+Downloads: [Releases → v1.0.0](https://github.com/super-clutch/Fascon-programming-language/releases/tag/v1.0.0) has `fascon-1.0.0.vsix` (VS Code, every platform), the command-line archives for Windows, Linux and macOS, and `SHA256SUMS.txt`. The release page also has step-by-step usage in English and Japanese.
+
 - **VS Code:** install `fascon-1.0.0.vsix` (Extensions → "…" → Install from VSIX), run "Fascon: Show Version and Tool Check", then "Fascon: Open a 1.0 Example (kernel / GUI / dual-architecture / BIOS / Rust style / app / callbacks)" and "Fascon: Boot in QEMU (target from settings; portable = BIOS-less AArch64)".
 - **Command line:**
 
@@ -176,6 +178,8 @@ own フィールドを持つ構造体は移動専用で、移動・スコープ�
 **fascon-gc とローカルの own（版は同じ）。** ローカル・値渡しの仮引数・一時値・戻り値の入れ物の `own T`・`Option<own T>`・own フィールドを持つ構造体・その配列の中に置いた gc_arena の Id も、`gc_collect` の根になりました（以前は回収されて `None` に戻っていました）。移動・解放・上書き・`.take()` は記憶域が消える前に C の変数を NULL / 0 にし、一時値は受け取る呼び出し・リテラルへ渡す直前に根から外れ、`#[on_drop]` は値が根のまま走ります。gc_arena を使わないプログラムの C は変わりません。詳しくは [docs/SPEC-1.0-UNIVERSAL.ja.md](docs/SPEC-1.0-UNIVERSAL.ja.md) の 5.3.1 と `tests/ok/gc_local_own_roots.fsc` にあります。
 
 ### はじめかた
+
+ダウンロード: [Releases → v1.0.0](https://github.com/super-clutch/Fascon-programming-language/releases/tag/v1.0.0) に `fascon-1.0.0.vsix`（VS Code、全 OS 用）、Windows・Linux・macOS 用のコマンドラインのアーカイブ、`SHA256SUMS.txt` があります。リリースのページには日本語と英語の手順も書いてあります。
 
 - **VS Code:** `fascon-1.0.0.vsix` を入れ（拡張機能 →「…」→ VSIX からのインストール）、「Fascon: バージョンと必要なツールを確認」→「Fascon: 1.0 の例を開く（カーネル・GUI・両アーキテクチャ・BIOS・Rust 風・アプリ・コールバック）」→「Fascon: QEMU で起動（ターゲットは設定に従う。portable = BIOS なし AArch64）」。
 - **コマンド:** 上の英語版と同じです。QEMU での起動には QEMU と LLVM（clang + ld.lld）が要ります。
